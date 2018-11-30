@@ -1,0 +1,85 @@
+//Replace human date with computer date
+//Modifying 1st column before " "
+cat all.txt | sed -r -e'1,71d' | cut -d' ' -f1 | while read d; do date -ud$d '+%s'; done > data1.dat
+
+//Fix the format of other columns, replace "null" with "0"
+//Modifying other columns after ";"
+//"g" at the end makes operation global
+cat all.txt | sed -r '1,71d' | cut -d';' -f2- | sed -r -e's/;/ /g' -e's/null/0/g' -e's/^ +//' -e's/ +/ /g' > data2.dat
+
+//Combine the columns 
+paste -d' ' data1.dat data2.dat > nmall.dat	
+
+//Print desired columns 
+cat nm.dat | cut -d' ' -f1,2 | less
+
+//Skip newdata with pipe
+make_data > newdata.dat
+process_data < newdata.dat > processed_data.dat
+
+//bash seq. for d/l data
+nm_stations=("oulu" "rome" "kerg")
+nm_stations=($(sed -n '71p' all.txt | sed -r -e's/^ +//' -e's/ +/ /g')) 
+seq 1 ${#nm_stations[@]}	
+for i in 1 2 3; do echo $((i+1)); done
+for i in $(seq 1 ${#nm_stations[@]}); do echo ${#nm_stations[@]}; done
+for i in $(seq 1 ${#nm_stations[@]}); do sed .... all.txt | cut -d' ' -f1,$((i+1)) > NM-${nm_stations[i]}.dat; done
+
+//Now run for all data
+echo ${nm_stations[@]}
+for i in $(seq 1 ${#nm_stations[@]}); do cat nmall.dat | cut -d' ' -f1,$((i+1)) > NM-${nm_stations[i]}.dat; done
+
+i=1; for nm in ${nm_stations[@]}; do cut -d' ' -f1,$((++i)) nmall.dat > NM-$nm.dat; done
+
+//repeat for all 46 NM stations 
+
+.x getmean2.C("NM-PSNM")
+.x getmean2.C("NM-TIBT")
+.x getmean2.C("NM-DJON")
+.x getmean2.C("NM-TSMB")
+.x getmean2.C("NM-ATHN")
+.x getmean2.C("NM-MXCO")
+.x getmean2.C("NM-ARNM")
+.x getmean2.C("NM-NANM")
+.x getmean2.C("NM-PTFM")
+.x getmean2.C("NM-CALM")
+.x getmean2.C("NM-AATB")
+.x getmean2.C("NM-ROME")
+.x getmean2.C("NM-BKSN")
+.x getmean2.C("NM-HRMS")
+.x getmean2.C("NM-JUNG")
+.x getmean2.C("NM-JUNG1")
+.x getmean2.C("NM-LMKS")
+.x getmean2.C("NM-IRK2")
+.x getmean2.C("NM-IRK3")
+.x getmean2.C("NM-IRKT")
+.x getmean2.C("NM-DRBS")
+.x getmean2.C("NM-MCRL")
+.x getmean2.C("NM-MOSC")
+.x getmean2.C("NM-NEWK")
+.x getmean2.C("NM-KIEL")
+.x getmean2.C("NM-KIEL2")
+.x getmean2.C("NM-MGDN")
+.x getmean2.C("NM-KERG")
+.x getmean2.C("NM-OULU")
+.x getmean2.C("NM-SANB")
+.x getmean2.C("NM-SNAE")
+.x getmean2.C("NM-APTY")
+.x getmean2.C("NM-NRLK")
+.x getmean2.C("NM-FSMT")
+.x getmean2.C("NM-INVK")
+.x getmean2.C("NM-JBGO")
+.x getmean2.C("NM-MCMU")
+.x getmean2.C("NM-NAIN")
+.x getmean2.C("NM-PWNK")
+.x getmean2.C("NM-THUL")
+.x getmean2.C("NM-NEU3")
+.x getmean2.C("NM-SOPB")
+.x getmean2.C("NM-SOPO")
+.x getmean2.C("NM-DOMB")
+.x getmean2.C("NM-DOMC")
+.x getmean2.C("NM-TERA")
+
+
+
+
