@@ -1,0 +1,16 @@
+//After Installing Git
+cd git
+git reset --hard v6-11-02-938-g9d04085
+cd ../build
+sudo apt install libmotif-* libqt4-opengl-dev libblas-dev libgif-dev z3 libz3-dev libtbb2 libtbb-dev libx11-dev libxmu-dev
+cmake ../git -DCMAKE_BUILD_TYPE="RelWithDebInfo" -DCMAKE_INSTALL_PREFIX=../install -Dcxx14="1" -Dall="1" -Dminuit2="1"-Dgnuinstall="1" -Dbuiltin_vdt="1" -Dunuran="1" -Dqt="1" -Dqtgsi="1" -Dgviz="1" -Dmemstat="1" -Dldap="1" -Dtable="1"
+reset
+cmake --build . --target install -- -j4
+
+//Check Installation Status
+ls Documents/work/root6/install/bin/thisroot.sh
+which root
+
+//Set Source/Environment Variables
+nano .bashrc
+
