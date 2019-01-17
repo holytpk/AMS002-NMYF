@@ -219,6 +219,7 @@ void getcorr_sopo(){
    sopocorr->SetMarkerStyle(20);
    sopocorr->SetMarkerColor(kRed);
    sopocorr->SetMarkerSize(0.7);
+   sopocorr->GetYaxis()->SetRangeUser(0.8, 1.);
    //sopocorr->GetXaxis()->SetTitleSize(0.4);
    //sopocorr->GetYaxis()->SetRangeUser(0, 1.5);
    sopocorr->Draw("AP");
@@ -239,6 +240,7 @@ void getcorr_sopo(){
    sopocorr2->SetMarkerStyle(20);
    sopocorr2->SetMarkerColor(kRed);
    sopocorr2->SetMarkerSize(0.7);
+   sopocorr2->GetYaxis()->SetRangeUser(0.8, 1.);
    //sopocorr->GetXaxis()->SetTitleSize(0.4);
    //sopocorr2->GetYaxis()->SetRangeUser(0, 1.5);
    sopocorr2->Draw("AP");

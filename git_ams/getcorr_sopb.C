@@ -220,6 +220,7 @@ void getcorr_sopb(){
    sopbcorr->SetMarkerStyle(20);
    sopbcorr->SetMarkerColor(kRed);
    sopbcorr->SetMarkerSize(0.7);
+   sopbcorr->GetYaxis()->SetRangeUser(0.8, 1.);
    //sopbcorr->GetXaxis()->SetTitleSize(0.4);
    //sopbcorr->GetYaxis()->SetRangeUser(0, 1.5);
    sopbcorr->Draw("AP");
@@ -240,6 +241,7 @@ void getcorr_sopb(){
    sopbcorr2->SetMarkerStyle(20);
    sopbcorr2->SetMarkerColor(kRed);
    sopbcorr2->SetMarkerSize(0.7);
+   sopbcorr2->GetYaxis()->SetRangeUser(0.8, 1.);
    //sopbcorr->GetXaxis()->SetTitleSize(0.4);
    //sopbcorr2->GetYaxis()->SetRangeUser(0, 1.5);
    sopbcorr2->Draw("AP");

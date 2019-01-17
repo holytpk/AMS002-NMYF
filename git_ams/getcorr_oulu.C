@@ -39,6 +39,12 @@ void getcorr_oulu(){
    TGraphErrors *oulufit2 = new TGraphErrors("oulufit2", "Oulu-Referenced Correlation Fit Slope vs. Difference in Rigidity Cutoff");
    TGraphAsymmErrors *oulucorr2 = new TGraphAsymmErrors("oulucorr2", "Oulu-Reference Correlation Factor vs. Difference in Rigidity Cutoff");
 
+   TGraphErrors *alt_fit = new TGraphErrors("alt_fit", "Oulu-Referenced Correlation Fit Slope vs. NM Altitude");
+   TGraphAsymmErrors *alt_corr = new TGraphAsymmErrors("alt_corr", "Oulu-Reference Correlation Factor vs. NM Altitude");
+
+   TGraphErrors *alt_fit2 = new TGraphErrors("alt_fit2", "Oulu-Referenced Correlation Fit Slope vs. Difference in NM Altitude");
+   TGraphAsymmErrors *alt_corr2 = new TGraphAsymmErrors("alt_corr2", "Oulu-Reference Correlation Factor vs. Difference in NM Altitude");
+
    for(int i=0; i<=nNMs_useful; i++){
    	
 	//printf("NM_useful: %s, rigidity cutoff: %f", NM_useful[i], Rcut[i]); 
@@ -143,6 +149,18 @@ void getcorr_oulu(){
 
 			oulucorr2->SetPoint(j-1, Rcut[j]-Rcut[0], corr);
 			oulucorr2->SetPointError(j-1, 0, 0, corr-corr_low, corr_up-corr);
+
+			alt_fit->SetPoint(j-1, alt[j], f->GetParameter(0) );
+			alt_fit->SetPointError(j-1, 0, f->GetParError(0) );
+
+			alt_corr->SetPoint(j-1, alt[j], corr);
+			alt_corr->SetPointError(j-1, 0, 0, corr-corr_low, corr_up-corr);
+
+			alt_fit2->SetPoint(j-1, alt[j]-alt[0], f->GetParameter(0) );
+			alt_fit2->SetPointError(j-1, 0, f->GetParError(0) );
+
+			alt_corr2->SetPoint(j-1, alt[j]-alt[0], corr);
+			alt_corr2->SetPointError(j-1, 0, 0, corr-corr_low, corr_up-corr);
 		}
 
 		mfit->SetBinContent(i+1, j+1, f->GetParameter(0) ); // get m		
@@ -157,7 +175,7 @@ void getcorr_oulu(){
    for(int i=0; i<=nNMs_useful; i++){
 
 	if (i<=nNMs_useful-1){
-		printf("NM_useful: %s, rigidity cutoff: %f \n", NM_useful[i], Rcut[i]);
+		printf("%s: rigidity cutoff: %.2f GV, altitude: %.0f m \n", NM_useful[i], Rcut[i], alt[i]);
 	}
 	
 	if (i>0){
@@ -181,6 +199,26 @@ void getcorr_oulu(){
 		t4->SetTextSize(0.028);
 		oulucorr2->GetListOfFunctions()->Add(t4); 
 		oulucorr2->Draw("samelp");
+
+		TLatex *t1_al = new TLatex(alt_fit->GetX()[i-1], alt_fit->GetY()[i-1], NM_useful[i]); 
+		t1_al->SetTextSize(0.028);
+		alt_fit->GetListOfFunctions()->Add(t1_al); 
+		alt_fit->Draw("samelp");	
+
+		TLatex *t2_al = new TLatex(alt_corr->GetX()[i-1], alt_corr->GetY()[i-1], NM_useful[i]); 
+		t2_al->SetTextSize(0.028);
+		alt_corr->GetListOfFunctions()->Add(t2_al); 
+		alt_corr->Draw("samelp");
+
+		TLatex *t3_al = new TLatex(alt_fit2->GetX()[i-1], alt_fit2->GetY()[i-1], NM_useful[i]); 
+		t3_al->SetTextSize(0.028);
+		alt_fit2->GetListOfFunctions()->Add(t3_al); 
+		alt_fit2->Draw("samelp");	
+
+		TLatex *t4_al = new TLatex(alt_corr2->GetX()[i-1], alt_corr2->GetY()[i-1], NM_useful[i]); 
+		t4_al->SetTextSize(0.028);
+		alt_corr2->GetListOfFunctions()->Add(t4_al); 
+		alt_corr2->Draw("samelp");
 	}
    	
    	for(int j=i; j<=nNMs_useful-1; j++){
@@ -250,6 +288,48 @@ void getcorr_oulu(){
    oulucorr2->Print();
 
    c3->SaveAs("./data/oulu-referenced.png"); 
+
+   auto c4 = new TCanvas("c4", "Oulu-Referenced Correlation Fit Slope vs. Altitude", 1600, 900);
+   c4->Divide(2,2);
+   c4->cd(1);
+   gPad->SetLogx();
+   gPad->SetMargin(0.11, 0.08, 0.08, 0.08);
+   alt_fit->SetTitle("Oulu-Referenced Correlation Fit Slope vs. NM Altitude; NM Station Altitude (m); Fit Slope Value");
+   alt_fit->SetMarkerStyle(20);
+   alt_fit->SetMarkerColor(kBlue);
+   alt_fit->SetMarkerSize(0.7);
+   alt_fit->Draw("AP");
+   c4->cd(2);  
+   gPad->SetLogx();
+   gPad->SetMargin(0.12, 0.1, 0.08, 0.08);
+   alt_corr->SetTitle("Oulu-Referenced Correlation Factor vs. NM Altitude; NM Station Altitude (m); Correlation Factor");
+   alt_corr->SetMarkerStyle(20);
+   alt_corr->SetMarkerColor(kBlue);
+   alt_corr->SetMarkerSize(0.7);
+   alt_corr->Draw("AP");
+   c4->cd(3);
+   gPad->SetLogx();
+   gPad->SetMargin(0.11, 0.08, 0.08, 0.08);
+   alt_fit2->SetTitle("Oulu-Referenced Correlation Fit Slope vs. NM Altitude Difference Respect to Oulu; NM Station Altitude Difference Respect to Oulu (m); Fit Slope Value");
+   alt_fit2->SetMarkerStyle(20);
+   alt_fit2->SetMarkerColor(kBlue);
+   alt_fit2->SetMarkerSize(0.7);
+   alt_fit2->Draw("AP");
+   c4->cd(4);
+   gPad->SetLogx();
+   gPad->SetMargin(0.12, 0.1, 0.08, 0.08);
+   alt_corr2->SetTitle("Oulu-Referenced Correlation Factor vs. NM Altitude Difference Respect to Oulu; NM Station Altitude Difference Respect to Oulu (m); Correlation Factor");
+   alt_corr2->SetMarkerStyle(20);
+   alt_corr2->SetMarkerColor(kBlue);
+   alt_corr2->SetMarkerSize(0.7);
+   alt_corr2->Draw("AP");
+
+   alt_fit->Print();
+   alt_corr->Print();
+   alt_fit2->Print();
+   alt_corr2->Print();
+
+   c4->SaveAs("./data/oulu-referenced_altitude.png");
 
 }
 
