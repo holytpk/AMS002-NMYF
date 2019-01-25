@@ -1,3 +1,5 @@
+build git install
+
 //After Installing Git
 cd git
 git reset --hard v6-11-02-938-g9d04085
@@ -6,6 +8,12 @@ sudo apt install libmotif-* libqt4-opengl-dev libblas-dev libgif-dev z3 libz3-de
 cmake ../git -DCMAKE_BUILD_TYPE="RelWithDebInfo" -DCMAKE_INSTALL_PREFIX=../install -Dcxx14="1" -Dall="1" -Dminuit2="1"-Dgnuinstall="1" -Dbuiltin_vdt="1" -Dunuran="1" -Dqt="1" -Dqtgsi="1" -Dgviz="1" -Dmemstat="1" -Dldap="1" -Dtable="1"
 reset
 cmake --build . --target install -- -j4
+
+//common lib
+1) unpack common lib then "make"
+2) fix FitResults.cxx
+3) fix rootlogon.C
+4) fix HistTools::CorrelationZTest
 
 //Check Installation Status
 ls Documents/work/root6/install/bin/thisroot.sh
