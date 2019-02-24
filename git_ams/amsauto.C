@@ -19,7 +19,6 @@ void amsauto(char const *item, int redo, int node_min, int node_max){
 
 	for (int i=node_min; i<=node_max; i++){
 
-		
 		if (redo == 1){ 
 			amsfit(i);
 		}else if (redo == 0){	
@@ -28,19 +27,23 @@ void amsauto(char const *item, int redo, int node_min, int node_max){
 
 	} // close i loop 
 
+	gROOT->ProcessLine(Form(".> data/amsfit/sigma_%s.txt", item));
+
 	for (int i=node_min; i<=node_max; i++){
 
 		for (int j=i+1; j<=node_max; j++){
 
-			if ( strcmp(item, "li") == 0 || strcmp(item, "be") == 0 || strcmp(item, "b") == 0 || strcmp(item, "c") == 0 || strcmp(item, "o") == 0){
+			if ( strcmp(item, "li") == 0 || strcmp(item, "be") == 0 || strcmp(item, "b") == 0 || strcmp(item, "c") == 0 || strcmp(item, "o") == 0  || strcmp(item, "n") == 0 ){
 				amsnode(item, i, j);
 			}else if ( strcmp(item, "p") == 0 || strcmp(item, "he") == 0){
 				amsnodeBR(item, i, j);
 			}
 	
 		} // close j loop
- 
+
 	} // close i loop
+
+	gROOT->ProcessLine(".> ");
 
 }
 
@@ -72,6 +75,7 @@ void amsfit(int nnodes){
 	TH1D *h_b = Experiments::GetMeasurementHistogram(Experiments::AMS02, 31, 0);  // boron
 	TH1D *h_c = Experiments::GetMeasurementHistogram(Experiments::AMS02, 20, 0);  // carbon
 	TH1D *h_o = Experiments::GetMeasurementHistogram(Experiments::AMS02, 22, 0);  // oxygen
+	TH1D *h_n = Experiments::GetMeasurementHistogram(Experiments::AMS02, 43, 0);  // nitrogen
 
 	// Create a new set of histograms which uses the monthly fluxes at low rigidities and the integrated fluxes at high rigidities:
 	TH1D **h_BR_p_all = new TH1D *[nBRs]; // this creates a new array of pointers with nBRs items
@@ -110,7 +114,9 @@ void amsfit(int nnodes){
 			TF1 *fsp_li = sp_li->GetTF1Pointer(); 
 			h_li->Fit(fsp_li, "NQ"); // do not draw and print the fit
 			h_li->Fit(fsp_li, "NIQ"); // do not draw the fit, print the fit results, minimize the integral of the function 
-
+			h_li->SetMarkerStyle(20);
+   			h_li->SetMarkerColor(kBlue);
+   			h_li->SetMarkerSize(1.1);
 			TH1 *h_fitres_li = HistTools::GetResiduals(h_li, fsp_li, "_fitratio", false, true, true, 4, 1); // this will compute data/fit
 			HistTools::CopyStyle(h_li, h_fitres_li);
 			TH1 *h_fiterr_li = HistTools::GetFitError(h_li, fsp_li, "_fiterr", true, false, true, 11, 1.); // this will compute the relative error of the fit, centered in 1 (so 1.01 = 1% upward error; 0.98 = 2% downward error, etc)
@@ -120,7 +126,9 @@ void amsfit(int nnodes){
 			TF1 *fsp_be = sp_be->GetTF1Pointer(); 
 			h_be->Fit(fsp_be, "NQ"); // do not draw and print the fit
 			h_be->Fit(fsp_be, "NIQ"); // do not draw the fit, print the fit results, minimize the integral of the function 
-
+			h_be->SetMarkerStyle(20);
+   			h_be->SetMarkerColor(kBlue);
+   			h_be->SetMarkerSize(1.1);
 			TH1 *h_fitres_be = HistTools::GetResiduals(h_be, fsp_be, "_fitratio", false, true, true, 4, 1); // this will compute data/fit
 			HistTools::CopyStyle(h_be, h_fitres_be);
 			TH1 *h_fiterr_be = HistTools::GetFitError(h_be, fsp_be, "_fiterr", true, false, true, 11, 1.); // this will compute the relative error of the fit, centered in 1 (so 1.01 = 1% upward error; 0.98 = 2% downward error, etc)
@@ -130,7 +138,9 @@ void amsfit(int nnodes){
 			TF1 *fsp_b = sp_b->GetTF1Pointer(); 
 			h_b->Fit(fsp_b, "NQ"); // do not draw and print the fit
 			h_b->Fit(fsp_b, "NIQ"); // do not draw the fit, print the fit results, minimize the integral of the function 
-
+			h_b->SetMarkerStyle(20);
+   			h_b->SetMarkerColor(kBlue);
+   			h_b->SetMarkerSize(1.1);
 			TH1 *h_fitres_b = HistTools::GetResiduals(h_b, fsp_b, "_fitratio", false, true, true, 4, 1); // this will compute data/fit
 			HistTools::CopyStyle(h_b, h_fitres_b);
 			TH1 *h_fiterr_b = HistTools::GetFitError(h_b, fsp_b, "_fiterr", true, false, true, 11, 1.); // this will compute the relative error of the fit, centered in 1 (so 1.01 = 1% upward error; 0.98 = 2% downward error, etc)
@@ -140,7 +150,9 @@ void amsfit(int nnodes){
 			TF1 *fsp_c = sp_c->GetTF1Pointer(); 
 			h_c->Fit(fsp_c, "NQ"); // do not draw and print the fit
 			h_c->Fit(fsp_c, "NIQ"); // do not draw the fit, print the fit results, minimize the integral of the function 
-
+			h_c->SetMarkerStyle(20);
+   			h_c->SetMarkerColor(kBlue);
+   			h_c->SetMarkerSize(1.1);
 			TH1 *h_fitres_c = HistTools::GetResiduals(h_c, fsp_c, "_fitratio", false, true, true, 4, 1); // this will compute data/fit
 			HistTools::CopyStyle(h_c, h_fitres_c);
 			TH1 *h_fiterr_c = HistTools::GetFitError(h_c, fsp_c, "_fiterr", true, false, true, 11, 1.); // this will compute the relative error of the fit, centered in 1 (so 1.01 = 1% upward error; 0.98 = 2% downward error, etc)
@@ -150,11 +162,25 @@ void amsfit(int nnodes){
 			TF1 *fsp_o = sp_o->GetTF1Pointer(); 
 			h_o->Fit(fsp_o, "NQ"); // do not draw and print the fit
 			h_o->Fit(fsp_o, "NIQ"); // do not draw the fit, print the fit results, minimize the integral of the function 
-
+			h_o->SetMarkerStyle(20);
+   			h_o->SetMarkerColor(kBlue);
+   			h_o->SetMarkerSize(1.1);
 			TH1 *h_fitres_o = HistTools::GetResiduals(h_o, fsp_o, "_fitratio", false, true, true, 4, 1); // this will compute data/fit
 			HistTools::CopyStyle(h_o, h_fitres_o);
 			TH1 *h_fiterr_o = HistTools::GetFitError(h_o, fsp_o, "_fiterr", true, false, true, 11, 1.); // this will compute the relative error of the fit, centered in 1 (so 1.01 = 1% upward error; 0.98 = 2% downward error, etc)
 			HistTools::SetFillStyle(h_fiterr_o, kRed-7, 1001);
+
+			Spline *sp_n = Spline::BuildFromHistogram(h_n, "fsp_n", nnodes, Spline::LogLog | Spline::PowerLaw);
+			TF1 *fsp_n = sp_n->GetTF1Pointer(); 
+			h_n->Fit(fsp_n, "NQ"); // do not draw and print the fit
+			h_n->Fit(fsp_n, "NIQ"); // do not draw the fit, print the fit results, minimize the integral of the function 
+			h_n->SetMarkerStyle(20);
+   			h_n->SetMarkerColor(kBlue);
+   			h_n->SetMarkerSize(1.1);
+			TH1 *h_fitres_n = HistTools::GetResiduals(h_n, fsp_n, "_fitratio", false, true, true, 4, 1); // this will compute data/fit
+			HistTools::CopyStyle(h_n, h_fitres_n);
+			TH1 *h_fiterr_n = HistTools::GetFitError(h_n, fsp_n, "_fiterr", true, false, true, 11, 1.); // this will compute the relative error of the fit, centered in 1 (so 1.01 = 1% upward error; 0.98 = 2% downward error, etc)
+			HistTools::SetFillStyle(h_fiterr_n, kRed-7, 1001);
 
 			// Draw fit results on TCanvas
 			TCanvas *c0 = new TCanvas("c0","AMS-002 Li, Be, B, C, O Integrated Flux", 2400, 1600);
@@ -165,16 +191,13 @@ void amsfit(int nnodes){
 			gPad->SetLogy();
 			gPad->SetGrid();
 			h_li->SetTitle("AMS-02 Lithium Integrated Flux");
-			h_li->SetMarkerStyle(20);
-   			h_li->SetMarkerColor(kBlue);
-   			h_li->SetMarkerSize(1.1);
 			h_li->Draw("E1X0");
 			fsp_li->Draw("SAME");
 
 			c0->cd(4);
-   			h_li->SetTitle("");
-   			h_li->SetXTitle("Rigidity [GV]");
-   			h_li->SetYTitle("Data / Fit");
+   			h_fiterr_li->SetTitle("");
+   			h_fiterr_li->SetXTitle("Rigidity [GV]");
+   			h_fiterr_li->SetYTitle("Data / Fit");
    			h_fiterr_li->Draw("E3");
    			h_fiterr_li->GetYaxis()->SetRangeUser(0.9, 1.1);
    			gPad->SetLogx();
@@ -186,16 +209,13 @@ void amsfit(int nnodes){
 			gPad->SetLogy();
 			gPad->SetGrid();
 			h_be->SetTitle("AMS-02 Beryllium Integrated Flux");
-			h_be->SetMarkerStyle(20);
-   			h_be->SetMarkerColor(kBlue);
-   			h_be->SetMarkerSize(1.1);
 			h_be->Draw("E1X0");
 			fsp_be->Draw("SAME");
 
 			c0->cd(5);
-   			h_be->SetTitle("");
-   			h_be->SetXTitle("Rigidity [GV]");
-   			h_be->SetYTitle("Data / Fit");
+   			h_fiterr_be->SetTitle("");
+   			h_fiterr_be->SetXTitle("Rigidity [GV]");
+   			h_fiterr_be->SetYTitle("Data / Fit");
    			h_fiterr_be->Draw("E3");
    			h_fiterr_be->GetYaxis()->SetRangeUser(0.9, 1.1);
    			gPad->SetLogx();
@@ -207,16 +227,13 @@ void amsfit(int nnodes){
 			gPad->SetLogy();
 			gPad->SetGrid();
 			h_b->SetTitle("AMS-02 Boron Integrated Flux");
-			h_b->SetMarkerStyle(20);
-   			h_b->SetMarkerColor(kBlue);
-   			h_b->SetMarkerSize(1.1);
 			h_b->Draw("E1X0");
 			fsp_b->Draw("SAME");
 
 			c0->cd(6);
-   			h_b->SetTitle("");
-   			h_b->SetXTitle("Rigidity [GV]");
-   			h_b->SetYTitle("Data / Fit");
+   			h_fiterr_b->SetTitle("");
+   			h_fiterr_b->SetXTitle("Rigidity [GV]");
+   			h_fiterr_b->SetYTitle("Data / Fit");
    			h_fiterr_b->Draw("E3");
    			h_fiterr_b->GetYaxis()->SetRangeUser(0.9, 1.1);
    			gPad->SetLogx();
@@ -228,16 +245,13 @@ void amsfit(int nnodes){
 			gPad->SetLogy();
 			gPad->SetGrid();
 			h_c->SetTitle("AMS-02 Carbon Integrated Flux");
-			h_c->SetMarkerStyle(20);
-   			h_c->SetMarkerColor(kBlue);
-   			h_c->SetMarkerSize(1.1);
 			h_c->Draw("E1X0");
 			fsp_c->Draw("SAME");
 
 			c0->cd(10);
-   			h_c->SetTitle("");
-   			h_c->SetXTitle("Rigidity [GV]");
-   			h_c->SetYTitle("Data / Fit");
+   			h_fiterr_c->SetTitle("");
+   			h_fiterr_c->SetXTitle("Rigidity [GV]");
+   			h_fiterr_c->SetYTitle("Data / Fit");
    			h_fiterr_c->Draw("E3");
    			h_fiterr_c->GetYaxis()->SetRangeUser(0.9, 1.1);
    			gPad->SetLogx();
@@ -249,9 +263,6 @@ void amsfit(int nnodes){
 			gPad->SetLogy();
 			gPad->SetGrid();
 			h_o->SetTitle("AMS-02 Oxygen Integrated Flux");
-			h_o->SetMarkerStyle(20);
-   			h_o->SetMarkerColor(kBlue);
-   			h_o->SetMarkerSize(1.1);
 			h_o->Draw("E1X0");
 			fsp_o->Draw("SAME");
 
@@ -264,6 +275,24 @@ void amsfit(int nnodes){
    			gPad->SetLogx();
    			gPad->SetGrid();
    			h_fitres_o->Draw("E1X0 SAME");
+
+			c0->cd(9);
+			gPad->SetLogx();
+			gPad->SetLogy();
+			gPad->SetGrid();
+			h_n->SetTitle("AMS-02 Nitrogen Integrated Flux");
+			h_n->Draw("E1X0");
+			fsp_n->Draw("SAME");
+
+			c0->cd(12);
+   			h_fiterr_n->SetTitle("");
+   			h_fiterr_n->SetXTitle("Rigidity [GV]");
+   			h_fiterr_n->SetYTitle("Data / Fit");
+   			h_fiterr_n->Draw("E3");
+   			h_fiterr_n->GetYaxis()->SetRangeUser(0.9, 1.1);
+   			gPad->SetLogx();
+   			gPad->SetGrid();
+   			h_fitres_n->Draw("E1X0 SAME");
 
 			c0->Print(Form("./data/amsfit/nodes%d/node%d_rest.png", nnodes, nnodes));
 
@@ -292,6 +321,11 @@ void amsfit(int nnodes){
 			fsp_o->Write();
 			h_fitres_o->Write("h_o_fitres");
 			h_fiterr_o->Write("h_o_fiterr");
+
+			h_n->Write("h_n");
+			fsp_n->Write();
+			h_fitres_n->Write("h_n_fitres");
+			h_fiterr_n->Write("h_n_fiterr");
 
 	// Fit p, He
 
@@ -425,7 +459,7 @@ void amsnode(char const *item, int i, int j){
 			double pvalue = TMath::Prob(chi2_1 - chi2_2, dof_1 - dof_2);
 			double sigma = TMath::Sqrt2()*TMath::ErfcInverse(pvalue);	
 			
-			printf("%s fit, node %dvs%d, sigma = %f \n", item, i, j, sigma);
+			printf("%s fit, node %dvs%d, sigma = %f \n", item, i, j, sigma); // .> fit.log
 
 }
 
