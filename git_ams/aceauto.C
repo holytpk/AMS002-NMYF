@@ -13,27 +13,47 @@
 #include "commonlib/include/Spline.hh"
 #include "commonlib/include/DateTimeTools.hh"
 
-/*
-void acefill(const char *element);
+
+void acefill(const char *element, Particle::Type isotope);
 
 void aceauto(){
 
 	gROOT->ProcessLine(".L aceauto.C");
 
 	const int nAce = 28-5+1; 
-	const char *elements[nAce] = { "B", "C", "N", "O", "F", "Ne", "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar", "K", "Ca", "Sc", "Ti", "Va", "Cr", "Mn", "Fe", "Co", "Ni" };
-
-	for (int i=0;i<=28-5;i++){	
+	const char *elements[nAce] = { "B11", "C12", "N15", "O16", "F19", "Ne20", "Na23", "Mg24", "Al27", "Si28", "P31", "S32", "Cl35", "Ar36", "K41", "Ca40", "Sc45", "Ti46", "Va51", "Cr52", "Mn55", "Fe56", "Co59", "Ni60" };
+	
+	acefill( "B", Particle::BORON11 );
+	acefill( "C", Particle::CARBON12 );
+	acefill( "N", Particle::NITROGEN15 );
+	acefill( "O", Particle::OXYGEN16 );
+	acefill( "F", Particle::FLUORINE19 );
+	acefill( "Ne", Particle::NEON20 );
+	acefill( "Na", Particle::SODIUM23 );
+	acefill( "Mg", Particle::MAGNESIUM24 );
+	acefill( "Al", Particle::ALUMINUM27 );
+	acefill( "Si", Particle::SILICON28 );
+	acefill( "P", Particle::PHOSPHORUS31 );
+	acefill( "S", Particle::SULFUR32 );
+	acefill( "Cl", Particle::CHLORINE35 );
+	acefill( "Ar", Particle::ARGON36 );
+	acefill( "K", Particle::POTASSIUM41 );
+	acefill( "Ca", Particle::CALCIUM40 );
+	acefill( "Sc", Particle::SCANDIUM45 );
+	acefill( "Ti", Particle::TITANIUM46 );
+	acefill( "Va", Particle::VANADIUM51 );
+	acefill( "Cr", Particle::CHROMIUM52 );
+	acefill( "Mn", Particle::MANGANESE55 );
+	acefill( "Fe", Particle::IRON56 );
+	acefill( "Co", Particle::COBALT59 );
+	acefill( "Ni", Particle::NICKEL60 );
 		
-		gROOT->ProcessLine(Form("acefill(%s)", elements[i]));
-		//ace->Print();
-		
-	}
+} 
 
-} */
+void acefill(const char *element, Particle::Type isotope){
 
-void aceauto(const char *element){
-
+	gROOT->SetBatch(); 
+	
 	TFile *_file0 = new TFile(Form("data/ACE/%s_97226_18359.root", element));
 	TTree *ace=(TTree*)_file0->Get("ace");
 
@@ -132,6 +152,8 @@ void aceauto(const char *element){
 	}
 
 	float F[7]; // must be initialized 
+
+	Long64_t utime;
 	
 	TCanvas *c1 = new TCanvas("c1","",1800,1200);
 	c1->cd(1);		
@@ -139,33 +161,38 @@ void aceauto(const char *element){
 	gSystem->mkdir("data/ACE/fill", true);
 	TFile _file1(Form("data/ACE/fill/%s_fill.root", element), "RECREATE");
 
-	for (int k=0; k<=ace->GetEntries(); k++){
+	for (int k=0; k<ace->GetEntries(); k++){
 
-			TH1F *h = new TH1F("h","", 13, kin_bins); 
+			TH1F *h = new TH1F("h","", 13, kin_bins);
+			TH1 *h_rig = HistTools::TransformEnergyAndDifferentialFluxNew(h, isotope, "MeV/n cm", "GV m", Form("_rig_%s_BR%d", element, k)); // (TH1 *hist, Particle::Type particle, const Char_t *from_flux_unit, const Char_t *to_flux_unit, const Char_t *suffix)
 
 			ace->SetBranchAddress("F", F);
-			ace->GetEntry(k); //Get the nth entry of TTree!! 
-			//F[0]; 
-			ace->Scan("F", "", "col=10.4e", 1, k);
+			ace->GetEntry(k); //Get the nth entry of TTree!! 			
+			ace->Scan("F", "", "col=10.4e", 1, k); 
 
-			for (int i=0; i<h->GetNbinsX(); ++i) { 
+			ace->SetBranchAddress("start_utime", &utime);
+			ace->GetEntry(k);
+			ace->Scan("start_utime", "", "col=10d", 1, k);
+			
+
+			for (int i=0; i<h_rig->GetNbinsX(); ++i) { 
 				if (i%2==0) { 
-					h->SetBinContent(i+1, F[i/2]); 
+					h_rig->SetBinContent(i+1, F[i/2]); 
 				} 
 			}
-			for (int i=0; i<h->GetNbinsX(); ++i) { 
-				printf("[%02u] %.2f-%.2f   %10.4e\n", i, h->GetBinLowEdge(i+1), h->GetBinLowEdge(i+2), h->GetBinContent(i+1)); 
+			for (int i=0; i<h_rig->GetNbinsX(); ++i) { 
+				printf("[%02u] %.2f-%.2f   %10.4e\n", i, h_rig->GetBinLowEdge(i+1), h_rig->GetBinLowEdge(i+2), h_rig->GetBinContent(i+1)); 
 			}
 
-			h->SetMarkerStyle(kFullCircle);
+			h_rig->SetMarkerStyle(kFullCircle);
 			//HistTools::SetColors(h, 290, kFullCircle, 1.4);
 			gPad->SetGrid(); 
 			gPad->SetLogx(); 
 			gPad->SetLogy();
-			h->SetTitle(Form("%s Energy Spectrum;Energy (MeV/nuc);Flux (/(cm^2 sr s)(MeV/nuc)", element));
-			h->Draw("PSAME"); 
+			h_rig->SetTitle(Form("%s BR-%d Energy Spectrum; Rigidity (GeV); Flux (/(m^2 sr s)(GeV)", element, k));
+			h_rig->Draw("PSAME"); 
 
-			h->Write(Form("h_ace_%s_BR%d",element,k));
+			//h->Write(Form("h_ace_rig_%s_BR%d",element,k)s);
 	}
 	
 	_file1.Write();
@@ -174,4 +201,3 @@ void aceauto(const char *element){
 	_file0->Close();
 
 }
-
