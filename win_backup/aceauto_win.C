@@ -14,8 +14,7 @@
 #include "commonlib/include/DateTimeTools.hh"
 
 UInt_t UTimeToBR(Long64_t utime);
-void ace_fill(const char *element, Particle::Type isotope);
-void ace_convert(TH1F h);
+void ace_convert(const char *element, Particle::Type isotope);
 
 void aceauto_win(){
 
@@ -48,10 +47,13 @@ void aceauto_win(){
 	acefill( "Fe", Particle::IRON56 );
 	acefill( "Co", Particle::COBALT59 );
 	acefill( "Ni", Particle::NICKEL60 );
+	
+	
 		
 } 
 
-void acefill(const char *element, Particle::Type isotope){
+//Fill & Convert CRIS Data into AMS Structure
+void ace_convert(const char *element, Particle::Type isotope){
 
 	gROOT->SetBatch(); 
 	
@@ -183,7 +185,7 @@ void acefill(const char *element, Particle::Type isotope){
 			for (int i=0; i<h->GetNbinsX(); ++i) { 
 				printf("[%02u] %.2f-%.2f   %10.4e\n", i, h->GetBinLowEdge(i+1), h->GetBinLowEdge(i+2), h->GetBinContent(i+1)); 
 			}
-
+			
 			TH1 *h_rig = HistTools::TransformEnergyAndDifferentialFluxNew(h, isotope, "MeV/n cm", "GV m", Form("_rig_%s_BR%d", element, UTimeToBR(utime))); // (TH1 *hist, Particle::Type particle, const Char_t *from_flux_unit, const Char_t *to_flux_unit, const Char_t *suffix)
 			
 			h->SetMarkerStyle(kFullCircle);
@@ -191,10 +193,11 @@ void acefill(const char *element, Particle::Type isotope){
 			gPad->SetGrid(); 
 			gPad->SetLogx(); 
 			gPad->SetLogy();
-			h->SetTitle(Form("%s BR-%d Energy Spectrum; Energy (MeV.nuc); Flux (/(cm^2 sr s)(MeV/nuc)", element, UTimeToBR(utime)));
-			h>Draw("PSAME"); 
+			h->SetTitle(Form("%s BR-%d Energy Spectrum; Energy (MeV/nuc); Flux (/(cm^2 sr s)(MeV/nuc)", element, UTimeToBR(utime)));
+			h_rig->SetTitle(Form("%s BR-%d Energy Spectrum; Rigidity (GeV); Flux (/(m^2 sr s)(GeV)", element, UTimeToBR(utime)));
+			h->Draw("PSAME"); 
 
-			//h->Write(Form("h_ace_rig_%s_BR%d",element,k)s);
+			h->Write(Form("h_kin_%s_BR%d", element, UTimeToBR(utime)));
 	}
 	
 	_file1.Write();
@@ -202,11 +205,6 @@ void acefill(const char *element, Particle::Type isotope){
 
 	_file0->Close();
 
-}
-
-void ace_convert(){
-	
-	
 }
 
 UInt_t UTimeToBR(Long64_t utime)
