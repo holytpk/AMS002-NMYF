@@ -102,6 +102,8 @@ void ace_auto(const char *operation){
 
 //Fill CRIS Data into Bins
 void ace_fill(const char *element){
+
+	gSystem->mkdir("data/ACE/convert/fluxenergy", true);
 		
 	TFile *_file0 = new TFile(Form("data/ACE/%s_97226_18359.root", element));
 	TTree *ace=(TTree*)_file0->Get("ace");
@@ -200,7 +202,7 @@ void ace_fill(const char *element){
 		kin_bins = kin_bins_Ni; 
 	}
 	
-	TCanvas *c1 = new TCanvas("c1","",1800,1200);
+	TCanvas *c1 = new TCanvas("c1","",800,600);
 	c1->cd(1);		
 
 	TFile _file1(Form("data/ACE/fill/%s_fill.root", element), "RECREATE");
@@ -224,15 +226,20 @@ void ace_fill(const char *element){
 			}
 			
 			h->SetMarkerStyle(kFullCircle);
+			h->SetMarkerColor(kBlue);
+			h->SetMarkerSize(1.1);
 			//HistTools::SetColors(h, 290, kFullCircle, 1.4);
 			gPad->SetGrid(); 
 			gPad->SetLogx(); 
 			gPad->SetLogy();
-			h->SetTitle(Form("%s BR-%d Energy Spectrum; Energy (MeV/nuc); Flux (/(cm^2 sr s)(MeV/nuc)", element, UTimeToBR(utime)));
+			h->SetTitle(Form("%s BR-%d Kinetic Energy Spectrum; Energy (MeV/nuc); Flux (/(cm^2 sr s)(MeV/nuc)", element, UTimeToBR(utime)));
 			h->Draw("PSAME"); 
 
 			h->Write(Form("h_kin_%s_BR%d", element, UTimeToBR(utime)));
+			
 	}
+
+	c1->Print(Form("./data/ACE/convert/fluxenergy/h_kin_%s_all.png", element));
 	
 	_file1.Write();
 	_file1.Close();
@@ -245,10 +252,11 @@ void ace_fill(const char *element){
 void ace_convert(const char *element, Particle::Type isotope){
 
 	gSystem->mkdir("data/ACE/convert/fluxtime", true);
+	gSystem->mkdir("data/ACE/convert/fluxrigidity", true);	
 	
 	const int nBins = 14;
 	
-	TCanvas *c2 = new TCanvas("c2","",1800,1200);
+	TCanvas *c2 = new TCanvas("c2","",800,600);
 	c2->cd(1);		
 
 	TFile fin(Form("data/ACE/fill/%s_fill.root", element));
@@ -261,42 +269,55 @@ void ace_convert(const char *element, Particle::Type isotope){
 			TH1 *h_rig = HistTools::TransformEnergyAndDifferentialFluxNew(h, isotope, "MeV/n cm", "GV m", Form("_rig_%s_BR%d", element, k)); // (TH1 *hist, Particle::Type particle, const Char_t *from_flux_unit, const Char_t *to_flux_unit, const Char_t *suffix)
 
 			for (int i=0; i<h_rig->GetNbinsX(); ++i) { 
-				printf("%s BR=%d [%02u] %.2f-%.2f   %10.4e\n", element, k, i, h_rig->GetBinLowEdge(i+1), h_rig->GetBinLowEdge(i+2), h_rig->GetBinContent(i+1)); 
+				//printf("%s BR=%d [%02u] %.2f-%.2f   %10.4e\n", element, k, i, h_rig->GetBinLowEdge(i+1), h_rig->GetBinLowEdge(i+2), h_rig->GetBinContent(i+1)); 
 			}
 
 			h_rig->SetMarkerStyle(kFullCircle);
+			h_rig->SetMarkerColor(kBlue);
+			h_rig->SetMarkerSize(1.1);
 			//HistTools::SetColors(h, 290, kFullCircle, 1.4);
 			gPad->SetGrid(); 
 			gPad->SetLogx(); 
 			gPad->SetLogy();
 			h_rig->SetTitle(Form("%s BR-%d Energy Spectrum; Rigidity (GeV); Flux (/(m^2 sr s)(GeV)", element, k));
-			h_rig->Draw("HIST P"); 
+			h_rig->Draw("PSAME"); 
 
 			//h_rig->Write(Form("h_rig_%s_BR%d", element, k));
-			//c2->Print(Form("./data/ACE/convert/c2/h_rig_%s_BR%d.png", element, k));
+			
 	}
+
+	c2->Print(Form("./data/ACE/convert/fluxrigidity/h_rig_%s_all.png", element));
 
 	// plot flux_time
 	for (int i=0; i<nBins; ++i){	
 		if (i%2==0){	
-			TCanvas *c3 = new TCanvas("c3","",1800,1200);
+			TCanvas *c3 = new TCanvas("c3","",800,600);
 			c3->cd(1);		
 			TGraph *g = new TGraph(nBins);			
 			for (int k=2240; k<=2529; k++){	
-				TH1F *h = (TH1F*) fin.Get(Form("h_kin_%s_BR%d", element, k));			
-				TH1 *h_rig = HistTools::TransformEnergyAndDifferentialFluxNew(h, isotope, "MeV/n cm", "GV m", Form("_rig_%s_BR%d", element, k)); // (TH1 *hist, Particle::Type particle, const Char_t *from_flux_unit, const Char_t *to_flux_unit, const Char_t *suffix)	
-				g->SetPoint(k, k, h_rig->GetBinContent(i)); 
-				//printf(); 
+				TH1 *h_rig = (TH1*) fout.Get(Form("h_rig_%s_BR%d", element, k));			
+				g->SetPoint(k, UBRToTime(k), h_rig->GetBinContent(i+1)); 
+				double x, y; 
+				g->GetPoint(k, x, y); 
+				printf("%s [%02u] BR=%d x=%0.0f y=%f \n", element, i, k, x, y); 
 			}
+			g->GetXaxis()->SetTimeDisplay(1);
+			g->GetXaxis()->SetTimeFormat("%m-%y");
+			g->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00");
+			g->GetXaxis()->SetTitleSize(0.7);			
+
 			g->SetMarkerStyle(kFullCircle);
 			g->SetMarkerColor(kRed);
 			g->SetMarkerSize(1.1);
+
 			//HistTools::SetColors(h, 290, kFullCircle, 1.4);
 			gPad->SetGrid();  
-			gPad->SetLogy();
-			g->SetTitle(Form("%s %d-th Energy Bin Flux Time Series; BR index; Flux (/(m^2 sr s)(GeV)", element, i));
+			//gPad->SetLogy();
+			g->GetXaxis()->SetRangeUser(UBRToTime(2230), UBRToTime(2539));
+			g->SetTitle(Form("%s %d-th Energy Bin Flux Time Series; unix time (s); Flux (/(m^2 sr s)(GeV)", element, i));
 			g->Draw("AP"); 
 			c3->Print(Form("./data/ACE/convert/fluxtime/h_rig_%s_%dth.png", element, i));
+
 		}
 	}
 	
