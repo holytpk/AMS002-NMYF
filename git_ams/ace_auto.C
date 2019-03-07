@@ -12,8 +12,10 @@
 #include "commonlib/include/DateTimeTools.hh"
 
 UInt_t UTimeToBR(Long64_t utime);
+UInt_t UBRToTime(int BR);
 void ace_fill(const char *element);
 void ace_convert(const char *element, Particle::Type isotope);
+void ace_fluxtime();
 
 void ace_auto(const char *operation){
  
@@ -23,6 +25,12 @@ void ace_auto(const char *operation){
 
 	gSystem->mkdir("data/ACE/fill", true);
 	gSystem->mkdir("data/ACE/convert", true);
+
+	gSystem->Setenv("TZ", "UCT"); 
+	gStyle->SetTimeOffset(0);
+	gStyle->SetOptStat(0); 
+	gStyle->SetNumberContours(99); 
+	gStyle->SetPalette(55); 
 
 	const int nAce = 28-5+1; 
 	const char *elements[nAce] = { "B11", "C12", "N15", "O16", "F19", "Ne20", "Na23", "Mg24", "Al27", "Si28", "P31", "S32", "Cl35", "Ar36", "K41", "Ca40", "Sc45", "Ti46", "Va51", "Cr52", "Mn55", "Fe56", "Co59", "Ni60" };
@@ -105,12 +113,6 @@ void ace_fill(const char *element){
 	ace->SetBranchAddress("start_utime", &utime);	
 
 	//ace->Print(); 
-
-	gSystem->Setenv("TZ", "UCT"); 
-	gStyle->SetTimeOffset(0);
-	gStyle->SetOptStat(0); 
-	gStyle->SetNumberContours(99); 
-	gStyle->SetPalette(55); 
 
 	//ace->Draw("F[0]:start_utime", "", "L");
 	//ace->Draw("F:Iteration$", "", "L same", 1, 1);
@@ -218,7 +220,7 @@ void ace_fill(const char *element){
 			}
 			
 			for (int i=0; i<h->GetNbinsX(); ++i) { 
-				printf("%s k=%d [%02u] %.2f-%.2f   %10.4e\n", element, k, i, h->GetBinLowEdge(i+1), h->GetBinLowEdge(i+2), h->GetBinContent(i+1)); 
+				printf("%s BR=%d [%02u] %.2f-%.2f   %10.4e\n", element, k, i, h->GetBinLowEdge(i+1), h->GetBinLowEdge(i+2), h->GetBinContent(i+1)); 
 			}
 			
 			h->SetMarkerStyle(kFullCircle);
@@ -242,11 +244,9 @@ void ace_fill(const char *element){
 // Convert CRIS Data into AMS Structure
 void ace_convert(const char *element, Particle::Type isotope){
 
-	gSystem->Setenv("TZ", "UCT"); 
-	gStyle->SetTimeOffset(0);
-	gStyle->SetOptStat(0); 
-	gStyle->SetNumberContours(99); 
-	gStyle->SetPalette(55); 
+	gSystem->mkdir("data/ACE/convert/fluxtime", true);
+	
+	const int nBins = 14;
 	
 	TCanvas *c2 = new TCanvas("c2","",1800,1200);
 	c2->cd(1);		
@@ -254,11 +254,15 @@ void ace_convert(const char *element, Particle::Type isotope){
 	TFile fin(Form("data/ACE/fill/%s_fill.root", element));
 	TFile fout(Form("data/ACE/convert/%s_convert.root", element), "RECREATE");
 
+	// convert to rigidity 
 	for (int k=2240; k<=2529; k++){
 
 			TH1F *h = (TH1F*) fin.Get(Form("h_kin_%s_BR%d", element, k));			
-
 			TH1 *h_rig = HistTools::TransformEnergyAndDifferentialFluxNew(h, isotope, "MeV/n cm", "GV m", Form("_rig_%s_BR%d", element, k)); // (TH1 *hist, Particle::Type particle, const Char_t *from_flux_unit, const Char_t *to_flux_unit, const Char_t *suffix)
+
+			for (int i=0; i<h_rig->GetNbinsX(); ++i) { 
+				printf("%s BR=%d [%02u] %.2f-%.2f   %10.4e\n", element, k, i, h_rig->GetBinLowEdge(i+1), h_rig->GetBinLowEdge(i+2), h_rig->GetBinContent(i+1)); 
+			}
 
 			h_rig->SetMarkerStyle(kFullCircle);
 			//HistTools::SetColors(h, 290, kFullCircle, 1.4);
@@ -266,20 +270,54 @@ void ace_convert(const char *element, Particle::Type isotope){
 			gPad->SetLogx(); 
 			gPad->SetLogy();
 			h_rig->SetTitle(Form("%s BR-%d Energy Spectrum; Rigidity (GeV); Flux (/(m^2 sr s)(GeV)", element, k));
-			h_rig->Draw("HIST]["); 
+			h_rig->Draw("HIST P"); 
 
 			//h_rig->Write(Form("h_rig_%s_BR%d", element, k));
+			//c2->Print(Form("./data/ACE/convert/c2/h_rig_%s_BR%d.png", element, k));
+	}
+
+	// plot flux_time
+	for (int i=0; i<nBins; ++i){	
+		if (i%2==0){	
+			TCanvas *c3 = new TCanvas("c3","",1800,1200);
+			c3->cd(1);		
+			TGraph *g = new TGraph(nBins);			
+			for (int k=2240; k<=2529; k++){	
+				TH1F *h = (TH1F*) fin.Get(Form("h_kin_%s_BR%d", element, k));			
+				TH1 *h_rig = HistTools::TransformEnergyAndDifferentialFluxNew(h, isotope, "MeV/n cm", "GV m", Form("_rig_%s_BR%d", element, k)); // (TH1 *hist, Particle::Type particle, const Char_t *from_flux_unit, const Char_t *to_flux_unit, const Char_t *suffix)	
+				g->SetPoint(k, k, h_rig->GetBinContent(i)); 
+				//printf(); 
+			}
+			g->SetMarkerStyle(kFullCircle);
+			g->SetMarkerColor(kRed);
+			g->SetMarkerSize(1.1);
+			//HistTools::SetColors(h, 290, kFullCircle, 1.4);
+			gPad->SetGrid();  
+			gPad->SetLogy();
+			g->SetTitle(Form("%s %d-th Energy Bin Flux Time Series; BR index; Flux (/(m^2 sr s)(GeV)", element, i));
+			g->Draw("AP"); 
+			c3->Print(Form("./data/ACE/convert/fluxtime/h_rig_%s_%dth.png", element, i));
+		}
 	}
 	
 	fout.Write();
 	fout.Close();
 
 	fin.Close();
-
 }
 
-UInt_t UTimeToBR(Long64_t utime)
-{
-    Long64_t first_BR = -4351622400; // Unix time corresponding to the first Bartels rotation: Feb. 8th, 1832
-    return (utime - first_BR) / (27*86400) + 1;
+void ace_fluxtime(){
+
+	//gSystem->mkdir("data/ACE/fluxtime", true);
+	
+}
+
+UInt_t UTimeToBR(Long64_t utime){
+	Long64_t first_BR = -4351622400; // Unix time corresponding to the first Bartels rotation: Feb. 8th, 1832
+	return (utime - first_BR) / (27*86400) + 1;
+}
+
+UInt_t UBRToTime(int BR){
+	Long64_t first_BR = -4351622400; // Unix time corresponding to the first Bartels rotation: Feb. 8th, 1832
+	return (BR - 1) * (27*86400) + first_BR;
 }
