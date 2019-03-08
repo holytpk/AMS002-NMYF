@@ -1,5 +1,3 @@
-//Draft
-
 #include <TGraph.h>
 #include <TFile.h>
 #include <cstdio>
@@ -12,24 +10,41 @@
 
 using namespace std;
 
-void readmean(const char*filename){
+void readmean(const char*file1, const char*file2){
 
 	const int nNMs = 46; //# of NM stations
   	const char *NM_name[nNMs] = { "PSNM", "TIBT", "DJON", "TSMB", "ATHN", "MXCO", "ARNM", "NANM", "PTFM", "CALM", "AATB", "ROME", "BKSN", "HRMS", "JUNG", "JUNG1", "LMKS", "IRK2", "IRK3", "IRKT", "DRBS", "MCRL", "MOSC", "NEWK", "KIEL", "KIEL2", "MGDN", "KERG", "OULU", "SANB", "SNAE", "APTY", "NRLK", "FSMT", "INVK", "JBGO", "MCMU", "NAIN", "PWNK", "THUL", "NEU3", "SOPB", "SOPO", "DOMB", "DOMC", "TERA" };
 
-	TFile fin(Form("./data/nm/%s.root",filename));
-	TGraph*g=(TGraph*) fin.Get("g");
-	TGraph*g_ave=(TGraph*) fin.Get("g_ave");
-	if(g_ave==NULL){
-		printf("TGraph g_ave not found \n");
-	}else if(g==NULL){
-		printf("TGraph g not found \n");
+	//read in first file
+	TFile fin1(Form("./data/nm/%s.root",file1));
+	TGraph*g1=(TGraph*) fin1.Get("g");
+	TGraph*g1_ave=(TGraph*) fin1.Get("g_ave");
+	if(g1_ave==NULL){
+		printf("TGraph g1_ave not found \n");
+	}else if(g1==NULL){
+		printf("TGraph g1 not found \n");
 	}else{
-		g_ave->SetTitle(Form("%s Flux & AMS He Flux;Time;Flux [1/(m^2 sr s GV)]", filename));
-		g_ave->GetXaxis()->SetTimeDisplay(1);
- 		g_ave->GetXaxis()->SetTimeFormat("%m-%y");
- 		g_ave->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00");
-		g_ave->Draw("AP");
+		g1_ave->SetTitle(Form("%s Flux & AMS He Flux;Time;Flux [1/(m^2 sr s GV)]", file1));
+		g1_ave->GetXaxis()->SetTimeDisplay(1);
+ 		g1_ave->GetXaxis()->SetTimeFormat("%m-%y");
+ 		g1_ave->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00");
+		g1_ave->Draw("AP");
+	}
+
+	//read in second file
+	TFile fin2(Form("./data/nm/%s.root",file2));
+	TGraph*g2=(TGraph*) fin2.Get("g");
+	TGraph*g2_ave=(TGraph*) fin2.Get("g_ave");
+	if(g2_ave==NULL){
+		printf("TGraph g2_ave not found \n");
+	}else if(g2==NULL){
+		printf("TGraph g2 not found \n");
+	}else{
+		g2_ave->SetTitle(Form("%s Flux & AMS He Flux;Time;Flux [1/(m^2 sr s GV)]", file1));
+		g2_ave->GetXaxis()->SetTimeDisplay(1);
+ 		g2_ave->GetXaxis()->SetTimeFormat("%m-%y");
+ 		g2_ave->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00");
+		g2_ave->Draw("PSame");
 	}
 
 	Experiments::DataPath = "data";
@@ -51,7 +66,8 @@ void readmean(const char*filename){
   
   	}
 
-	g->Draw("LSame");
+	g1->Draw("LSame");
+	g2->Draw("LSame");
 
   	gft->SetTitle("AMS Flux in Time Domain;Time;Flux [1/(m^2 sr s GV)]");
   	gft->GetXaxis()->SetTimeDisplay(1);
@@ -63,16 +79,17 @@ void readmean(const char*filename){
 
 	auto leg = new TLegend(0.1,0.7,0.3,0.9,"");
 	leg->SetFillColor(0);
-	leg->AddEntry(g, Form("%s Flux",filename),"l");
-	leg->AddEntry(g_ave,Form("%s BR-averaged Flux",filename),"p");
+	leg->AddEntry(g1, Form("%s Flux",file1),"l");
+	leg->AddEntry(g1_ave,Form("%s BR-averaged Flux",file1),"p");
 	leg->AddEntry(gft, "AMS He Flux","p");
 	leg->DrawClone("Same");
-
-	TGraph *cor = HistTools::GetCorrelation(gft, g_ave, 0, g_ave->GetN());
+	
+	//calculate correlation
+	TGraph *cor = HistTools::GetCorrelation(gft, g1_ave, 0, g1_ave->GetN());
 	cor->Print();
 	cor->SetMarkerColor(kBlue);
 	cor->SetMarkerStyle(kFullCircle);
-	cor->Draw("AP");
+	//cor->Draw("AP");
 
 }
 
