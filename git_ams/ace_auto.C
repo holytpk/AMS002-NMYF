@@ -19,8 +19,9 @@ void ace_fluxtime();
 
 void ace_auto(const char *operation){
  
-	gROOT->SetBatch();
+	Experiments::DataPath = "data";
 
+	gROOT->SetBatch();
 	gROOT->ProcessLine(".L ace_auto.C");
 
 	gSystem->mkdir("data/ACE/fill", true);
@@ -151,55 +152,153 @@ void ace_fill(const char *element){
 	double kin_bins_Co[nBins] = { 131.7, 170.6, 174.5, 238.0, 241.0, 295.2, 297.9, 346.6, 348.9, 394.1, 396.3, 438.8, 441.1, 482.2 };
 	double kin_bins_Ni[nBins] = { 136.2, 176.5, 180.5, 246.4, 249.6, 305.9, 308.7, 359.4, 361.8, 408.9, 411.2, 455.5, 458.0, 500.8 };
 
-	double *kin_bins;
+	double SpallCorr_B[nBins/2] = { 0.955, 0.929, 0.895, 0.863, 0.832, 0.802, 0.773 };
+	double SpallCorr_C[nBins/2] = { 0.953, 0.926, 0.891, 0.857, 0.825, 0.794, 0.764 };
+	double SpallCorr_N[nBins/2] = { 0.949, 0.920, 0.883, 0.847, 0.813, 0.781, 0.750 };
+	double SpallCorr_O[nBins/2] = { 0.947, 0.917, 0.878, 0.842, 0.807, 0.773, 0.741 };
+	double SpallCorr_F[nBins/2] = { 0.943, 0.911, 0.870, 0.832, 0.795, 0.760, 0.726 };
+	double SpallCorr_Ne[nBins/2] = { 0.940, 0.908, 0.866, 0.826, 0.788, 0.752, 0.718 };
+	double SpallCorr_Na[nBins/2] = { 0.938, 0.904, 0.860, 0.819, 0.780, 0.743, 0.708 };
+	double SpallCorr_Mg[nBins/2] = { 0.936, 0.901, 0.857, 0.815, 0.775, 0.737, 0.701 };
+	double SpallCorr_Al[nBins/2] = { 0.933, 0.897, 0.851, 0.808, 0.767, 0.728, 0.691 };
+	double SpallCorr_Si[nBins/2] = { 0.932, 0.895, 0.848, 0.804, 0.763, 0.724, 0.686 };
+	double SpallCorr_P[nBins/2] = { 0.929, 0.891, 0.843, 0.797, 0.754, 0.714, 0.676 };
+	double SpallCorr_S[nBins/2] = { 0.928, 0.889, 0.840, 0.794, 0.751, 0.710, 0.671 };
+	double SpallCorr_Cl[nBins/2] = { 0.925, 0.885, 0.834, 0.787, 0.742, 0.700, 0.660 };
+	double SpallCorr_Ar[nBins/2] = { 0.922, 0.881, 0.830, 0.782, 0.737, 0.694, 0.654 };
+	double SpallCorr_K[nBins/2] = { 0.920, 0.878, 0.826, 0.776, 0.730, 0.687, 0.646 };
+	double SpallCorr_Ca[nBins/2] = { 0.917, 0.874, 0.821, 0.771, 0.724, 0.681, 0.639 };
+	double SpallCorr_Sc[nBins/2] = { 0.915, 0.871, 0.817, 0.765, 0.718, 0.673, 0.631 };
+	double SpallCorr_Ti[nBins/2] = { 0.913, 0.869, 0.813, 0.761, 0.713, 0.667, 0.625 };
+	double SpallCorr_V[nBins/2] = { 0.911, 0.866, 0.809, 0.756, 0.707, 0.661, 0.618 };
+	double SpallCorr_Cr[nBins/2] = { 0.910, 0.864, 0.807, 0.753, 0.703, 0.657, 0.614 };
+	double SpallCorr_Mn[nBins/2] = { 0.907, 0.861, 0.802, 0.748, 0.698, 0.651, 0.607 };
+	double SpallCorr_Fe[nBins/2] = { 0.906, 0.859, 0.799, 0.744, 0.693, 0.646, 0.602 };
+	double SpallCorr_Co[nBins/2] = { 0.904, 0.856, 0.796, 0.740, 0.689, 0.641, 0.596 };
+	double SpallCorr_Ni[nBins/2] = { 0.904, 0.855, 0.795, 0.739, 0.687, 0.639, 0.595 };
+
+	double SpallCorrUnc_B[nBins/2] = { 0.005, 0.007, 0.011, 0.015, 0.019, 0.022, 0.026 };
+	double SpallCorrUnc_C[nBins/2] = { 0.005, 0.008, 0.012, 0.016, 0.019, 0.023, 0.027 };
+	double SpallCorrUnc_N[nBins/2] = { 0.005, 0.008, 0.013, 0.017, 0.021, 0.025, 0.029 };
+	double SpallCorrUnc_O[nBins/2] = { 0.005, 0.009, 0.013, 0.017, 0.022, 0.026, 0.030 };
+	double SpallCorrUnc_F[nBins/2] = { 0.006, 0.009, 0.014, 0.019, 0.023, 0.028, 0.033 };
+	double SpallCorrUnc_Ne[nBins/2] = { 0.006, 0.010, 0.015, 0.019, 0.024, 0.029, 0.034 };
+	double SpallCorrUnc_Na[nBins/2] = { 0.006, 0.010, 0.015, 0.020, 0.025, 0.030, 0.035 };
+	double SpallCorrUnc_Mg[nBins/2] = { 0.007, 0.010, 0.016, 0.021, 0.026, 0.031, 0.036 };
+	double SpallCorrUnc_Al[nBins/2] = { 0.007, 0.011, 0.016, 0.022, 0.027, 0.032, 0.038 };
+	double SpallCorrUnc_Si[nBins/2] = { 0.007, 0.011, 0.017, 0.022, 0.027, 0.033, 0.038 };
+	double SpallCorrUnc_P[nBins/2] = { 0.007, 0.012, 0.017, 0.023, 0.029, 0.034, 0.040 };
+	double SpallCorrUnc_S[nBins/2] = { 0.008, 0.012, 0.018, 0.023, 0.029, 0.035, 0.041 };
+	double SpallCorrUnc_Cl[nBins/2] = { 0.008, 0.012, 0.018, 0.024, 0.030, 0.036, 0.042 };
+	double SpallCorrUnc_Ar[nBins/2] = { 0.008, 0.013, 0.019, 0.025, 0.031, 0.037, 0.043 };
+	double SpallCorrUnc_K[nBins/2] = { 0.008, 0.013, 0.019, 0.026, 0.032, 0.038, 0.045 };
+	double SpallCorrUnc_Ca[nBins/2] = { 0.009, 0.013, 0.020, 0.026, 0.033, 0.039, 0.046 };
+	double SpallCorrUnc_Sc[nBins/2] = { 0.009, 0.014, 0.020, 0.027, 0.034, 0.040, 0.047 };
+	double SpallCorrUnc_Ti[nBins/2] = { 0.009, 0.014, 0.021, 0.028, 0.034, 0.041, 0.048 };
+	double SpallCorrUnc_V[nBins/2] = { 0.009, 0.015, 0.021, 0.028, 0.035, 0.042, 0.049 };
+	double SpallCorrUnc_Cr[nBins/2] = { 0.010, 0.015, 0.022, 0.029, 0.036, 0.043, 0.050 };
+	double SpallCorrUnc_Mn[nBins/2] = { 0.010, 0.015, 0.022, 0.029, 0.037, 0.044, 0.051 };
+	double SpallCorrUnc_Fe[nBins/2] = { 0.010, 0.015, 0.023, 0.030, 0.037, 0.045, 0.052 };
+	double SpallCorrUnc_Co[nBins/2] = { 0.010, 0.016, 0.023, 0.031, 0.038, 0.045, 0.053 };
+	double SpallCorrUnc_Ni[nBins/2] = { 0.010, 0.016, 0.023, 0.031, 0.038, 0.046, 0.053 };
+
+	double *kin_bins, *spallcorr, *spallcorrunc;
 	if (strcmp(element, "B") == 0) { 
-		kin_bins = kin_bins_B; 
+		kin_bins = kin_bins_B;
+		spallcorr = SpallCorr_B; 
+		spallcorrunc = SpallCorrUnc_B; 
 	} else if (strcmp(element, "C") == 0) { 
 		kin_bins = kin_bins_C; 
+		spallcorr = SpallCorr_C; 
+		spallcorrunc = SpallCorrUnc_C;
 	} else if (strcmp(element, "N") == 0) { 
 		kin_bins = kin_bins_N; 
+		spallcorr = SpallCorr_N; 
+		spallcorrunc = SpallCorrUnc_N;
 	} else if (strcmp(element, "O") == 0) { 
 		kin_bins = kin_bins_O; 
+		spallcorr = SpallCorr_O; 
+		spallcorrunc = SpallCorrUnc_O;
 	} else if (strcmp(element, "F") == 0) { 
 		kin_bins = kin_bins_F; 
+		spallcorr = SpallCorr_F; 
+		spallcorrunc = SpallCorrUnc_F;
 	} else if (strcmp(element, "Ne") == 0) { 
 		kin_bins = kin_bins_Ne; 
+		spallcorr = SpallCorr_Ne; 
+		spallcorrunc = SpallCorrUnc_Ne;
 	} else if (strcmp(element, "Na") == 0) { 
 		kin_bins = kin_bins_Na; 
+		spallcorr = SpallCorr_Na; 
+		spallcorrunc = SpallCorrUnc_Na;
 	} else if (strcmp(element, "Mg") == 0) { 
-		kin_bins = kin_bins_Mg; 
+		kin_bins = kin_bins_Mg;
+		spallcorr = SpallCorr_Mg; 
+		spallcorrunc = SpallCorrUnc_Mg; 
 	} else if (strcmp(element, "Al") == 0) { 
-		kin_bins = kin_bins_Al; 
+		kin_bins = kin_bins_Al;
+		spallcorr = SpallCorr_Al; 
+		spallcorrunc = SpallCorrUnc_Al; 
 	} else if (strcmp(element, "Si") == 0) { 
-		kin_bins = kin_bins_Si; 
+		kin_bins = kin_bins_Si;
+		spallcorr = SpallCorr_Si; 
+		spallcorrunc = SpallCorrUnc_Si; 
 	} else if (strcmp(element, "P") == 0) { 
-		kin_bins = kin_bins_P; 
+		kin_bins = kin_bins_P;
+		spallcorr = SpallCorr_P; 
+		spallcorrunc = SpallCorrUnc_P; 
 	} else if (strcmp(element, "S") == 0) { 
-		kin_bins = kin_bins_S; 
+		kin_bins = kin_bins_S;
+		spallcorr = SpallCorr_S; 
+		spallcorrunc = SpallCorrUnc_S; 
 	} else if (strcmp(element, "Cl") == 0) { 
-		kin_bins = kin_bins_Cl; 
+		kin_bins = kin_bins_Cl;
+		spallcorr = SpallCorr_Cl; 
+		spallcorrunc = SpallCorrUnc_Cl; 
 	} else if (strcmp(element, "Ar") == 0) { 
-		kin_bins = kin_bins_Ar; 
+		kin_bins = kin_bins_Ar;
+		spallcorr = SpallCorr_Ar; 
+		spallcorrunc = SpallCorrUnc_Ar; 
 	} else if (strcmp(element, "K") == 0) { 
-		kin_bins = kin_bins_K; 
+		kin_bins = kin_bins_K;
+		spallcorr = SpallCorr_K; 
+		spallcorrunc = SpallCorrUnc_K; 
 	} else if (strcmp(element, "Ca") == 0) { 
-		kin_bins = kin_bins_Ca; 
+		kin_bins = kin_bins_Ca;
+		spallcorr = SpallCorr_Ca; 
+		spallcorrunc = SpallCorrUnc_Ca; 
 	} else if (strcmp(element, "Sc") == 0) { 
-		kin_bins = kin_bins_Sc; 
+		kin_bins = kin_bins_Sc;
+		spallcorr = SpallCorr_Sc; 
+		spallcorrunc = SpallCorrUnc_Sc; 
 	} else if (strcmp(element, "Ti") == 0) { 
-		kin_bins = kin_bins_Ti; 
+		kin_bins = kin_bins_Ti;
+		spallcorr = SpallCorr_Ti; 
+		spallcorrunc = SpallCorrUnc_Ti; 
 	} else if (strcmp(element, "V") == 0) { 
 		kin_bins = kin_bins_V; 
+		spallcorr = SpallCorr_V; 
+		spallcorrunc = SpallCorrUnc_V;
 	} else if (strcmp(element, "Cr") == 0) { 
-		kin_bins = kin_bins_Cr; 
+		kin_bins = kin_bins_Cr;
+		spallcorr = SpallCorr_Cr; 
+		spallcorrunc = SpallCorrUnc_Cr; 
 	} else if (strcmp(element, "Mn") == 0) { 
-		kin_bins = kin_bins_Mn; 
+		kin_bins = kin_bins_Mn;
+		spallcorr = SpallCorr_Mn; 
+		spallcorrunc = SpallCorrUnc_Mn; 
 	} else if (strcmp(element, "Fe") == 0) { 
-		kin_bins = kin_bins_Fe; 
+		kin_bins = kin_bins_Fe;
+		spallcorr = SpallCorr_Fe; 
+		spallcorrunc = SpallCorrUnc_Fe; 
 	} else if (strcmp(element, "Co") == 0) { 
-		kin_bins = kin_bins_Co; 
+		kin_bins = kin_bins_Co;
+		spallcorr = SpallCorr_Co; 
+		spallcorrunc = SpallCorrUnc_Co; 
 	} else if (strcmp(element, "Ni") == 0) { 
-		kin_bins = kin_bins_Ni; 
+		kin_bins = kin_bins_Ni;
+		spallcorr = SpallCorr_Ni; 
+		spallcorrunc = SpallCorrUnc_Ni; 
 	}
 	
 	TCanvas *c1 = new TCanvas("c1","",800,600);
@@ -209,8 +308,9 @@ void ace_fill(const char *element){
 
 	for (int k=0; k<ace->GetEntries(); k++){
 
+		ace->GetEntry(k); //Get the nth entry of TTree!! 
+
 			TH1F *h = new TH1F("h","", 13, kin_bins);
-			ace->GetEntry(k); //Get the nth entry of TTree!! 
 			
 			//ace->Scan("F", "", "col=10.4e", 1, k); 
 			//ace->Scan("start_utime", "", "col=10d", 1, k);			
@@ -228,15 +328,14 @@ void ace_fill(const char *element){
 			h->SetMarkerStyle(kFullCircle);
 			h->SetMarkerColor(kBlue);
 			h->SetMarkerSize(1.1);
-			//HistTools::SetColors(h, 290, kFullCircle, 1.4);
+			//HistTools::SetColors(h, 290, kFullCircle, 1.1);
 			gPad->SetGrid(); 
 			gPad->SetLogx(); 
 			gPad->SetLogy();
 			h->SetTitle(Form("%s BR-%d Kinetic Energy Spectrum; Energy (MeV/nuc); Flux (/(cm^2 sr s)(MeV/nuc)", element, UTimeToBR(utime)));
-			h->Draw("PSAME"); 
+			h->Draw("E1X0 SAME"); 
 
-			h->Write(Form("h_kin_%s_BR%d", element, UTimeToBR(utime)));
-			
+			h->Write(Form("h_kin_%s_BR%d", element, UTimeToBR(utime)));	
 	}
 
 	c1->Print(Form("./data/ACE/convert/fluxenergy/h_kin_%s_all.png", element));
@@ -262,8 +361,19 @@ void ace_convert(const char *element, Particle::Type isotope){
 	TFile fin(Form("data/ACE/fill/%s_fill.root", element));
 	TFile fout(Form("data/ACE/convert/%s_convert.root", element), "RECREATE");
 
+	int utime_0, utime_1; // ams time range  
+
+	time_t *tran_ams = Experiments::GetMeasurementTimeRange(Experiments::AMS02, 1, 0); 
+		utime_0 = tran_ams[0];
+		tran_ams = Experiments::GetMeasurementTimeRange(Experiments::AMS02, 1, 78);
+		utime_1 = tran_ams[1];
+
 	// convert to rigidity 
-	for (int k=2240; k<=2529; k++){
+	for (int k=2240 ; k<=2529; k++){
+
+		// utime (ace), utime_0 (ams), utime_1 (ams)
+		// ace t_range = 2426 ~ 2506 
+		if ( UBRToTime(k) <= utime_1 && UBRToTime(k) >= utime_0 ){
 
 			TH1F *h = (TH1F*) fin.Get(Form("h_kin_%s_BR%d", element, k));			
 			TH1 *h_rig = HistTools::TransformEnergyAndDifferentialFluxNew(h, isotope, "MeV/n cm", "GV m", Form("_rig_%s_BR%d", element, k)); // (TH1 *hist, Particle::Type particle, const Char_t *from_flux_unit, const Char_t *to_flux_unit, const Char_t *suffix)
@@ -275,14 +385,15 @@ void ace_convert(const char *element, Particle::Type isotope){
 			h_rig->SetMarkerStyle(kFullCircle);
 			h_rig->SetMarkerColor(kBlue);
 			h_rig->SetMarkerSize(1.1);
-			//HistTools::SetColors(h, 290, kFullCircle, 1.4);
+			//HistTools::SetColors(h_rig, 290, kFullCircle, 1.1);
 			gPad->SetGrid(); 
 			gPad->SetLogx(); 
 			gPad->SetLogy();
 			h_rig->SetTitle(Form("%s BR-%d Energy Spectrum; Rigidity (GeV); Flux (/(m^2 sr s)(GeV)", element, k));
-			h_rig->Draw("PSAME"); 
+			h_rig->Draw("E1X0 SAME"); 
 
-			//h_rig->Write(Form("h_rig_%s_BR%d", element, k));
+			//h_rig->Write(Form("h_rig_%s_BR%d", element, k)); 
+		}
 			
 	}
 
@@ -290,17 +401,21 @@ void ace_convert(const char *element, Particle::Type isotope){
 
 	// plot flux_time
 	for (int i=0; i<nBins; ++i){	
+	
 		if (i%2==0){	
 			TCanvas *c3 = new TCanvas("c3","",800,600);
 			c3->cd(1);		
 			TGraph *g = new TGraph(nBins);			
 			for (int k=2240; k<=2529; k++){	
-				TH1 *h_rig = (TH1*) fout.Get(Form("h_rig_%s_BR%d", element, k));			
-				g->SetPoint(k, UBRToTime(k), h_rig->GetBinContent(i+1)); 
-				double x, y; 
-				g->GetPoint(k, x, y); 
-				printf("%s [%02u] BR=%d x=%0.0f y=%f \n", element, i, k, x, y); 
+				if ( UBRToTime(k) <= utime_1 && UBRToTime(k) >= utime_0 ){
+					TH1 *h_rig = (TH1*) fout.Get(Form("h_rig_%s_BR%d", element, k));			
+					g->SetPoint(k, UBRToTime(k), h_rig->GetBinContent(i+1)); 
+					double x, y; 
+					g->GetPoint(k, x, y); 
+					printf("%s [%02u] BR=%d x=%0.0f y=%f \n", element, i, k, x, y); 
+				}
 			}
+
 			g->GetXaxis()->SetTimeDisplay(1);
 			g->GetXaxis()->SetTimeFormat("%m-%y");
 			g->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00");
@@ -313,7 +428,7 @@ void ace_convert(const char *element, Particle::Type isotope){
 			//HistTools::SetColors(h, 290, kFullCircle, 1.4);
 			gPad->SetGrid();  
 			//gPad->SetLogy();
-			g->GetXaxis()->SetRangeUser(UBRToTime(2230), UBRToTime(2539));
+			g->GetXaxis()->SetRangeUser(UBRToTime(2416), UBRToTime(2516));
 			g->SetTitle(Form("%s %d-th Energy Bin Flux Time Series; unix time (s); Flux (/(m^2 sr s)(GeV)", element, i));
 			g->Draw("AP"); 
 			c3->Print(Form("./data/ACE/convert/fluxtime/h_rig_%s_%dth.png", element, i));
