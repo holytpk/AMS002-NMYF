@@ -21,7 +21,7 @@ void ace_auto(const char *operation){
  
 	Experiments::DataPath = "data";
 
-	gROOT->SetBatch();
+	//gROOT->SetBatch();
 	gROOT->ProcessLine(".L ace_auto.C");
 
 	gSystem->mkdir("data/ACE/fill", true);
@@ -109,10 +109,11 @@ void ace_fill(const char *element){
 	TFile *_file0 = new TFile(Form("data/ACE/%s_97226_18359.root", element));
 	TTree *ace=(TTree*)_file0->Get("ace");
 	
-	float F[7]; // must be initialized 
+	float F[7], C[7]; // must be initialized 
 	Long64_t utime;
 	
 	ace->SetBranchAddress("F", F);
+	ace->SetBranchAddress("C", C);
 	ace->SetBranchAddress("start_utime", &utime);	
 
 	//ace->Print(); 
@@ -308,7 +309,7 @@ void ace_fill(const char *element){
 
 	for (int k=0; k<ace->GetEntries(); k++){
 
-		ace->GetEntry(k); //Get the nth entry of TTree!! 
+			ace->GetEntry(k); //Get the nth entry of TTree!! 
 
 			TH1F *h = new TH1F("h","", 13, kin_bins);
 			
@@ -316,13 +317,27 @@ void ace_fill(const char *element){
 			//ace->Scan("start_utime", "", "col=10d", 1, k);			
 
 			for (int i=0; i<h->GetNbinsX(); ++i) { 
+				
 				if (i%2==0) { 
+
+					double sys_err = F[i/2] * sqrt(8e-4 + spallcorrunc[i/2]*spallcorrunc[i/2]/spallcorr[i/2]/spallcorr[i/2]);
+					double stat_err = F[i/2]/sqrt(C[i/2]); 
+					double tot_err = sqrt(stat_err*stat_err + sys_err*sys_err);
 					h->SetBinContent(i+1, F[i/2]); 
+
+					if (C[i/2]!=0){
+						h->SetBinError(i+1, tot_err); 
+					} else if (C[i/2]==0){
+						continue;
+					}
+
+					//printf("%s BR=%d [%02u] F=%10.4e C=%f sys_err=%10.4e stat_err=%10.4e tot_err=%10.4e \n", element, k, i, F[i/2], C[i/2], sys_err, stat_err, tot_err);
 				} 
+				
 			}
 			
 			for (int i=0; i<h->GetNbinsX(); ++i) { 
-				printf("%s BR=%d [%02u] %.2f-%.2f   %10.4e\n", element, k, i, h->GetBinLowEdge(i+1), h->GetBinLowEdge(i+2), h->GetBinContent(i+1)); 
+				printf("%s BR=%d [%02u] %.2f-%.2f y=%10.4e dy=%10.4e  \n", element, k, i, h->GetBinLowEdge(i+1), h->GetBinLowEdge(i+2), h->GetBinContent(i+1), h->GetBinError(i+1)); 
 			}
 			
 			h->SetMarkerStyle(kFullCircle);
@@ -366,30 +381,29 @@ void ace_convert(const char *element, Particle::Type isotope){
 	time_t *tran_ams = Experiments::GetMeasurementTimeRange(Experiments::AMS02, 1, 0); 
 		utime_0 = tran_ams[0];
 		tran_ams = Experiments::GetMeasurementTimeRange(Experiments::AMS02, 1, 78);
-		utime_1 = tran_ams[1];
+		utime_1 = tran_ams[1]; 
 
 	// convert to rigidity 
 	for (int k=2240 ; k<=2529; k++){
 
 		// utime (ace), utime_0 (ams), utime_1 (ams)
-		// ace t_range = 2426 ~ 2506 
+		// ace range = 2240 ~ 2529
+		// ams range = 2426 ~ 2506 
 		if ( UBRToTime(k) <= utime_1 && UBRToTime(k) >= utime_0 ){
 
 			TH1F *h = (TH1F*) fin.Get(Form("h_kin_%s_BR%d", element, k));			
-			TH1 *h_rig = HistTools::TransformEnergyAndDifferentialFluxNew(h, isotope, "MeV/n cm", "GV m", Form("_rig_%s_BR%d", element, k)); // (TH1 *hist, Particle::Type particle, const Char_t *from_flux_unit, const Char_t *to_flux_unit, const Char_t *suffix)
+			TH1 *h_rig = HistTools::TransformEnergyAndDifferentialFluxNew(h, isotope, "MeV/n cm", "GV m", Form("_rig_%s_BR%d", element, k)); // (TH1 *hist, Particle::Type particle, const Char_t *from_flux_unit, const Char_t *to_flux_unit, const Char_t *suffix) 
 
 			for (int i=0; i<h_rig->GetNbinsX(); ++i) { 
-				//printf("%s BR=%d [%02u] %.2f-%.2f   %10.4e\n", element, k, i, h_rig->GetBinLowEdge(i+1), h_rig->GetBinLowEdge(i+2), h_rig->GetBinContent(i+1)); 
+				printf("%s BR=%d [%02u] %.2f-%.2f y=%10.4e dy=%10.4e  \n", element, k, i, h_rig->GetBinLowEdge(i+1), h_rig->GetBinLowEdge(i+2), h_rig->GetBinContent(i+1), h_rig->GetBinError(i+1)); 
 			}
 
-			h_rig->SetMarkerStyle(kFullCircle);
-			h_rig->SetMarkerColor(kBlue);
-			h_rig->SetMarkerSize(1.1);
-			//HistTools::SetColors(h_rig, 290, kFullCircle, 1.1);
+			HistTools::SetMarkerStyle(h_rig, HistTools::GetColorPalette(k-2426, 81), kFullCircle, 1.1);
 			gPad->SetGrid(); 
-			gPad->SetLogx(); 
-			gPad->SetLogy();
-			h_rig->SetTitle(Form("%s BR-%d Energy Spectrum; Rigidity (GeV); Flux (/(m^2 sr s)(GeV)", element, k));
+			//gPad->SetLogx(); 
+			//gPad->SetLogy();
+			h_rig->GetYaxis()->SetRangeUser(0, h_rig->GetBinContent(1)*4.0);
+			h_rig->SetTitle(Form("%s All BR Energy Spectrum; Rigidity (GeV); Flux (/(m^2 sr s)(GeV)", element));
 			h_rig->Draw("E1X0 SAME"); 
 
 			//h_rig->Write(Form("h_rig_%s_BR%d", element, k)); 
@@ -399,42 +413,60 @@ void ace_convert(const char *element, Particle::Type isotope){
 
 	c2->Print(Form("./data/ACE/convert/fluxrigidity/h_rig_%s_all.png", element));
 
-	// plot flux_time
-	for (int i=0; i<nBins; ++i){	
-	
+	// plot flux_time 
+	TCanvas *c3 = new TCanvas("c3","",800,600);
+	for (int i=0; i<nBins; ++i){
+		
 		if (i%2==0){	
-			TCanvas *c3 = new TCanvas("c3","",800,600);
-			c3->cd(1);		
-			TGraph *g = new TGraph(nBins);			
+					
+			TGraphErrors *g = new TGraphErrors(79);			
 			for (int k=2240; k<=2529; k++){	
-				if ( UBRToTime(k) <= utime_1 && UBRToTime(k) >= utime_0 ){
+				if ( k <= UTimeToBR(utime_1) && k >= UTimeToBR(utime_0) && k!=2472 && k!=2473 ){
 					TH1 *h_rig = (TH1*) fout.Get(Form("h_rig_%s_BR%d", element, k));			
-					g->SetPoint(k, UBRToTime(k), h_rig->GetBinContent(i+1)); 
-					double x, y; 
-					g->GetPoint(k, x, y); 
-					printf("%s [%02u] BR=%d x=%0.0f y=%f \n", element, i, k, x, y); 
-				}
+					g->SetPoint(k-2426, UBRToTime(k), h_rig->GetBinContent(i+1)); 
+					g->SetPointError(k-2426, 0, h_rig->GetBinError(i+1)); 
+					double x, y;	
+					g->GetPoint(k-2426, x, y);
+					//printf("%s BR=%d [%02u] %.2f-%.2f x=%.0f y=%10.4e \n", element, k, i, h_rig->GetBinLowEdge(i+1), h_rig->GetBinLowEdge(i+2), x, y); 			 
+				} 
 			}
+				
+			//g->Set(79); 
+			g->RemovePoint(46); 
+			g->RemovePoint(46);
 
 			g->GetXaxis()->SetTimeDisplay(1);
 			g->GetXaxis()->SetTimeFormat("%m-%y");
 			g->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00");
 			g->GetXaxis()->SetTitleSize(0.7);			
-
 			g->SetMarkerStyle(kFullCircle);
-			g->SetMarkerColor(kRed);
+			g->SetMarkerColor(kRed-i);
+			g->SetLineColor(kRed-i);
+			g->SetLineWidth(2);
 			g->SetMarkerSize(1.1);
 
-			//HistTools::SetColors(h, 290, kFullCircle, 1.4);
+			double x, y;	
+			g->GetPoint(0, x, y);
+
+   			//double *yaxis = g->GetY();
+  		 	//double gmax = yaxis[TMath::LocMax(g->GetN(), yaxis);
 			gPad->SetGrid();  
 			//gPad->SetLogy();
-			g->GetXaxis()->SetRangeUser(UBRToTime(2416), UBRToTime(2516));
-			g->SetTitle(Form("%s %d-th Energy Bin Flux Time Series; unix time (s); Flux (/(m^2 sr s)(GeV)", element, i));
-			g->Draw("AP"); 
-			c3->Print(Form("./data/ACE/convert/fluxtime/h_rig_%s_%dth.png", element, i));
+			g->GetYaxis()->SetRangeUser(y-y*0.99, y+y*2.5);
+			g->GetXaxis()->SetRangeUser(UBRToTime(2425), UBRToTime(2507));
+			g->SetTitle(Form("%s All Energy Bin Flux Time Series; unix time (s); Flux (/(m^2 sr s)(GeV)", element));
+			//g->Print();
+			c3->cd(1);
 
+			if (i/2==0){
+				g->Draw("ALP");
+			} else {
+				g->Draw("LPSAME");
+			}
 		}
-	}
+	} 
+
+	c3->Print(Form("./data/ACE/convert/fluxtime/h_fluxtime_%s_all.png", element));	
 	
 	fout.Write();
 	fout.Close();
