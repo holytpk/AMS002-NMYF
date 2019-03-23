@@ -5,122 +5,35 @@
 
 #include "TFile.h"
 #include "TTree.h"
+#include <set>
+#include <string>
 
 #include "commonlib/include/Experiments.hh"
 #include "commonlib/include/HistTools.hh"
 #include "commonlib/include/Spline.hh"
 #include "commonlib/include/DateTimeTools.hh"
 
+using namespace std;
+
+const int n_ele = 24; // number of elements  
+
+const char *ACE_Element[n_ele] = { "B", "C", "N", "O", "F", "Ne", "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar", "K", "Ca", "Sc", "Ti", "Va", "Cr", "Mn", "Fe", "Co", "Ni" };
+Particle::Type ACE_Isotope[n_ele] = { Particle::BORON11, Particle::CARBON12, Particle::NITROGEN15, Particle::OXYGEN16, Particle::FLUORINE19, Particle::NEON20, Particle::SODIUM23, Particle::MAGNESIUM24, Particle::ALUMINUM27, Particle::SILICON28, Particle::PHOSPHORUS31, Particle::SULFUR32, Particle::CHLORINE35, Particle::ARGON36, Particle::POTASSIUM41, Particle::CALCIUM40, Particle::SCANDIUM45, Particle::TITANIUM46, Particle::VANADIUM51, Particle::CHROMIUM52, Particle::MANGANESE55, Particle::IRON56, Particle::COBALT59, Particle::NICKEL60 };
+
+// list of functions 
 UInt_t UTimeToBR(Long64_t utime);
 UInt_t UBRToTime(int BR);
+double *get_EMed(const char *element);
+double *get_kin_bins(const char *element);
+double *get_spall_corr(const char *element);
+double *get_spall_corr_unc(const char *element);
 void ace_fill(const char *element, Particle::Type isotope);
+void ace_all_average();
 void ace_convert(const char *element, Particle::Type isotope);
-void ace_fluxtime();
+void ace_compare(); 
 
-TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_t nBRs); 
-
-	const int nBins = 14;
-	double kin_bins_B[nBins] = { 51.4, 65.8, 67.3, 90.4, 91.5, 110.6, 111.6, 128.4, 129.2, 144.6, 145.3, 159.4, 160.2, 173.7 };
-	double kin_bins_C[nBins] = { 59.0, 75.6, 77.2, 103.8, 105.1, 127.3, 128.3, 147.9, 148.8, 166.6, 167.4, 183.9, 184.8, 200.4 };
-	double kin_bins_N[nBins] = { 63.2, 81.0, 82.8, 111.4, 112.7, 136.6, 137.7, 158.8, 159.8, 179.0, 179.9, 197.6, 198.6, 215.5 };
-	double kin_bins_O[nBins] = { 69.4, 89.0, 91.0, 122.5, 124.0, 150.3, 151.6, 174.9, 176.0, 197.3, 198.3, 218.0, 219.1, 237.9 };
-	double kin_bins_F[nBins] = { 72.0, 92.4, 94.4, 127.2, 128.8, 156.2, 157.5, 181.8, 182.9, 205.1, 206.2, 226.8, 227.9, 247.5 };
-	double kin_bins_Ne[nBins] = { 77.1, 99.0, 101.2, 136.4, 138.1, 167.6, 169.1, 195.2, 196.5, 220.4, 221.6, 243.8, 245.0, 266.3 };
-	double kin_bins_Na[nBins] = { 81.0, 104.1, 106.4, 143.5, 145.3, 176.5, 178.0, 205.6, 206.9, 232.3, 233.5, 257.0, 258.4, 280.9 };
-	double kin_bins_Mg[nBins] = { 86.3, 110.9, 113.4, 153.1, 155.0, 188.4, 190.1, 219.7, 221.1, 248.4, 249.7, 275.0, 276.4, 300.7 };
-	double kin_bins_Al[nBins] = { 89.4, 115.0, 117.5, 158.8, 160.8, 195.5, 197.2, 228.1, 229.5, 257.9, 259.2, 285.6, 287.1, 312.4 };
-	double kin_bins_Si[nBins] = { 94.8, 121.9, 124.7, 168.6, 170.7, 207.8, 209.6, 242.6, 244.1, 274.5, 275.9, 304.2, 305.7, 332.9 };
-	double kin_bins_P[nBins] = { 97.1, 124.9, 127.7, 172.8, 175.0, 213.0, 214.9, 248.8, 250.4, 281.6, 283.1, 312.2, 313.8, 341.7 };
-	double kin_bins_S[nBins] = { 101.6, 130.8, 133.7, 181.2, 183.4, 223.5, 225.4, 261.2, 262.8, 295.8, 297.3, 328.1, 329.8, 359.3 };
-	double kin_bins_Cl[nBins] = { 103.2, 133.0, 136.0, 184.3, 186.6, 227.4, 229.4, 265.8, 267.5, 301.1, 302.7, 334.0, 335.8, 365.9 };
-	double kin_bins_Ar[nBins] = { 107.7, 138.8, 141.9, 192.4, 194.9, 237.7, 239.7, 278.0, 279.8, 315.1, 316.7, 349.7, 351.6, 383.3 };
-	double kin_bins_K[nBins] = { 110.0, 141.8, 145.0, 196.8, 199.3, 243.1, 245.3, 284.5, 286.3, 322.5, 324.2, 358.1, 360.0, 392.6 };
-	double kin_bins_Ca[nBins] = { 113.3, 146.2, 149.5, 203.1, 205.6, 251.0, 253.2, 293.9, 295.8, 333.3, 335.1, 370.2, 372.2, 406.0 };
-	double kin_bins_Sc[nBins] = { 114.7, 148.1, 151.4, 205.8, 208.4, 254.4, 256.7, 297.9, 299.9, 338.0, 339.8, 375.5, 377.5, 411.9 };
-	double kin_bins_Ti[nBins] = { 117.8, 152.1, 155.5, 211.5, 214.1, 261.6, 263.9, 306.5, 308.5, 347.9, 349.7, 386.6, 388.7, 424.2 };
-	double kin_bins_V[nBins] = { 120.2, 155.3, 158.8, 216.0, 218.8, 267.4, 269.8, 313.4, 315.4, 355.8, 357.7, 395.5, 397.6, 434.1 };
-	double kin_bins_Cr[nBins] = { 123.4, 159.6, 163.2, 222.2, 225.0, 275.2, 277.6, 322.6, 324.8, 366.5, 368.4, 407.6, 409.8, 447.5 };
-	double kin_bins_Mn[nBins] = { 126.0, 163.0, 166.7, 227.0, 230.0, 281.3, 283.9, 330.0, 332.2, 375.0, 377.0, 417.2, 419.4, 458.2 };
-	double kin_bins_Fe[nBins] = { 129.1, 167.0, 170.8, 232.9, 235.9, 288.7, 291.3, 338.9, 341.1, 385.2, 387.3, 428.7, 431.0, 471.0 };
-	double kin_bins_Co[nBins] = { 131.7, 170.6, 174.5, 238.0, 241.0, 295.2, 297.9, 346.6, 348.9, 394.1, 396.3, 438.8, 441.1, 482.2 };
-	double kin_bins_Ni[nBins] = { 136.2, 176.5, 180.5, 246.4, 249.6, 305.9, 308.7, 359.4, 361.8, 408.9, 411.2, 455.5, 458.0, 500.8 };
-
-	double EMed_B[nBins/2] = {59.6, 79.7, 102.0, 121.1, 138.2, 154.0, 168.6}; 
-	double EMed_C[nBins/2] = {68.3, 91.5, 117.3, 139.3, 159.1, 177.4, 194.5};
-	double EMed_N[nBins/2] = {73.3, 98.1, 125.9, 149.6, 171.0, 190.7, 209.2};
-	double EMed_O[nBins/2] = {80.4, 107.8, 138.4, 164.7, 188.4, 210.3, 230.8};
-	double EMed_F[nBins/2] = {83.5, 112.0, 143.8, 171.1, 195.9, 218.7, 240.0};
-	double EMed_Ne[nBins/2] = {89.5, 120.1, 154.4, 183.9, 210.6, 235.3, 258.4};
-	double EMed_Na[nBins/2] = {94.0, 126.2, 162.4, 193.5, 221.7, 247.8, 272.3};
-	double EMed_Mg[nBins/2] = {100.2, 134.7, 173.4, 206.8, 237.1, 265.2, 291.5};
-	double EMed_Al[nBins/2] = {103.8, 139.6, 179.8, 214.5, 246.1, 275.3, 302.8};
-	double EMed_Si[nBins/2] = {110.1, 148.2, 191.1, 228.1, 261.8, 293.1, 322.6};
-	double EMed_P[nBins/2] = {112.7, 151.8, 195.9, 233.9, 268.6, 300.8, 331.1};
-	double EMed_S[nBins/2] = {118.2, 159.4, 205.8, 245.9, 282.5, 316.6, 348.7};
-	double EMed_Cl[nBins/2] = {120.2, 162.1, 209.4, 250.3, 287.7, 322.4, 355.1};
-	double EMed_Ar[nBins/2] = {125.0, 168.8, 218.1, 260.9, 300.0, 336.4, 370.8};
-	double EMed_K[nBins/2] = {127.9, 172.8, 223.4, 267.4, 307.5, 344.9, 380.3};
-	double EMed_Ca[nBins/2] = {131.6, 177.9, 230.1, 275.6, 317.1, 355.9, 392.4};
-	double EMed_Sc[nBins/2] = {133.5, 180.5, 233.7, 279.9, 322.2, 361.6, 398.8};
-	double EMed_Ti[nBins/2] = {137.1, 185.5, 240.3, 287.9, 331.6, 372.3, 410.8};
-	double EMed_V[nBins/2] = {139.9, 189.5, 245.5, 294.3, 339.1, 380.8, 420.3};
-	double EMed_Cr[nBins/2] = {144.0, 195.1, 253.0, 303.5, 349.8, 393.0, 434.0};
-	double EMed_Mn[nBins/2] = {146.8, 199.1, 258.3, 309.9, 357.3, 401.6, 443.5};
-	double EMed_Fe[nBins/2] = {150.4, 204.1, 265.0, 318.1, 366.9, 412.6, 455.9};
-	double EMed_Co[nBins/2] = {153.6, 208.5, 270.9, 325.3, 375.4, 422.3, 466.7};
-	double EMed_Ni[nBins/2] = {158.9, 215.9, 280.7, 337.3, 389.5, 438.4, 484.7};
-
-	double SpallCorr_B[nBins/2] = { 0.955, 0.929, 0.895, 0.863, 0.832, 0.802, 0.773 };
-	double SpallCorr_C[nBins/2] = { 0.953, 0.926, 0.891, 0.857, 0.825, 0.794, 0.764 };
-	double SpallCorr_N[nBins/2] = { 0.949, 0.920, 0.883, 0.847, 0.813, 0.781, 0.750 };
-	double SpallCorr_O[nBins/2] = { 0.947, 0.917, 0.878, 0.842, 0.807, 0.773, 0.741 };
-	double SpallCorr_F[nBins/2] = { 0.943, 0.911, 0.870, 0.832, 0.795, 0.760, 0.726 };
-	double SpallCorr_Ne[nBins/2] = { 0.940, 0.908, 0.866, 0.826, 0.788, 0.752, 0.718 };
-	double SpallCorr_Na[nBins/2] = { 0.938, 0.904, 0.860, 0.819, 0.780, 0.743, 0.708 };
-	double SpallCorr_Mg[nBins/2] = { 0.936, 0.901, 0.857, 0.815, 0.775, 0.737, 0.701 };
-	double SpallCorr_Al[nBins/2] = { 0.933, 0.897, 0.851, 0.808, 0.767, 0.728, 0.691 };
-	double SpallCorr_Si[nBins/2] = { 0.932, 0.895, 0.848, 0.804, 0.763, 0.724, 0.686 };
-	double SpallCorr_P[nBins/2] = { 0.929, 0.891, 0.843, 0.797, 0.754, 0.714, 0.676 };
-	double SpallCorr_S[nBins/2] = { 0.928, 0.889, 0.840, 0.794, 0.751, 0.710, 0.671 };
-	double SpallCorr_Cl[nBins/2] = { 0.925, 0.885, 0.834, 0.787, 0.742, 0.700, 0.660 };
-	double SpallCorr_Ar[nBins/2] = { 0.922, 0.881, 0.830, 0.782, 0.737, 0.694, 0.654 };
-	double SpallCorr_K[nBins/2] = { 0.920, 0.878, 0.826, 0.776, 0.730, 0.687, 0.646 };
-	double SpallCorr_Ca[nBins/2] = { 0.917, 0.874, 0.821, 0.771, 0.724, 0.681, 0.639 };
-	double SpallCorr_Sc[nBins/2] = { 0.915, 0.871, 0.817, 0.765, 0.718, 0.673, 0.631 };
-	double SpallCorr_Ti[nBins/2] = { 0.913, 0.869, 0.813, 0.761, 0.713, 0.667, 0.625 };
-	double SpallCorr_V[nBins/2] = { 0.911, 0.866, 0.809, 0.756, 0.707, 0.661, 0.618 };
-	double SpallCorr_Cr[nBins/2] = { 0.910, 0.864, 0.807, 0.753, 0.703, 0.657, 0.614 };
-	double SpallCorr_Mn[nBins/2] = { 0.907, 0.861, 0.802, 0.748, 0.698, 0.651, 0.607 };
-	double SpallCorr_Fe[nBins/2] = { 0.906, 0.859, 0.799, 0.744, 0.693, 0.646, 0.602 };
-	double SpallCorr_Co[nBins/2] = { 0.904, 0.856, 0.796, 0.740, 0.689, 0.641, 0.596 };
-	double SpallCorr_Ni[nBins/2] = { 0.904, 0.855, 0.795, 0.739, 0.687, 0.639, 0.595 };
-
-	double SpallCorrUnc_B[nBins/2] = { 0.005, 0.007, 0.011, 0.015, 0.019, 0.022, 0.026 };
-	double SpallCorrUnc_C[nBins/2] = { 0.005, 0.008, 0.012, 0.016, 0.019, 0.023, 0.027 };
-	double SpallCorrUnc_N[nBins/2] = { 0.005, 0.008, 0.013, 0.017, 0.021, 0.025, 0.029 };
-	double SpallCorrUnc_O[nBins/2] = { 0.005, 0.009, 0.013, 0.017, 0.022, 0.026, 0.030 };
-	double SpallCorrUnc_F[nBins/2] = { 0.006, 0.009, 0.014, 0.019, 0.023, 0.028, 0.033 };
-	double SpallCorrUnc_Ne[nBins/2] = { 0.006, 0.010, 0.015, 0.019, 0.024, 0.029, 0.034 };
-	double SpallCorrUnc_Na[nBins/2] = { 0.006, 0.010, 0.015, 0.020, 0.025, 0.030, 0.035 };
-	double SpallCorrUnc_Mg[nBins/2] = { 0.007, 0.010, 0.016, 0.021, 0.026, 0.031, 0.036 };
-	double SpallCorrUnc_Al[nBins/2] = { 0.007, 0.011, 0.016, 0.022, 0.027, 0.032, 0.038 };
-	double SpallCorrUnc_Si[nBins/2] = { 0.007, 0.011, 0.017, 0.022, 0.027, 0.033, 0.038 };
-	double SpallCorrUnc_P[nBins/2] = { 0.007, 0.012, 0.017, 0.023, 0.029, 0.034, 0.040 };
-	double SpallCorrUnc_S[nBins/2] = { 0.008, 0.012, 0.018, 0.023, 0.029, 0.035, 0.041 };
-	double SpallCorrUnc_Cl[nBins/2] = { 0.008, 0.012, 0.018, 0.024, 0.030, 0.036, 0.042 };
-	double SpallCorrUnc_Ar[nBins/2] = { 0.008, 0.013, 0.019, 0.025, 0.031, 0.037, 0.043 };
-	double SpallCorrUnc_K[nBins/2] = { 0.008, 0.013, 0.019, 0.026, 0.032, 0.038, 0.045 };
-	double SpallCorrUnc_Ca[nBins/2] = { 0.009, 0.013, 0.020, 0.026, 0.033, 0.039, 0.046 };
-	double SpallCorrUnc_Sc[nBins/2] = { 0.009, 0.014, 0.020, 0.027, 0.034, 0.040, 0.047 };
-	double SpallCorrUnc_Ti[nBins/2] = { 0.009, 0.014, 0.021, 0.028, 0.034, 0.041, 0.048 };
-	double SpallCorrUnc_V[nBins/2] = { 0.009, 0.015, 0.021, 0.028, 0.035, 0.042, 0.049 };
-	double SpallCorrUnc_Cr[nBins/2] = { 0.010, 0.015, 0.022, 0.029, 0.036, 0.043, 0.050 };
-	double SpallCorrUnc_Mn[nBins/2] = { 0.010, 0.015, 0.022, 0.029, 0.037, 0.044, 0.051 };
-	double SpallCorrUnc_Fe[nBins/2] = { 0.010, 0.015, 0.023, 0.030, 0.037, 0.045, 0.052 };
-	double SpallCorrUnc_Co[nBins/2] = { 0.010, 0.016, 0.023, 0.031, 0.038, 0.045, 0.053 };
-	double SpallCorrUnc_Ni[nBins/2] = { 0.010, 0.016, 0.023, 0.031, 0.038, 0.046, 0.053 };
-
-	double *kin_bins, *SpallCorr, *SpallCorrUnc, *EMed;
+TGraphAsymmErrors *get_ace_graph(const char *element, UInt_t iBin, UInt_t nBRs); // over time 
+TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_t nBRs); // over energy bins 
 
 void ace_auto(const char *operation){
  
@@ -202,6 +115,10 @@ void ace_auto(const char *operation){
 	
 		gROOT->ProcessLine(".> ");
 		//gROOT->Reset(); 
+	} else if (strcmp(operation, "average") == 0){
+		ace_all_average();
+	} else if (strcmp(operation, "compare") == 0){
+		ace_compare();
 	}
 
 } 
@@ -209,129 +126,12 @@ void ace_auto(const char *operation){
 //Fill CRIS Data into Bins
 void ace_fill(const char *element, Particle::Type isotope){
 
-	if (strcmp(element, "B") == 0) { 
-		kin_bins = kin_bins_B;
-		SpallCorr = SpallCorr_B; 
-		SpallCorrUnc = SpallCorrUnc_B; 
-		EMed = EMed_B;
-	} else if (strcmp(element, "C") == 0) { 
-		kin_bins = kin_bins_C; 
-		SpallCorr = SpallCorr_C; 
-		SpallCorrUnc = SpallCorrUnc_C;
-		EMed = EMed_C;
-	} else if (strcmp(element, "N") == 0) { 
-		kin_bins = kin_bins_N; 
-		SpallCorr = SpallCorr_N; 
-		SpallCorrUnc = SpallCorrUnc_N;
-		EMed = EMed_N;
-	} else if (strcmp(element, "O") == 0) { 
-		kin_bins = kin_bins_O; 
-		SpallCorr = SpallCorr_O; 
-		SpallCorrUnc = SpallCorrUnc_O;
-		EMed = EMed_O;
-	} else if (strcmp(element, "F") == 0) { 
-		kin_bins = kin_bins_F; 
-		SpallCorr = SpallCorr_F; 
-		SpallCorrUnc = SpallCorrUnc_F;
-		EMed = EMed_F;
-	} else if (strcmp(element, "Ne") == 0) { 
-		kin_bins = kin_bins_Ne; 
-		SpallCorr = SpallCorr_Ne; 
-		SpallCorrUnc = SpallCorrUnc_Ne;
-		EMed = EMed_Ne;
-	} else if (strcmp(element, "Na") == 0) { 
-		kin_bins = kin_bins_Na; 
-		SpallCorr = SpallCorr_Na; 
-		SpallCorrUnc = SpallCorrUnc_Na;
-		EMed = EMed_Na;
-	} else if (strcmp(element, "Mg") == 0) { 
-		kin_bins = kin_bins_Mg;
-		SpallCorr = SpallCorr_Mg; 
-		SpallCorrUnc = SpallCorrUnc_Mg; 
-		EMed = EMed_Mg;
-	} else if (strcmp(element, "Al") == 0) { 
-		kin_bins = kin_bins_Al;
-		SpallCorr = SpallCorr_Al; 
-		SpallCorrUnc = SpallCorrUnc_Al; 
-		EMed = EMed_Al;
-	} else if (strcmp(element, "Si") == 0) { 
-		kin_bins = kin_bins_Si;
-		SpallCorr = SpallCorr_Si; 
-		SpallCorrUnc = SpallCorrUnc_Si; 
-		EMed = EMed_Si;
-	} else if (strcmp(element, "P") == 0) { 
-		kin_bins = kin_bins_P;
-		SpallCorr = SpallCorr_P; 
-		SpallCorrUnc = SpallCorrUnc_P;
-		EMed = EMed_P; 
-	} else if (strcmp(element, "S") == 0) { 
-		kin_bins = kin_bins_S;
-		SpallCorr = SpallCorr_S; 
-		SpallCorrUnc = SpallCorrUnc_S; 
-		EMed = EMed_S;
-	} else if (strcmp(element, "Cl") == 0) { 
-		kin_bins = kin_bins_Cl;
-		SpallCorr = SpallCorr_Cl; 
-		SpallCorrUnc = SpallCorrUnc_Cl; 
-		EMed = EMed_Cl;
-	} else if (strcmp(element, "Ar") == 0) { 
-		kin_bins = kin_bins_Ar;
-		SpallCorr = SpallCorr_Ar; 
-		SpallCorrUnc = SpallCorrUnc_Ar; 
-		EMed = EMed_Ar;
-	} else if (strcmp(element, "K") == 0) { 
-		kin_bins = kin_bins_K;
-		SpallCorr = SpallCorr_K; 
-		SpallCorrUnc = SpallCorrUnc_K;
-		EMed = EMed_K; 
-	} else if (strcmp(element, "Ca") == 0) { 
-		kin_bins = kin_bins_Ca;
-		SpallCorr = SpallCorr_Ca; 
-		SpallCorrUnc = SpallCorrUnc_Ca;
-		EMed = EMed_Ca; 
-	} else if (strcmp(element, "Sc") == 0) { 
-		kin_bins = kin_bins_Sc;
-		SpallCorr = SpallCorr_Sc; 
-		SpallCorrUnc = SpallCorrUnc_Sc; 
-		EMed = EMed_Sc;
-	} else if (strcmp(element, "Ti") == 0) { 
-		kin_bins = kin_bins_Ti;
-		SpallCorr = SpallCorr_Ti; 
-		SpallCorrUnc = SpallCorrUnc_Ti;
-		EMed = EMed_Ti; 
-	} else if (strcmp(element, "V") == 0) { 
-		kin_bins = kin_bins_V; 
-		SpallCorr = SpallCorr_V; 
-		SpallCorrUnc = SpallCorrUnc_V;
-		EMed = EMed_V;
-	} else if (strcmp(element, "Cr") == 0) { 
-		kin_bins = kin_bins_Cr;
-		SpallCorr = SpallCorr_Cr; 
-		SpallCorrUnc = SpallCorrUnc_Cr; 
-		EMed = EMed_Cr;
-	} else if (strcmp(element, "Mn") == 0) { 
-		kin_bins = kin_bins_Mn;
-		SpallCorr = SpallCorr_Mn; 
-		SpallCorrUnc = SpallCorrUnc_Mn; 
-		EMed = EMed_Mn;
-	} else if (strcmp(element, "Fe") == 0) { 
-		kin_bins = kin_bins_Fe;
-		SpallCorr = SpallCorr_Fe; 
-		SpallCorrUnc = SpallCorrUnc_Fe; 
-		EMed = EMed_Fe;
-	} else if (strcmp(element, "Co") == 0) { 
-		kin_bins = kin_bins_Co;
-		SpallCorr = SpallCorr_Co; 
-		SpallCorrUnc = SpallCorrUnc_Co; 
-		EMed = EMed_Co;
-	} else if (strcmp(element, "Ni") == 0) { 
-		kin_bins = kin_bins_Ni;
-		SpallCorr = SpallCorr_Ni; 
-		SpallCorrUnc = SpallCorrUnc_Ni;
-		EMed = EMed_Ni; 
-	}
+	double *kin_bins = get_kin_bins(element);
+        double *SpallCorr = get_spall_corr(element);
+	double *SpallCorrUnc = get_spall_corr_unc(element);
+	double *EMed = get_EMed(element);
 
-	gSystem->mkdir("data/ACE/convert/fluxenergy", true);
+	gSystem->mkdir("data/ACE/fill", true);
 		
 	TFile *_file0 = new TFile(Form("data/ACE/%s_97226_18359.root", element));
 	TTree *ace=(TTree*)_file0->Get("ace");
@@ -375,7 +175,7 @@ void ace_fill(const char *element, Particle::Type isotope){
 		//HistTools::SetColors(h, 290, kFullCircle, 1.4);
 		gPad->SetGrid(); 
 		h->SetTitle(Form("%s BR-%d Energy Spectrum; Energy (MeV/nuc); Flux (/(cm^2 sr s)(MeV/nuc)", element, UTimeToBR(utime)));
-		h->Draw("PSAME"); 
+		//h->Draw("PSAME"); 
 
 		h->Write(Form("h_kin_%s_BR%d", element, UTimeToBR(utime)));
 	}
@@ -383,8 +183,39 @@ void ace_fill(const char *element, Particle::Type isotope){
 	file1.Write();
 	file1.Close();
 
-	TCanvas *c1 = new TCanvas("c1","",800,600);
-	c1->Divide(2, 1);
+	_file0->Close();
+
+}
+
+// Plot All Element Averaged Flux over Energy Bins
+void ace_all_average(){
+
+   gSystem->mkdir("data/ACE/average", true);
+
+   TCanvas *c1 = new TCanvas("c1","", 1600, 1200);
+   c1->Divide(2, 1);
+
+   TLegend *legend1 = new TLegend(0.1,0.6,0.28,0.9); // left, down, right, top
+   TLegend *legend2 = new TLegend(0.1,0.6,0.28,0.9); // left, down, right, top
+
+   // create axis histogram
+   TH1 *h1 = HistTools::CreateAxis("h1", "haxis1", 0., 500., 7, 1e-10, 0.2e-6, false); 
+   TH1 *h2 = HistTools::CreateAxis("h2", "haxis2", 0., 2.5, 7, 0.001, 1., false);
+
+   c1->cd(1);
+   gPad->SetLogy();
+   h1->Draw();
+   h1->SetTitle("All Element Average Kinetic Energy Spectrum");
+   h1->SetXTitle(Unit::GetEnergyLabel("MeV/n"));
+   h1->SetYTitle(Unit::GetDifferentialFluxLabel("MeV/n cm"));
+   c1->cd(2);
+   gPad->SetLogy();
+   h2->Draw();
+   h2->SetTitle("All Element Average Energy Spectrum");
+   h2->SetXTitle(Unit::GetEnergyLabel("GV"));
+   h2->SetYTitle(Unit::GetDifferentialFluxLabel("GV m"));
+
+   for (int i=0; i<n_ele; i++){
 
 	const UInt_t FirstACEBR = 2240;
 	vector<UInt_t> BRs;
@@ -392,171 +223,49 @@ void ace_fill(const char *element, Particle::Type isotope){
 	for (UInt_t br=2426; br<=2493; ++br) { 
 		if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
 	}
-	TH1D *h_ene = HistTools::GraphToHist(get_ace_average_graph(element, &BRs[0], BRs.size()));
-	h_ene->SetXTitle(Unit::GetEnergyLabel("MeV/n"));
-	h_ene->SetYTitle(Unit::GetDifferentialFluxLabel("MeV/n cm"));
-	TH1 *h_rig = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, isotope, "MeV/n cm", "GV m", "_rig");
-	h_rig->SetXTitle(Unit::GetEnergyLabel("GV"));
-	h_rig->SetYTitle(Unit::GetDifferentialFluxLabel("GV m"));			
-			
-	h_ene->SetMarkerStyle(kFullCircle);
-	h_ene->SetMarkerColor(kBlue);
-	h_ene->SetMarkerSize(1.1);
-	//HistTools::SetColors(h, 290, kFullCircle, 1.1);
-	h_ene->SetTitle(Form("%s BR-averaged Kinetic Energy Spectrum", element));
+	TH1D *h_ene = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[i] , &BRs[0], BRs.size() ));
+	TH1 *h_rig = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, ACE_Isotope[i], "MeV/n cm", "GV m", "_rig");
+				
+	HistTools::SetMarkerStyle(h_ene, HistTools::GetColorPalette(i, n_ele), kFullCircle, 0.9);	
 	c1->cd(1);
 	gPad->SetGrid(); 
-	h_ene->Draw("E1X0"); 
+	legend1->AddEntry(h_ene, Form("%s", ACE_Element[i]), "p");
+	legend1->SetNColumns(2);
+	h_ene->Draw("E1X0 SAME"); 
+	legend1->Draw("SAME");	
 
-	h_rig->SetMarkerStyle(kFullCircle);
-	h_rig->SetMarkerColor(kBlue);
-	h_rig->SetMarkerSize(1.1);
-	//HistTools::SetColors(h, 290, kFullCircle, 1.1); 
-	h_rig->SetTitle(Form("%s BR-averaged Energy Spectrum", element));
+	HistTools::SetMarkerStyle(h_rig, HistTools::GetColorPalette(i, n_ele), kFullCircle, 0.9);
 	c1->cd(2);
 	gPad->SetGrid();
-	h_rig->Draw("E1X0"); 
+	legend2->AddEntry(h_rig, Form("%s", ACE_Element[i]), "p");
+	legend2->SetNColumns(2);
+	h_rig->Draw("E1X0 SAME"); 
+	legend2->Draw("SAME");
 
-	c1->Print(Form("./data/ACE/convert/fluxenergy/h_kin_%s_averaged.png", element));
+	TFile file2(Form("data/ACE/average/%s_average.root", ACE_Element[i]), "RECREATE");
 
-	TFile file2(Form("data/ACE/fill/%s_averaged.root", element), "RECREATE");
-
-	h_ene->Write(Form("h_kin_%s_BR_averaged", element));	
-	h_rig->Write(Form("h_rig_%s_BR_averaged", element));
+	h_ene->Write(Form("h_kin_%s_BR_average", ACE_Element[i]));	
+	h_rig->Write(Form("h_rig_%s_BR_average", ACE_Element[i]));
 	
 	file2.Write();
 	file2.Close();
 
-	_file0->Close();
+   }
+
+   c1->Print("./data/ACE/average/h_kin_all_average.png");
 
 }
 
 // Convert CRIS Data into AMS Structure
 void ace_convert(const char *element, Particle::Type isotope){
 
-	if (strcmp(element, "B") == 0) { 
-		kin_bins = kin_bins_B;
-		SpallCorr = SpallCorr_B; 
-		SpallCorrUnc = SpallCorrUnc_B; 
-		EMed = EMed_B;
-	} else if (strcmp(element, "C") == 0) { 
-		kin_bins = kin_bins_C; 
-		SpallCorr = SpallCorr_C; 
-		SpallCorrUnc = SpallCorrUnc_C;
-		EMed = EMed_C;
-	} else if (strcmp(element, "N") == 0) { 
-		kin_bins = kin_bins_N; 
-		SpallCorr = SpallCorr_N; 
-		SpallCorrUnc = SpallCorrUnc_N;
-		EMed = EMed_N;
-	} else if (strcmp(element, "O") == 0) { 
-		kin_bins = kin_bins_O; 
-		SpallCorr = SpallCorr_O; 
-		SpallCorrUnc = SpallCorrUnc_O;
-		EMed = EMed_O;
-	} else if (strcmp(element, "F") == 0) { 
-		kin_bins = kin_bins_F; 
-		SpallCorr = SpallCorr_F; 
-		SpallCorrUnc = SpallCorrUnc_F;
-		EMed = EMed_F;
-	} else if (strcmp(element, "Ne") == 0) { 
-		kin_bins = kin_bins_Ne; 
-		SpallCorr = SpallCorr_Ne; 
-		SpallCorrUnc = SpallCorrUnc_Ne;
-		EMed = EMed_Ne;
-	} else if (strcmp(element, "Na") == 0) { 
-		kin_bins = kin_bins_Na; 
-		SpallCorr = SpallCorr_Na; 
-		SpallCorrUnc = SpallCorrUnc_Na;
-		EMed = EMed_Na;
-	} else if (strcmp(element, "Mg") == 0) { 
-		kin_bins = kin_bins_Mg;
-		SpallCorr = SpallCorr_Mg; 
-		SpallCorrUnc = SpallCorrUnc_Mg; 
-		EMed = EMed_Mg;
-	} else if (strcmp(element, "Al") == 0) { 
-		kin_bins = kin_bins_Al;
-		SpallCorr = SpallCorr_Al; 
-		SpallCorrUnc = SpallCorrUnc_Al; 
-		EMed = EMed_Al;
-	} else if (strcmp(element, "Si") == 0) { 
-		kin_bins = kin_bins_Si;
-		SpallCorr = SpallCorr_Si; 
-		SpallCorrUnc = SpallCorrUnc_Si; 
-		EMed = EMed_Si;
-	} else if (strcmp(element, "P") == 0) { 
-		kin_bins = kin_bins_P;
-		SpallCorr = SpallCorr_P; 
-		SpallCorrUnc = SpallCorrUnc_P;
-		EMed = EMed_P; 
-	} else if (strcmp(element, "S") == 0) { 
-		kin_bins = kin_bins_S;
-		SpallCorr = SpallCorr_S; 
-		SpallCorrUnc = SpallCorrUnc_S; 
-		EMed = EMed_S;
-	} else if (strcmp(element, "Cl") == 0) { 
-		kin_bins = kin_bins_Cl;
-		SpallCorr = SpallCorr_Cl; 
-		SpallCorrUnc = SpallCorrUnc_Cl; 
-		EMed = EMed_Cl;
-	} else if (strcmp(element, "Ar") == 0) { 
-		kin_bins = kin_bins_Ar;
-		SpallCorr = SpallCorr_Ar; 
-		SpallCorrUnc = SpallCorrUnc_Ar; 
-		EMed = EMed_Ar;
-	} else if (strcmp(element, "K") == 0) { 
-		kin_bins = kin_bins_K;
-		SpallCorr = SpallCorr_K; 
-		SpallCorrUnc = SpallCorrUnc_K;
-		EMed = EMed_K; 
-	} else if (strcmp(element, "Ca") == 0) { 
-		kin_bins = kin_bins_Ca;
-		SpallCorr = SpallCorr_Ca; 
-		SpallCorrUnc = SpallCorrUnc_Ca;
-		EMed = EMed_Ca; 
-	} else if (strcmp(element, "Sc") == 0) { 
-		kin_bins = kin_bins_Sc;
-		SpallCorr = SpallCorr_Sc; 
-		SpallCorrUnc = SpallCorrUnc_Sc; 
-		EMed = EMed_Sc;
-	} else if (strcmp(element, "Ti") == 0) { 
-		kin_bins = kin_bins_Ti;
-		SpallCorr = SpallCorr_Ti; 
-		SpallCorrUnc = SpallCorrUnc_Ti;
-		EMed = EMed_Ti; 
-	} else if (strcmp(element, "V") == 0) { 
-		kin_bins = kin_bins_V; 
-		SpallCorr = SpallCorr_V; 
-		SpallCorrUnc = SpallCorrUnc_V;
-		EMed = EMed_V;
-	} else if (strcmp(element, "Cr") == 0) { 
-		kin_bins = kin_bins_Cr;
-		SpallCorr = SpallCorr_Cr; 
-		SpallCorrUnc = SpallCorrUnc_Cr; 
-		EMed = EMed_Cr;
-	} else if (strcmp(element, "Mn") == 0) { 
-		kin_bins = kin_bins_Mn;
-		SpallCorr = SpallCorr_Mn; 
-		SpallCorrUnc = SpallCorrUnc_Mn; 
-		EMed = EMed_Mn;
-	} else if (strcmp(element, "Fe") == 0) { 
-		kin_bins = kin_bins_Fe;
-		SpallCorr = SpallCorr_Fe; 
-		SpallCorrUnc = SpallCorrUnc_Fe; 
-		EMed = EMed_Fe;
-	} else if (strcmp(element, "Co") == 0) { 
-		kin_bins = kin_bins_Co;
-		SpallCorr = SpallCorr_Co; 
-		SpallCorrUnc = SpallCorrUnc_Co; 
-		EMed = EMed_Co;
-	} else if (strcmp(element, "Ni") == 0) { 
-		kin_bins = kin_bins_Ni;
-		SpallCorr = SpallCorr_Ni; 
-		SpallCorrUnc = SpallCorrUnc_Ni;
-		EMed = EMed_Ni; 
-	}
+	double *kin_bins = get_kin_bins(element);
+        double *SpallCorr = get_spall_corr(element);
+	double *SpallCorrUnc = get_spall_corr_unc(element);
+	double *EMed = get_EMed(element);
 
 	gSystem->mkdir("data/ACE/convert/fluxtime", true);
+	//gSystem->mkdir("data/ACE/convert/fluxenergy", true);
 	gSystem->mkdir("data/ACE/convert/fluxrigidity", true);	
 	
 	const int nBins = 14;
@@ -574,7 +283,7 @@ void ace_convert(const char *element, Particle::Type isotope){
 		tran_ams = Experiments::GetMeasurementTimeRange(Experiments::AMS02, 1, 78);
 		utime_1 = tran_ams[1]; 
 
-	// plot averaged flux (MeV/n cm) vs. kinetic energy within AMS range
+	// plot flux (MeV/n cm) vs. kinetic energy within AMS range
 	for (int k=2240 ; k<=2529; k++){
 
 		// utime (ace), utime_0 (ams), utime_1 (ams)
@@ -611,7 +320,7 @@ void ace_convert(const char *element, Particle::Type isotope){
 			TH1 *h_rig = HistTools::TransformEnergyAndDifferentialFluxNew(h, isotope, "MeV/n cm", "GV m", Form("_rig_%s_BR%d", element, k)); // (TH1 *hist, Particle::Type particle, const Char_t *from_flux_unit, const Char_t *to_flux_unit, const Char_t *suffix) 
 
 			for (int i=0; i<h_rig->GetNbinsX(); ++i) { 
-				printf("%s BR=%d [%02u] %.2f-%.2f y=%10.4e dy=%10.4e  \n", element, k, i, h_rig->GetBinLowEdge(i+1), h_rig->GetBinLowEdge(i+2), h_rig->GetBinContent(i+1), h_rig->GetBinError(i+1)); 
+				//printf("%s BR=%d [%02u] %.2f-%.2f y=%10.4e dy=%10.4e  \n", element, k, i, h_rig->GetBinLowEdge(i+1), h_rig->GetBinLowEdge(i+2), h_rig->GetBinContent(i+1), h_rig->GetBinError(i+1)); 
 			}
 
 			HistTools::SetMarkerStyle(h_rig, HistTools::GetColorPalette(k-2426, 81), kFullCircle, 1.1);
@@ -633,7 +342,7 @@ void ace_convert(const char *element, Particle::Type isotope){
 
 	// plot flux_time 
 	TCanvas *c3 = new TCanvas("c3","",800,600);
-	TLegend *legend = new TLegend(0.1,0.7,0.28,0.9); // left, down, right, top 
+	TLegend *legend3 = new TLegend(0.1,0.7,0.28,0.9); // left, down, right, top 
 	for (int i=0; i<nBins; ++i){
 		
 		if (i%2==0){	
@@ -667,29 +376,90 @@ void ace_convert(const char *element, Particle::Type isotope){
 			double x, y;	
 			g->GetPoint(0, x, y);
 
-   			//double *yaxis = g->GetY();
-  		 	//double gmax = yaxis[TMath::LocMax(g->GetN(), yaxis);
 			gPad->SetGrid();  
 			//gPad->SetLogy();
 			g->GetYaxis()->SetRangeUser(y-y*0.99, y+y*2.5);
 			g->GetXaxis()->SetRangeUser(UBRToTime(2425), UBRToTime(2507));
-			g->SetTitle(Form("%s All Energy Bin Flux Time Series", element));
+			g->SetTitle(Form("%s All Energy Bin Flux Time Series; ;Flux [1/(m^2 sr s GV)]", element));
 			//g->Print();
 			c3->cd(1);
 			
-			legend->AddEntry(g, Form("%d-th Bin Flux", i/2+1), "l");
+			legend3->AddEntry(g, Form("%d-th Bin Flux", i/2+1), "l");
 
 			if (i/2==0){
 				g->Draw("ALP");
-				legend->Draw("SAME");
+				legend3->Draw("SAME");
 			} else {
 				g->Draw("LPSAME");
-				legend->Draw("SAME");
+				legend3->Draw("SAME");
 			}
 		}
 	} 
 
-	c3->Print(Form("./data/ACE/convert/fluxtime/h_fluxtime_%s_all.png", element));	
+	// plot normalized flux_time 
+	TCanvas *c4 = new TCanvas("c4","",800,600);
+	TLegend *legend4 = new TLegend(0.1,0.7,0.28,0.9); // left, down, right, top 
+
+	const UInt_t FirstACEBR = 2240;
+	vector<UInt_t> BRs;
+	// we stop at BR 2493, which ends on 2016/05/23, just 3 days before the end of the data taking period for AMS nuclei
+	for (UInt_t br=2426; br<=2493; ++br) { 
+		if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
+	}
+	TGraphAsymmErrors *g_ave = get_ace_average_graph( element, &BRs[0], BRs.size() );
+
+	for (int i=0; i<nBins/2; ++i){
+					
+			TGraphAsymmErrors *g = get_ace_graph( element, i, BRs.size() );
+			TGraphAsymmErrors *g_norm = new TGraphAsymmErrors(BRs.size());	
+
+			for (int iBR=2426; iBR<2493; iBR++){
+
+				if (iBR != 2472 && iBR != 2473){
+					
+					g_norm->SetPoint(iBR-2426, UBRToTime(iBR), g->GetY()[iBR-2426]/g_ave->GetY()[i]);
+					g_norm->SetPointError(iBR-2426, 0., 0., g->GetEYlow()[iBR-2426]/g_ave->GetY()[i], g->GetEYhigh()[iBR-2426]/g_ave->GetY()[i]);
+
+				}
+			}
+
+			g_norm->RemovePoint(46); 
+   			g_norm->RemovePoint(46);
+			g_norm->Set(63);
+
+			g_norm->GetXaxis()->SetTimeDisplay(1);
+			g_norm->GetXaxis()->SetTimeFormat("%m-%y");
+			g_norm->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00");
+			g_norm->GetXaxis()->SetTitleSize(0.7);			
+			g_norm->SetMarkerStyle(kFullCircle);
+			g_norm->SetMarkerColor(kRed-3*i);
+			g_norm->SetLineColor(kRed-3*i);
+			g_norm->SetLineWidth(1);
+			g_norm->SetMarkerSize(0.7);
+
+			double x, y;	
+			g_norm->GetPoint(0, x, y);
+
+			gPad->SetGrid();  
+			//gPad->SetLogy();
+			g_norm->GetYaxis()->SetRangeUser(y-y*0.99, y+y*0.9);
+			g_norm->GetXaxis()->SetRangeUser(UBRToTime(2425), UBRToTime(2494));
+			g_norm->SetTitle(Form("%s All Energy Bin Flux Time Series (Normalized)", element));
+			g_norm->Print();
+			c4->cd(1);
+			
+			legend4->AddEntry(g_norm, Form("%d-th Bin Flux", i+1), "l");
+
+			if (i==0){
+				g_norm->Draw("ALP");
+				legend4->Draw("SAME");
+			} else {
+				g_norm->Draw("LPSAME");
+				legend4->Draw("SAME");
+			}
+	} 
+
+	c4->Print(Form("./data/ACE/convert/fluxtime/h_norm_fluxtime_%s_all.png", element));	
 	
 	fout.Write();
 	fout.Close();
@@ -697,10 +467,63 @@ void ace_convert(const char *element, Particle::Type isotope){
 	fin.Close();
 }
 
-void ace_fluxtime(){
+// compare ACE w/ AMS
+void ace_compare(){
 
-	//gSystem->mkdir("data/ACE/fluxtime", true);
+	Experiments::DataPath = "data"; 
+
+	int data_value[n_ele] = {0, 18, 23, 27, 31, 20, 43, 22};
+
+/*
+	TH1D *h_p = Experiments::GetMeasurementHistogram(Experiments::AMS02, 0, 0);  // proton
+	TH1D *h_he = Experiments::GetMeasurementHistogram(Experiments::AMS02, 18, 0);  // helium 
+	TH1D *h_li = Experiments::GetMeasurementHistogram(Experiments::AMS02, 23, 0);  // lithium
+	TH1D *h_be = Experiments::GetMeasurementHistogram(Experiments::AMS02, 27, 0);  // beryllium
+	TH1D *h_b = Experiments::GetMeasurementHistogram(Experiments::AMS02, 31, 0);  // boron
+	TH1D *h_c = Experiments::GetMeasurementHistogram(Experiments::AMS02, 20, 0);  // carbon
+	TH1D *h_n = Experiments::GetMeasurementHistogram(Experiments::AMS02, 43, 0);  // nitrogen
+	TH1D *h_o = Experiments::GetMeasurementHistogram(Experiments::AMS02, 22, 0);  // oxygen
+*/
 	
+	TCanvas *c5 = new TCanvas("c5","",800,600);
+	c5->Divide(2,2); 
+
+	const UInt_t FirstACEBR = 2240;
+	vector<UInt_t> BRs;
+	// we stop at BR 2493, which ends on 2016/05/23, just 3 days before the end of the data taking period for AMS nuclei
+	for (UInt_t br=2426; br<=2493; ++br) { 
+		if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
+	}
+
+	for (int i=0; i<4; i++){
+
+		TH1D *h_ams = Experiments::GetMeasurementHistogram(Experiments::AMS02, data_value[i+4], 0);
+		TH1D *h_ene = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[i] , &BRs[0], BRs.size() ));
+		TH1 *h_rig = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, ACE_Isotope[i], "MeV/n cm", "GV m", "_rig");
+
+		TH1 *ha = HistTools::CreateAxis("ha", "haxis1", 0.1, 2500., 7, 1e-10, 1e3, false);
+		ha->SetXTitle(Unit::GetEnergyLabel("GV"));
+  		ha->SetYTitle(Unit::GetDifferentialFluxLabel("GV m")); 
+		ha->SetTitle(Form("Averaged ACE and Integrated %s AMS Flux vs. Rigidity", ACE_Element[i]));
+		c5->cd(i+1);
+
+		TLegend *legend5 = new TLegend(0.1,0.8,0.28,0.9); // left, down, right, top
+		legend5->AddEntry(h_rig, Form("ACE %s Flux", ACE_Element[i]), "p");
+		legend5->AddEntry(h_ams, Form("AMS Integrated %s Flux", ACE_Element[i]), "p");
+		
+		gPad->SetLogy();
+		gPad->SetLogx();
+		HistTools::SetMarkerStyle(h_rig, HistTools::GetColorPalette(i, 4), kFullCircle, 0.9);	
+		HistTools::SetMarkerStyle(h_ams, kBlue, kFullCircle, 0.9);	 
+		ha->Draw("E1X0 SAME");
+		h_rig->Draw("E1X0 SAME");
+		h_ams->Draw("E1X0 SAME");
+		legend5->Draw("SAME");
+
+	}
+	
+	c5->Print("./data/ACE/convert/fluxrigidity/h_compare_fluxrigidity_BCNO.png");	
+
 }
 
 UInt_t UTimeToBR(Long64_t utime){
@@ -713,7 +536,61 @@ UInt_t UBRToTime(int BR){
 	return (BR - 1) * (27*86400) + first_BR;
 }
 
+// over time
+TGraphAsymmErrors *get_ace_graph(const char *element, UInt_t iBin, UInt_t nBRs){
+
+   double *kin_bins = get_kin_bins(element);
+   double *SpallCorr = get_spall_corr(element);
+   double *SpallCorrUnc = get_spall_corr_unc(element);
+   //double *EMed = get_EMed(element);
+
+   TFile *_file2 = new TFile(Form("data/ACE/%s_97226_18359.root", element));
+   TTree *ace=(TTree*)_file2->Get("ace");
+
+   float F[7], C[7]; // must be initialized 
+   Long64_t utime;
+   Float_t livetime;
+	
+   ace->SetBranchAddress("F", F);
+   ace->SetBranchAddress("C", C);
+   //ace->SetBranchAddress("start_utime", &utime);	
+   //ace->SetBranchAddress("livetime", &livetime);
+
+   TGraphAsymmErrors *graph = new TGraphAsymmErrors(nBRs); 
+
+   for (int iBR=2426; iBR<=2493; iBR++){
+
+	if (iBR != 2472 && iBR != 2473){
+
+		ace->GetEntry(iBR-2426); 
+
+      		double sys_err = F[iBin] * sqrt(8e-4 + SpallCorrUnc[iBin]*SpallCorrUnc[iBin]/SpallCorr[iBin]/SpallCorr[iBin]);
+		double stat_err = F[iBin]/sqrt(C[iBin]); 
+		double err = sqrt(stat_err*stat_err + sys_err*sys_err);
+
+		graph->SetPoint(iBR-2426, UBRToTime(iBR), F[iBin]); 
+		graph->SetPointError(iBR-2426, 0., 0., err, err); 
+	}
+
+   }
+
+   //graph->RemovePoint(46); 
+   //graph->RemovePoint(46);
+   graph->Set(65);
+
+   _file2->Close();
+   
+   return graph; 
+}
+
+// over energy bins
 TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_t nBRs){
+
+   double *kin_bins = get_kin_bins(element);
+   double *SpallCorr = get_spall_corr(element);
+   double *SpallCorrUnc = get_spall_corr_unc(element);
+   double *EMed = get_EMed(element);
+
    TFile *_file2 = new TFile(Form("data/ACE/%s_97226_18359.root", element));
    TTree *ace=(TTree*)_file2->Get("ace");
 
@@ -764,4 +641,221 @@ TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_
 
    _file2->Close();
    return graph;
+}
+
+double *get_kin_bins(const char *element)
+{
+   const int nBins = 14;
+   static double kin_bins_B[nBins] = { 51.4, 65.8, 67.3, 90.4, 91.5, 110.6, 111.6, 128.4, 129.2, 144.6, 145.3, 159.4, 160.2, 173.7 };
+   static double kin_bins_C[nBins] = { 59.0, 75.6, 77.2, 103.8, 105.1, 127.3, 128.3, 147.9, 148.8, 166.6, 167.4, 183.9, 184.8, 200.4 };
+   static double kin_bins_N[nBins] = { 63.2, 81.0, 82.8, 111.4, 112.7, 136.6, 137.7, 158.8, 159.8, 179.0, 179.9, 197.6, 198.6, 215.5 };
+   static double kin_bins_O[nBins] = { 69.4, 89.0, 91.0, 122.5, 124.0, 150.3, 151.6, 174.9, 176.0, 197.3, 198.3, 218.0, 219.1, 237.9 };
+   static double kin_bins_F[nBins] = { 72.0, 92.4, 94.4, 127.2, 128.8, 156.2, 157.5, 181.8, 182.9, 205.1, 206.2, 226.8, 227.9, 247.5 };
+   static double kin_bins_Ne[nBins] = { 77.1, 99.0, 101.2, 136.4, 138.1, 167.6, 169.1, 195.2, 196.5, 220.4, 221.6, 243.8, 245.0, 266.3 };
+   static double kin_bins_Na[nBins] = { 81.0, 104.1, 106.4, 143.5, 145.3, 176.5, 178.0, 205.6, 206.9, 232.3, 233.5, 257.0, 258.4, 280.9 };
+   static double kin_bins_Mg[nBins] = { 86.3, 110.9, 113.4, 153.1, 155.0, 188.4, 190.1, 219.7, 221.1, 248.4, 249.7, 275.0, 276.4, 300.7 };
+   static double kin_bins_Al[nBins] = { 89.4, 115.0, 117.5, 158.8, 160.8, 195.5, 197.2, 228.1, 229.5, 257.9, 259.2, 285.6, 287.1, 312.4 };
+   static double kin_bins_Si[nBins] = { 94.8, 121.9, 124.7, 168.6, 170.7, 207.8, 209.6, 242.6, 244.1, 274.5, 275.9, 304.2, 305.7, 332.9 };
+   static double kin_bins_P[nBins] = { 97.1, 124.9, 127.7, 172.8, 175.0, 213.0, 214.9, 248.8, 250.4, 281.6, 283.1, 312.2, 313.8, 341.7 };
+   static double kin_bins_S[nBins] = { 101.6, 130.8, 133.7, 181.2, 183.4, 223.5, 225.4, 261.2, 262.8, 295.8, 297.3, 328.1, 329.8, 359.3 };
+   static double kin_bins_Cl[nBins] = { 103.2, 133.0, 136.0, 184.3, 186.6, 227.4, 229.4, 265.8, 267.5, 301.1, 302.7, 334.0, 335.8, 365.9 };
+   static double kin_bins_Ar[nBins] = { 107.7, 138.8, 141.9, 192.4, 194.9, 237.7, 239.7, 278.0, 279.8, 315.1, 316.7, 349.7, 351.6, 383.3 };
+   static double kin_bins_K[nBins] = { 110.0, 141.8, 145.0, 196.8, 199.3, 243.1, 245.3, 284.5, 286.3, 322.5, 324.2, 358.1, 360.0, 392.6 };
+   static double kin_bins_Ca[nBins] = { 113.3, 146.2, 149.5, 203.1, 205.6, 251.0, 253.2, 293.9, 295.8, 333.3, 335.1, 370.2, 372.2, 406.0 };
+   static double kin_bins_Sc[nBins] = { 114.7, 148.1, 151.4, 205.8, 208.4, 254.4, 256.7, 297.9, 299.9, 338.0, 339.8, 375.5, 377.5, 411.9 };
+   static double kin_bins_Ti[nBins] = { 117.8, 152.1, 155.5, 211.5, 214.1, 261.6, 263.9, 306.5, 308.5, 347.9, 349.7, 386.6, 388.7, 424.2 };
+   static double kin_bins_V[nBins] = { 120.2, 155.3, 158.8, 216.0, 218.8, 267.4, 269.8, 313.4, 315.4, 355.8, 357.7, 395.5, 397.6, 434.1 };
+   static double kin_bins_Cr[nBins] = { 123.4, 159.6, 163.2, 222.2, 225.0, 275.2, 277.6, 322.6, 324.8, 366.5, 368.4, 407.6, 409.8, 447.5 };
+   static double kin_bins_Mn[nBins] = { 126.0, 163.0, 166.7, 227.0, 230.0, 281.3, 283.9, 330.0, 332.2, 375.0, 377.0, 417.2, 419.4, 458.2 };
+   static double kin_bins_Fe[nBins] = { 129.1, 167.0, 170.8, 232.9, 235.9, 288.7, 291.3, 338.9, 341.1, 385.2, 387.3, 428.7, 431.0, 471.0 };
+   static double kin_bins_Co[nBins] = { 131.7, 170.6, 174.5, 238.0, 241.0, 295.2, 297.9, 346.6, 348.9, 394.1, 396.3, 438.8, 441.1, 482.2 };
+   static double kin_bins_Ni[nBins] = { 136.2, 176.5, 180.5, 246.4, 249.6, 305.9, 308.7, 359.4, 361.8, 408.9, 411.2, 455.5, 458.0, 500.8 };
+   // repeat for all elements
+   
+   	if (!strcmp(element, "B")) return kin_bins_B;
+   else if (!strcmp(element, "C")) return kin_bins_C;
+   else if (!strcmp(element, "N")) return kin_bins_N;
+   else if (!strcmp(element, "O")) return kin_bins_O;
+   else if (!strcmp(element, "F")) return kin_bins_F;
+   else if (!strcmp(element, "Ne")) return kin_bins_Ne;
+   else if (!strcmp(element, "Na")) return kin_bins_Na;
+   else if (!strcmp(element, "Mg")) return kin_bins_Mg;
+   else if (!strcmp(element, "Al")) return kin_bins_Al;
+   else if (!strcmp(element, "Si")) return kin_bins_Si;
+   else if (!strcmp(element, "P")) return kin_bins_P;
+   else if (!strcmp(element, "S")) return kin_bins_S;
+   else if (!strcmp(element, "Cl")) return kin_bins_Cl;
+   else if (!strcmp(element, "Ar")) return kin_bins_Ar;
+   else if (!strcmp(element, "K")) return kin_bins_K;
+   else if (!strcmp(element, "Ca")) return kin_bins_Ca;
+   else if (!strcmp(element, "Sc")) return kin_bins_Sc;
+   else if (!strcmp(element, "Ti")) return kin_bins_Ti;
+   else if (!strcmp(element, "Va")) return kin_bins_V;
+   else if (!strcmp(element, "Cr")) return kin_bins_Cr;
+   else if (!strcmp(element, "Mn")) return kin_bins_Mn;
+   else if (!strcmp(element, "Fe")) return kin_bins_Fe;
+   else if (!strcmp(element, "Co")) return kin_bins_Co;
+   else if (!strcmp(element, "Ni")) return kin_bins_Ni;
+}
+
+double *get_spall_corr(const char *element)
+{
+	const int nBins = 7; 
+	static double SpallCorr_B[nBins] = { 0.955, 0.929, 0.895, 0.863, 0.832, 0.802, 0.773 };
+	static double SpallCorr_C[nBins] = { 0.953, 0.926, 0.891, 0.857, 0.825, 0.794, 0.764 };
+	static double SpallCorr_N[nBins] = { 0.949, 0.920, 0.883, 0.847, 0.813, 0.781, 0.750 };
+	static double SpallCorr_O[nBins] = { 0.947, 0.917, 0.878, 0.842, 0.807, 0.773, 0.741 };
+	static double SpallCorr_F[nBins] = { 0.943, 0.911, 0.870, 0.832, 0.795, 0.760, 0.726 };
+	static double SpallCorr_Ne[nBins] = { 0.940, 0.908, 0.866, 0.826, 0.788, 0.752, 0.718 };
+	static double SpallCorr_Na[nBins] = { 0.938, 0.904, 0.860, 0.819, 0.780, 0.743, 0.708 };
+	static double SpallCorr_Mg[nBins] = { 0.936, 0.901, 0.857, 0.815, 0.775, 0.737, 0.701 };
+	static double SpallCorr_Al[nBins] = { 0.933, 0.897, 0.851, 0.808, 0.767, 0.728, 0.691 };
+	static double SpallCorr_Si[nBins] = { 0.932, 0.895, 0.848, 0.804, 0.763, 0.724, 0.686 };
+	static double SpallCorr_P[nBins] = { 0.929, 0.891, 0.843, 0.797, 0.754, 0.714, 0.676 };
+	static double SpallCorr_S[nBins] = { 0.928, 0.889, 0.840, 0.794, 0.751, 0.710, 0.671 };
+	static double SpallCorr_Cl[nBins] = { 0.925, 0.885, 0.834, 0.787, 0.742, 0.700, 0.660 };
+	static double SpallCorr_Ar[nBins] = { 0.922, 0.881, 0.830, 0.782, 0.737, 0.694, 0.654 };
+	static double SpallCorr_K[nBins] = { 0.920, 0.878, 0.826, 0.776, 0.730, 0.687, 0.646 };
+	static double SpallCorr_Ca[nBins] = { 0.917, 0.874, 0.821, 0.771, 0.724, 0.681, 0.639 };
+	static double SpallCorr_Sc[nBins] = { 0.915, 0.871, 0.817, 0.765, 0.718, 0.673, 0.631 };
+	static double SpallCorr_Ti[nBins] = { 0.913, 0.869, 0.813, 0.761, 0.713, 0.667, 0.625 };
+	static double SpallCorr_V[nBins] = { 0.911, 0.866, 0.809, 0.756, 0.707, 0.661, 0.618 };
+	static double SpallCorr_Cr[nBins] = { 0.910, 0.864, 0.807, 0.753, 0.703, 0.657, 0.614 };
+	static double SpallCorr_Mn[nBins] = { 0.907, 0.861, 0.802, 0.748, 0.698, 0.651, 0.607 };
+	static double SpallCorr_Fe[nBins] = { 0.906, 0.859, 0.799, 0.744, 0.693, 0.646, 0.602 };
+	static double SpallCorr_Co[nBins] = { 0.904, 0.856, 0.796, 0.740, 0.689, 0.641, 0.596 };
+	static double SpallCorr_Ni[nBins] = { 0.904, 0.855, 0.795, 0.739, 0.687, 0.639, 0.595 };
+
+	if (!strcmp(element, "B")) return SpallCorr_B;
+   else if (!strcmp(element, "C")) return SpallCorr_C;
+   else if (!strcmp(element, "N")) return SpallCorr_N;
+   else if (!strcmp(element, "O")) return SpallCorr_O;
+   else if (!strcmp(element, "F")) return SpallCorr_F;
+   else if (!strcmp(element, "Ne")) return SpallCorr_Ne;
+   else if (!strcmp(element, "Na")) return SpallCorr_Na;
+   else if (!strcmp(element, "Mg")) return SpallCorr_Mg;
+   else if (!strcmp(element, "Al")) return SpallCorr_Al;
+   else if (!strcmp(element, "Si")) return SpallCorr_Si;
+   else if (!strcmp(element, "P")) return SpallCorr_P;
+   else if (!strcmp(element, "S")) return SpallCorr_S;
+   else if (!strcmp(element, "Cl")) return SpallCorr_Cl;
+   else if (!strcmp(element, "Ar")) return SpallCorr_Ar;
+   else if (!strcmp(element, "K")) return SpallCorr_K;
+   else if (!strcmp(element, "Ca")) return SpallCorr_Ca;
+   else if (!strcmp(element, "Sc")) return SpallCorr_Sc;
+   else if (!strcmp(element, "Ti")) return SpallCorr_Ti;
+   else if (!strcmp(element, "Va")) return SpallCorr_V;
+   else if (!strcmp(element, "Cr")) return SpallCorr_Cr;
+   else if (!strcmp(element, "Mn")) return SpallCorr_Mn;
+   else if (!strcmp(element, "Fe")) return SpallCorr_Fe;
+   else if (!strcmp(element, "Co")) return SpallCorr_Co;
+   else if (!strcmp(element, "Ni")) return SpallCorr_Ni;
+}
+
+double *get_spall_corr_unc(const char *element)
+{
+	const int nBins = 7; 
+	static double SpallCorrUnc_B[nBins] = { 0.005, 0.007, 0.011, 0.015, 0.019, 0.022, 0.026 };
+	static double SpallCorrUnc_C[nBins] = { 0.005, 0.008, 0.012, 0.016, 0.019, 0.023, 0.027 };
+	static double SpallCorrUnc_N[nBins] = { 0.005, 0.008, 0.013, 0.017, 0.021, 0.025, 0.029 };
+	static double SpallCorrUnc_O[nBins] = { 0.005, 0.009, 0.013, 0.017, 0.022, 0.026, 0.030 };
+	static double SpallCorrUnc_F[nBins] = { 0.006, 0.009, 0.014, 0.019, 0.023, 0.028, 0.033 };
+	static double SpallCorrUnc_Ne[nBins] = { 0.006, 0.010, 0.015, 0.019, 0.024, 0.029, 0.034 };
+	static double SpallCorrUnc_Na[nBins] = { 0.006, 0.010, 0.015, 0.020, 0.025, 0.030, 0.035 };
+	static double SpallCorrUnc_Mg[nBins] = { 0.007, 0.010, 0.016, 0.021, 0.026, 0.031, 0.036 };
+	static double SpallCorrUnc_Al[nBins] = { 0.007, 0.011, 0.016, 0.022, 0.027, 0.032, 0.038 };
+	static double SpallCorrUnc_Si[nBins] = { 0.007, 0.011, 0.017, 0.022, 0.027, 0.033, 0.038 };
+	static double SpallCorrUnc_P[nBins] = { 0.007, 0.012, 0.017, 0.023, 0.029, 0.034, 0.040 };
+	static double SpallCorrUnc_S[nBins] = { 0.008, 0.012, 0.018, 0.023, 0.029, 0.035, 0.041 };
+	static double SpallCorrUnc_Cl[nBins] = { 0.008, 0.012, 0.018, 0.024, 0.030, 0.036, 0.042 };
+	static double SpallCorrUnc_Ar[nBins] = { 0.008, 0.013, 0.019, 0.025, 0.031, 0.037, 0.043 };
+	static double SpallCorrUnc_K[nBins] = { 0.008, 0.013, 0.019, 0.026, 0.032, 0.038, 0.045 };
+	static double SpallCorrUnc_Ca[nBins] = { 0.009, 0.013, 0.020, 0.026, 0.033, 0.039, 0.046 };
+	static double SpallCorrUnc_Sc[nBins] = { 0.009, 0.014, 0.020, 0.027, 0.034, 0.040, 0.047 };
+	static double SpallCorrUnc_Ti[nBins] = { 0.009, 0.014, 0.021, 0.028, 0.034, 0.041, 0.048 };
+	static double SpallCorrUnc_V[nBins] = { 0.009, 0.015, 0.021, 0.028, 0.035, 0.042, 0.049 };
+	static double SpallCorrUnc_Cr[nBins] = { 0.010, 0.015, 0.022, 0.029, 0.036, 0.043, 0.050 };
+	static double SpallCorrUnc_Mn[nBins] = { 0.010, 0.015, 0.022, 0.029, 0.037, 0.044, 0.051 };
+	static double SpallCorrUnc_Fe[nBins] = { 0.010, 0.015, 0.023, 0.030, 0.037, 0.045, 0.052 };
+	static double SpallCorrUnc_Co[nBins] = { 0.010, 0.016, 0.023, 0.031, 0.038, 0.045, 0.053 };
+	static double SpallCorrUnc_Ni[nBins] = { 0.010, 0.016, 0.023, 0.031, 0.038, 0.046, 0.053 };
+
+	if (!strcmp(element, "B")) return SpallCorrUnc_B;
+   else if (!strcmp(element, "C")) return SpallCorrUnc_C;
+   else if (!strcmp(element, "N")) return SpallCorrUnc_N;
+   else if (!strcmp(element, "O")) return SpallCorrUnc_O;
+   else if (!strcmp(element, "F")) return SpallCorrUnc_F;
+   else if (!strcmp(element, "Ne")) return SpallCorrUnc_Ne;
+   else if (!strcmp(element, "Na")) return SpallCorrUnc_Na;
+   else if (!strcmp(element, "Mg")) return SpallCorrUnc_Mg;
+   else if (!strcmp(element, "Al")) return SpallCorrUnc_Al;
+   else if (!strcmp(element, "Si")) return SpallCorrUnc_Si;
+   else if (!strcmp(element, "P")) return SpallCorrUnc_P;
+   else if (!strcmp(element, "S")) return SpallCorrUnc_S;
+   else if (!strcmp(element, "Cl")) return SpallCorrUnc_Cl;
+   else if (!strcmp(element, "Ar")) return SpallCorrUnc_Ar;
+   else if (!strcmp(element, "K")) return SpallCorrUnc_K;
+   else if (!strcmp(element, "Ca")) return SpallCorrUnc_Ca;
+   else if (!strcmp(element, "Sc")) return SpallCorrUnc_Sc;
+   else if (!strcmp(element, "Ti")) return SpallCorrUnc_Ti;
+   else if (!strcmp(element, "Va")) return SpallCorrUnc_V;
+   else if (!strcmp(element, "Cr")) return SpallCorrUnc_Cr;
+   else if (!strcmp(element, "Mn")) return SpallCorrUnc_Mn;
+   else if (!strcmp(element, "Fe")) return SpallCorrUnc_Fe;
+   else if (!strcmp(element, "Co")) return SpallCorrUnc_Co;
+   else if (!strcmp(element, "Ni")) return SpallCorrUnc_Ni;
+}
+
+double *get_EMed(const char *element)
+{
+	const int nBins = 7; 
+	static double EMed_B[nBins] = {59.6, 79.7, 102.0, 121.1, 138.2, 154.0, 168.6}; 
+	static double EMed_C[nBins] = {68.3, 91.5, 117.3, 139.3, 159.1, 177.4, 194.5};
+	static double EMed_N[nBins] = {73.3, 98.1, 125.9, 149.6, 171.0, 190.7, 209.2};
+	static double EMed_O[nBins] = {80.4, 107.8, 138.4, 164.7, 188.4, 210.3, 230.8};
+	static double EMed_F[nBins] = {83.5, 112.0, 143.8, 171.1, 195.9, 218.7, 240.0};
+	static double EMed_Ne[nBins] = {89.5, 120.1, 154.4, 183.9, 210.6, 235.3, 258.4};
+	static double EMed_Na[nBins] = {94.0, 126.2, 162.4, 193.5, 221.7, 247.8, 272.3};
+	static double EMed_Mg[nBins] = {100.2, 134.7, 173.4, 206.8, 237.1, 265.2, 291.5};
+	static double EMed_Al[nBins] = {103.8, 139.6, 179.8, 214.5, 246.1, 275.3, 302.8};
+	static double EMed_Si[nBins] = {110.1, 148.2, 191.1, 228.1, 261.8, 293.1, 322.6};
+	static double EMed_P[nBins] = {112.7, 151.8, 195.9, 233.9, 268.6, 300.8, 331.1};
+	static double EMed_S[nBins] = {118.2, 159.4, 205.8, 245.9, 282.5, 316.6, 348.7};
+	static double EMed_Cl[nBins] = {120.2, 162.1, 209.4, 250.3, 287.7, 322.4, 355.1};
+	static double EMed_Ar[nBins] = {125.0, 168.8, 218.1, 260.9, 300.0, 336.4, 370.8};
+	static double EMed_K[nBins] = {127.9, 172.8, 223.4, 267.4, 307.5, 344.9, 380.3};
+	static double EMed_Ca[nBins] = {131.6, 177.9, 230.1, 275.6, 317.1, 355.9, 392.4};
+	static double EMed_Sc[nBins] = {133.5, 180.5, 233.7, 279.9, 322.2, 361.6, 398.8};
+	static double EMed_Ti[nBins] = {137.1, 185.5, 240.3, 287.9, 331.6, 372.3, 410.8};
+	static double EMed_V[nBins] = {139.9, 189.5, 245.5, 294.3, 339.1, 380.8, 420.3};
+	static double EMed_Cr[nBins] = {144.0, 195.1, 253.0, 303.5, 349.8, 393.0, 434.0};
+	static double EMed_Mn[nBins] = {146.8, 199.1, 258.3, 309.9, 357.3, 401.6, 443.5};
+	static double EMed_Fe[nBins] = {150.4, 204.1, 265.0, 318.1, 366.9, 412.6, 455.9};
+	static double EMed_Co[nBins] = {153.6, 208.5, 270.9, 325.3, 375.4, 422.3, 466.7};
+	static double EMed_Ni[nBins] = {158.9, 215.9, 280.7, 337.3, 389.5, 438.4, 484.7}; 
+
+	if (!strcmp(element, "B")) return EMed_B;
+   else if (!strcmp(element, "C")) return EMed_C;
+   else if (!strcmp(element, "N")) return EMed_N;
+   else if (!strcmp(element, "O")) return EMed_O;
+   else if (!strcmp(element, "F")) return EMed_F;
+   else if (!strcmp(element, "Ne")) return EMed_Ne;
+   else if (!strcmp(element, "Na")) return EMed_Na;
+   else if (!strcmp(element, "Mg")) return EMed_Mg;
+   else if (!strcmp(element, "Al")) return EMed_Al;
+   else if (!strcmp(element, "Si")) return EMed_Si;
+   else if (!strcmp(element, "P")) return EMed_P;
+   else if (!strcmp(element, "S")) return EMed_S;
+   else if (!strcmp(element, "Cl")) return EMed_Cl;
+   else if (!strcmp(element, "Ar")) return EMed_Ar;
+   else if (!strcmp(element, "K")) return EMed_K;
+   else if (!strcmp(element, "Ca")) return EMed_Ca;
+   else if (!strcmp(element, "Sc")) return EMed_Sc;
+   else if (!strcmp(element, "Ti")) return EMed_Ti;
+   else if (!strcmp(element, "Va")) return EMed_V;
+   else if (!strcmp(element, "Cr")) return EMed_Cr;
+   else if (!strcmp(element, "Mn")) return EMed_Mn;
+   else if (!strcmp(element, "Fe")) return EMed_Fe;
+   else if (!strcmp(element, "Co")) return EMed_Co;
+   else if (!strcmp(element, "Ni")) return EMed_Ni;
 }
