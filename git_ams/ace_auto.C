@@ -32,8 +32,8 @@ void ace_all_average();
 void ace_convert(const char *element, Particle::Type isotope);
 void ace_compare(); 
 
-TGraphAsymmErrors *get_ace_graph(const char *element, UInt_t iBin, UInt_t nBRs); // over time 
-TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_t nBRs); // over energy bins 
+TGraphAsymmErrors *get_ace_graph(const char *element, UInt_t iBin, UInt_t nBRs); // flux in Kinetic Energy over time 
+TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_t nBRs); // flux in Kinetic over energy bins 
 
 void ace_auto(const char *operation){
  
@@ -406,19 +406,29 @@ void ace_convert(const char *element, Particle::Type isotope){
 	for (UInt_t br=2426; br<=2493; ++br) { 
 		if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
 	}
-	TGraphAsymmErrors *g_ave = get_ace_average_graph( element, &BRs[0], BRs.size() );
+
+	TH1D *h_ene = HistTools::GraphToHist( get_ace_average_graph( element, &BRs[0], BRs.size()) );
+	TH1 *h_ave = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, isotope, "MeV/n cm", "GV m", "_rig");
 
 	for (int i=0; i<nBins/2; ++i){
+		printf("i=%d flux_ave=%10.4e dflux_ave=%10.4e \n", i, h_ave->GetBinContent(i+1), h_ave->GetBinError(i+1));
+	}
+
+	for (int i=0; i<nBins; ++i){
+
+		if (i%2==0){
 					
-			TGraphAsymmErrors *g = get_ace_graph( element, i, BRs.size() );
+			//TGraphAsymmErrors *g = get_ace_graph( element, i, BRs.size() );
 			TGraphAsymmErrors *g_norm = new TGraphAsymmErrors(BRs.size());	
 
 			for (int iBR=2426; iBR<2493; iBR++){
 
 				if (iBR != 2472 && iBR != 2473){
+
+					TH1 *h_rig = (TH1*) fout.Get(Form("h_rig_%s_BR%d", element, iBR));
 					
-					g_norm->SetPoint(iBR-2426, UBRToTime(iBR), g->GetY()[iBR-2426]/g_ave->GetY()[i]);
-					g_norm->SetPointError(iBR-2426, 0., 0., g->GetEYlow()[iBR-2426]/g_ave->GetY()[i], g->GetEYhigh()[iBR-2426]/g_ave->GetY()[i]);
+					g_norm->SetPoint(iBR-2426, UBRToTime(iBR), h_rig->GetBinContent(i+1)/h_ave->GetBinContent(i+1));
+					g_norm->SetPointError(iBR-2426, 0., 0., h_rig->GetBinError(i+1)/h_ave->GetBinContent(i+1), h_rig->GetBinError(i+1)/h_ave->GetBinContent(i+1));
 
 				}
 			}
@@ -445,10 +455,10 @@ void ace_convert(const char *element, Particle::Type isotope){
 			g_norm->GetYaxis()->SetRangeUser(y-y*0.99, y+y*0.9);
 			g_norm->GetXaxis()->SetRangeUser(UBRToTime(2425), UBRToTime(2494));
 			g_norm->SetTitle(Form("%s All Energy Bin Flux Time Series (Normalized)", element));
-			g_norm->Print();
+			//g_norm->Print();
 			c4->cd(1);
 			
-			legend4->AddEntry(g_norm, Form("%d-th Bin Flux", i+1), "l");
+			legend4->AddEntry(g_norm, Form("%d-th Bin Flux", i/2+1), "l");
 
 			if (i==0){
 				g_norm->Draw("ALP");
@@ -457,6 +467,7 @@ void ace_convert(const char *element, Particle::Type isotope){
 				g_norm->Draw("LPSAME");
 				legend4->Draw("SAME");
 			}
+		}
 	} 
 
 	c4->Print(Form("./data/ACE/convert/fluxtime/h_norm_fluxtime_%s_all.png", element));	
