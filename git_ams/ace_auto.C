@@ -7,6 +7,7 @@
 #include "TTree.h"
 #include <set>
 #include <string>
+#include <FitTools.hh> 
 
 #include "commonlib/include/Experiments.hh"
 #include "commonlib/include/HistTools.hh"
@@ -31,6 +32,7 @@ void ace_fill(const char *element, Particle::Type isotope);
 void ace_all_average();
 void ace_convert(const char *element, Particle::Type isotope);
 void ace_compare(); 
+void ace_fitboth(int nnodes);
 
 TGraphAsymmErrors *get_ace_graph(const char *element, UInt_t iBin, UInt_t nBRs); // flux in Kinetic Energy over time 
 TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_t nBRs); // flux in Kinetic over energy bins 
@@ -88,6 +90,7 @@ void ace_auto(const char *operation){
 	} else if (strcmp(operation, "convert") == 0){
 
 		gROOT->ProcessLine(".> data/ACE/convert/rigidity_all.txt");
+
 		ace_convert( "B", Particle::BORON11 );
 		ace_convert( "C", Particle::CARBON12 );
 		ace_convert( "N", Particle::NITROGEN15 );
@@ -119,6 +122,14 @@ void ace_auto(const char *operation){
 		ace_all_average();
 	} else if (strcmp(operation, "compare") == 0){
 		ace_compare();
+	} else if (strcmp(operation, "fitboth") == 0){
+	   //for(int i=5;i<=9;i++){
+		//gROOT->ProcessLine(Form(".> data/ACE/fit_both_%dnodes.txt", i));
+		int nnodes= 8;
+		gROOT->ProcessLine(Form(".> data/ACE/fit_both_%d.txt", nnodes));
+		ace_fitboth(nnodes);
+		gROOT->ProcessLine(".> ");
+	    //} 
 	}
 
 } 
@@ -535,6 +546,124 @@ void ace_compare(){
 	
 	c5->Print("./data/ACE/convert/fluxrigidity/h_compare_fluxrigidity_BCNO.png");	
 
+}
+
+// fit both ACE & AMS data
+void ace_fitboth(int nnodes){
+	
+   Experiments::DataPath = "data";	
+   int data_value[n_ele] = {0, 18, 23, 27, 31, 20, 43, 22};
+
+   const UInt_t FirstACEBR = 2240;
+   vector<UInt_t> BRs;
+   // we stop at BR 2493, which ends on 2016/05/23, just 3 days before the end of the data taking period for AMS nuclei
+   for (UInt_t br=2426; br<=2493; ++br) { 
+	   if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
+   }
+
+   TCanvas *c6 = new TCanvas("c6","compare nodes", 2400, 600);
+   c6->Divide(4,2);
+
+   for (int i=0; i<4; i++){
+
+	TH1 *h_ams = Experiments::GetMeasurementHistogram(Experiments::AMS02, data_value[i+4], 0); // load AMS data for a given element
+	TH1 *h_ene = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[i] , &BRs[0], BRs.size() )); 
+	TH1 *h_ace = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, ACE_Isotope[i], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element, converted in rigidity
+	h_ace->SetTitle(Form("ACE %s Flux in same time span", ACE_Element[i]));
+	// UShort_t nnodes =  // choose number of nodes for the spline
+
+	UShort_t namsbins = h_ams->GetNbinsX();
+	UShort_t nacebins = h_ace->GetNbinsX();
+	double R1 = h_ace->GetBinLowEdge(1);
+	double R2 = h_ams->GetBinLowEdge(namsbins+1);
+
+	// initializes the X and Y position of the spline nodes
+	double *xnodes = HistTools::BuildLogBins(R1, R2, nnodes); // xnodes will be an array of nnodes+1 items
+	double *ynodes = new double[nnodes+1];
+	UShort_t inode;
+	for (inode = 0; inode < nnodes+1; ++inode)
+	{
+   		if (xnodes[inode] > h_ace->GetBinLowEdge(nacebins+1)) break;
+   		ynodes[inode] = h_ace->GetBinContent(h_ace->FindBin(xnodes[inode]));
+	}
+	for (; inode < nnodes+1; ++inode)
+	{
+	   ynodes[inode] = h_ams->GetBinContent(h_ams->FindBin(xnodes[inode]));
+	}
+
+	// create spline
+	Spline *sp = new Spline("sp", nnodes, Spline::LogLog | Spline::PowerLaw, xnodes, ynodes);
+	sp->SetSpectralIndices(3, -2.8, 0, 4, -3.5, -1); // set initial values and limits for the spectral index at first and last node
+	TF1 *fit = sp->GetTF1Pointer();
+
+	// create array of data to be fitted together
+	TObjArray data; 
+	data.Add(h_ace);
+	data.Add(h_ams);
+
+	// fit AMS and ACE data at the same time
+	vector<double> rigmin, rigmax, chi2norm(2);
+	ROOT::Fit::Fitter fitter;
+	FitTools::SetCommonFitterOptions(fitter);
+	FitTools::FitCombinedData(data, fit, "I", rigmin, rigmax, chi2norm, fitter, 3);
+	HistTools::PrintFunction(fit);
+	cout << "" << endl;
+	fitter.Result().Print(cout);
+	cout << "" << endl;
+	TH1D *h_fitres[2];
+	TH1 *h_fiterr[2];
+	for (UShort_t i = 0; i < 2; ++i)
+	{
+  		TH1 *hist = HistTools::ToHist(data[i]);
+   		h_fitres[i] = (TH1D *)HistTools::GetResiduals(hist, fit, "_fitres", false, true, true, 5, 1, 0.68, &fitter);
+		//h_fiterr[i] = HistTools::GetFitError(hist, fit, "_fiterr", true, false, true, 11, 1.); // this will compute the relative error of the fit, centered in 1 (so 1.01 = 1% upward error; 0.98 = 2% downward error, etc)
+		HistTools::CopyStyle(hist, h_fitres[i]);
+
+   		UShort_t ndf  = hist->GetNbinsX();
+   		Double_t chi2 = chi2norm[i]*ndf;
+   		printf(" %d ### %-34s    %6.2f / %-2u   %5.2f   %5.2f%%\n", i, hist->GetTitle(), chi2, ndf, chi2norm[i], TMath::Prob(chi2, ndf)*1e2);
+	}
+
+	c6->cd(i+1);
+
+	TH1 *ha = HistTools::CreateAxis("ha", "haxis1", 0.1, 2500., 7, 1e-10, 1e3, false);
+	ha->SetXTitle(Unit::GetEnergyLabel("GV"));
+  	ha->SetYTitle(Unit::GetDifferentialFluxLabel("GV m")); 
+	ha->SetTitle(Form("Averaged ACE and Integrated %s AMS Flux vs. Rigidity", ACE_Element[i]));
+
+	TH1 *ha_res = HistTools::CreateAxis("ha_res", "haxis2", 0.1, 2500., 7, -1, 1, false);
+	HistTools::CopyStyle(ha, ha_res);
+
+	TLegend *legend6 = new TLegend(0.1,0.8,0.28,0.9); // left, down, right, top
+	legend6->AddEntry(h_ace, Form("ACE %s Flux", ACE_Element[i]), "p");
+	legend6->AddEntry(h_ams, Form("AMS Integrated %s Flux", ACE_Element[i]), "p");
+	legend6->AddEntry(fit, Form("ACE & AMS Combined %s Flux Fit", ACE_Element[i]), "l"); 
+		
+	gPad->SetLogy();
+	gPad->SetLogx();
+	HistTools::SetMarkerStyle(h_ace, HistTools::GetColorPalette(i, 4), kFullCircle, 0.9); 	
+	HistTools::SetMarkerStyle(h_ams, kBlue, kFullCircle, 0.9);	 
+	ha->Draw("E1X0 SAME");
+	h_ace->Draw("E1X0 SAME");
+	h_ams->Draw("E1X0 SAME");
+	legend6->Draw("SAME");
+	
+	//fit->SetLineColor(kRed);
+	//fit->SetLineWidth(1);
+	//fit->SetRange(0.1,2500.);	
+	fit->Draw("SAME");
+
+	c6->cd(i+5);
+
+	gPad->SetLogx();
+	ha_res->SetTitle("");
+	ha_res->Draw("E1X0 SAME");
+	h_fitres[0]->Draw("E1X0 SAME");
+	h_fitres[1]->Draw("E1X0 SAME");
+
+   } // end of BCNO loop
+
+   c6->Print(Form("./data/ACE/compare/compare_BCNO_%dnodes.png", nnodes)); 
 }
 
 UInt_t UTimeToBR(Long64_t utime){
