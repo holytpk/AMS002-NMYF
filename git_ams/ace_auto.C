@@ -125,11 +125,11 @@ void ace_auto(const char *operation){
 	} else if (strcmp(operation, "fitboth") == 0){
 	   //for(int i=5;i<=9;i++){
 		//gROOT->ProcessLine(Form(".> data/ACE/fit_both_%dnodes.txt", i));
-		int nnodes= 8;
-		gROOT->ProcessLine(Form(".> data/ACE/fit_both_%d.txt", nnodes));
+		int nnodes= 8; // 8 nodes for best stats  
+		gROOT->ProcessLine(Form(".> data/ACE/fit_both_%dnodes.txt", nnodes));
 		ace_fitboth(nnodes);
 		gROOT->ProcessLine(".> ");
-	    //} 
+	   //} 
 	}
 
 } 
@@ -561,8 +561,8 @@ void ace_fitboth(int nnodes){
 	   if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
    }
 
-   TCanvas *c6 = new TCanvas("c6","compare nodes", 2400, 600);
-   c6->Divide(4,2);
+   TCanvas *c6 = new TCanvas("c6","compare nodes", 2400, 900);
+   c6->Divide(4,3);
 
    for (int i=0; i<4; i++){
 
@@ -588,14 +588,19 @@ void ace_fitboth(int nnodes){
 	}
 	for (; inode < nnodes+1; ++inode)
 	{
-	   ynodes[inode] = h_ams->GetBinContent(h_ams->FindBin(xnodes[inode]));
+	   double x = xnodes[inode] < h_ams->GetBinLowEdge(1) ? h_ams->GetBinLowEdge(1) : xnodes[inode];
+	   ynodes[inode] = h_ams->GetBinContent(h_ams->FindBin(x));
 	}
 
 	// create spline
 	Spline *sp = new Spline("sp", nnodes, Spline::LogLog | Spline::PowerLaw, xnodes, ynodes);
+	Spline *sp_ams = Spline::BuildFromHistogram(h_ams, "sp_ams", nnodes, Spline::LogLog | Spline::PowerLaw); // AMS alone 
 	sp->SetSpectralIndices(3, -2.8, 0, 4, -3.5, -1); // set initial values and limits for the spectral index at first and last node
-	TF1 *fit = sp->GetTF1Pointer();
+	TF1 *fit = sp->GetTF1Pointer();	
+	TF1 *fit_ams = sp_ams->GetTF1Pointer(); 
 
+	// h_ams->Fit(sp_ams, "NIQ");
+	
 	// create array of data to be fitted together
 	TObjArray data; 
 	data.Add(h_ace);
@@ -604,14 +609,21 @@ void ace_fitboth(int nnodes){
 	// fit AMS and ACE data at the same time
 	vector<double> rigmin, rigmax, chi2norm(2);
 	ROOT::Fit::Fitter fitter;
-	FitTools::SetCommonFitterOptions(fitter);
-	FitTools::FitCombinedData(data, fit, "I", rigmin, rigmax, chi2norm, fitter, 3);
 	HistTools::PrintFunction(fit);
+	FitTools::SetCommonFitterOptions(fitter);
+	FitTools::FitCombinedData(data, fit, "I", rigmin, rigmax, chi2norm, fitter, 3); 
+
+	ROOT::Math::IntegratorOneDimOptions::SetDefaultAbsTolerance(1.E-4); // adjust tolerance
+	ROOT::Math::IntegratorOneDimOptions::SetDefaultRelTolerance(1.E-2); 
+
+	TF1 *f_ratio = HistTools::CombineTF1(fit_ams, fit, HistTools::Divide, "f_ratio", R1, R2); // fit ratio of AMS vs. Combined
+
+	//HistTools::PrintFunction(fit);
 	cout << "" << endl;
 	fitter.Result().Print(cout);
 	cout << "" << endl;
 	TH1D *h_fitres[2];
-	TH1 *h_fiterr[2];
+	//TH1 *h_fiterr[2];
 	for (UShort_t i = 0; i < 2; ++i)
 	{
   		TH1 *hist = HistTools::ToHist(data[i]);
@@ -660,6 +672,10 @@ void ace_fitboth(int nnodes){
 	ha_res->Draw("E1X0 SAME");
 	h_fitres[0]->Draw("E1X0 SAME");
 	h_fitres[1]->Draw("E1X0 SAME");
+	
+	c6->cd(i+9);
+
+	f_ratio->Draw("APL");
 
    } // end of BCNO loop
 
