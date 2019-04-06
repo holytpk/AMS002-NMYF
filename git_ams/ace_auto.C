@@ -8,11 +8,14 @@
 #include <set>
 #include <string>
 #include <FitTools.hh> 
+#include <iostream>
+#include <fstream>
 
 #include "commonlib/include/Experiments.hh"
 #include "commonlib/include/HistTools.hh"
 #include "commonlib/include/Spline.hh"
 #include "commonlib/include/DateTimeTools.hh"
+#include "commonlib/include/debug.hh"
 
 using namespace std;
 
@@ -31,8 +34,9 @@ double *get_spall_corr_unc(const char *element);
 void ace_fill(const char *element, Particle::Type isotope);
 void ace_all_average();
 void ace_convert(const char *element, Particle::Type isotope);
-void ace_compare(); 
 void ace_fitboth(int nnodes);
+void compare_nodes(int k);
+double compare_sig(TF1 *fit1, TF1 *fit2);
 
 TGraphAsymmErrors *get_ace_graph(const char *element, UInt_t iBin, UInt_t nBRs); // flux in Kinetic Energy over time 
 TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_t nBRs); // flux in Kinetic over energy bins 
@@ -42,9 +46,10 @@ void ace_auto(const char *operation){
 	Experiments::DataPath = "data";
 
 	//gROOT->SetBatch();
-	gROOT->ProcessLine(".L ace_auto.C");
+	//gROOT->ProcessLine(".L ace_auto.C");
 
 	gSystem->mkdir("data/ACE/fill", true);
+	gSystem->mkdir("data/ACE/compare", true);
 	gSystem->mkdir("data/ACE/convert", true);
 
 	gSystem->Setenv("TZ", "UCT"); 
@@ -90,7 +95,7 @@ void ace_auto(const char *operation){
 	} else if (strcmp(operation, "convert") == 0){
 
 		gROOT->ProcessLine(".> data/ACE/convert/rigidity_all.txt");
-
+	
 		ace_convert( "B", Particle::BORON11 );
 		ace_convert( "C", Particle::CARBON12 );
 		ace_convert( "N", Particle::NITROGEN15 );
@@ -114,22 +119,30 @@ void ace_auto(const char *operation){
 		ace_convert( "Mn", Particle::MANGANESE55 );
 		ace_convert( "Fe", Particle::IRON56 );
 		ace_convert( "Co", Particle::COBALT59 );
-		ace_convert( "Ni", Particle::NICKEL60 );
+		ace_convert( "Ni", Particle::NICKEL60 ); 
 	
 		gROOT->ProcessLine(".> ");
 		//gROOT->Reset(); 
 	} else if (strcmp(operation, "average") == 0){
 		ace_all_average();
-	} else if (strcmp(operation, "compare") == 0){
-		ace_compare();
+	} else if (strcmp(operation, "compare") == 0){ 
+
+	   gROOT->ProcessLine(".> data/ACE/compare/sigmatest_allnodes.txt");
+	   for(int k=0;k<4;k++){
+		compare_nodes(k);
+	   }
+	   gROOT->ProcessLine(".> "); 
+
 	} else if (strcmp(operation, "fitboth") == 0){
-	   //for(int i=5;i<=9;i++){
-		//gROOT->ProcessLine(Form(".> data/ACE/fit_both_%dnodes.txt", i));
-		int nnodes= 8; // 8 nodes for best stats  
-		gROOT->ProcessLine(Form(".> data/ACE/fit_both_%dnodes.txt", nnodes));
+
+	   gROOT->ProcessLine(".> data/ACE/compare/allnodes.txt");
+	   for(int i=5;i<=9;i++){
+		//gROOT->ProcessLine(Form(".> data/ACE/fit_both_%dnodes.txt", nnodes));
+		int nnodes= i; // 8 nodes for best stats  
+		
 		ace_fitboth(nnodes);
-		gROOT->ProcessLine(".> ");
-	   //} 
+	   }
+	   gROOT->ProcessLine(".> "); 
 	}
 
 } 
@@ -489,67 +502,9 @@ void ace_convert(const char *element, Particle::Type isotope){
 	fin.Close();
 }
 
-// compare ACE w/ AMS
-void ace_compare(){
-
-	Experiments::DataPath = "data"; 
-
-	int data_value[n_ele] = {0, 18, 23, 27, 31, 20, 43, 22};
-
-/*
-	TH1D *h_p = Experiments::GetMeasurementHistogram(Experiments::AMS02, 0, 0);  // proton
-	TH1D *h_he = Experiments::GetMeasurementHistogram(Experiments::AMS02, 18, 0);  // helium 
-	TH1D *h_li = Experiments::GetMeasurementHistogram(Experiments::AMS02, 23, 0);  // lithium
-	TH1D *h_be = Experiments::GetMeasurementHistogram(Experiments::AMS02, 27, 0);  // beryllium
-	TH1D *h_b = Experiments::GetMeasurementHistogram(Experiments::AMS02, 31, 0);  // boron
-	TH1D *h_c = Experiments::GetMeasurementHistogram(Experiments::AMS02, 20, 0);  // carbon
-	TH1D *h_n = Experiments::GetMeasurementHistogram(Experiments::AMS02, 43, 0);  // nitrogen
-	TH1D *h_o = Experiments::GetMeasurementHistogram(Experiments::AMS02, 22, 0);  // oxygen
-*/
-	
-	TCanvas *c5 = new TCanvas("c5","",800,600);
-	c5->Divide(2,2); 
-
-	const UInt_t FirstACEBR = 2240;
-	vector<UInt_t> BRs;
-	// we stop at BR 2493, which ends on 2016/05/23, just 3 days before the end of the data taking period for AMS nuclei
-	for (UInt_t br=2426; br<=2493; ++br) { 
-		if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
-	}
-
-	for (int i=0; i<4; i++){
-
-		TH1D *h_ams = Experiments::GetMeasurementHistogram(Experiments::AMS02, data_value[i+4], 0);
-		TH1D *h_ene = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[i] , &BRs[0], BRs.size() ));
-		TH1 *h_rig = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, ACE_Isotope[i], "MeV/n cm", "GV m", "_rig");
-
-		TH1 *ha = HistTools::CreateAxis("ha", "haxis1", 0.1, 2500., 7, 1e-10, 1e3, false);
-		ha->SetXTitle(Unit::GetEnergyLabel("GV"));
-  		ha->SetYTitle(Unit::GetDifferentialFluxLabel("GV m")); 
-		ha->SetTitle(Form("Averaged ACE and Integrated %s AMS Flux vs. Rigidity", ACE_Element[i]));
-		c5->cd(i+1);
-
-		TLegend *legend5 = new TLegend(0.1,0.8,0.28,0.9); // left, down, right, top
-		legend5->AddEntry(h_rig, Form("ACE %s Flux", ACE_Element[i]), "p");
-		legend5->AddEntry(h_ams, Form("AMS Integrated %s Flux", ACE_Element[i]), "p");
-		
-		gPad->SetLogy();
-		gPad->SetLogx();
-		HistTools::SetMarkerStyle(h_rig, HistTools::GetColorPalette(i, 4), kFullCircle, 0.9);	
-		HistTools::SetMarkerStyle(h_ams, kBlue, kFullCircle, 0.9);	 
-		ha->Draw("E1X0 SAME");
-		h_rig->Draw("E1X0 SAME");
-		h_ams->Draw("E1X0 SAME");
-		legend5->Draw("SAME");
-
-	}
-	
-	c5->Print("./data/ACE/convert/fluxrigidity/h_compare_fluxrigidity_BCNO.png");	
-
-}
-
 // fit both ACE & AMS data
 void ace_fitboth(int nnodes){
+   ofstream bestnode(Form("data/ACE/compare/%dnodes.txt",nnodes));
 	
    Experiments::DataPath = "data";	
    int data_value[n_ele] = {0, 18, 23, 27, 31, 20, 43, 22};
@@ -561,16 +516,28 @@ void ace_fitboth(int nnodes){
 	   if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
    }
 
-   TCanvas *c6 = new TCanvas("c6","compare nodes", 2400, 900);
-   c6->Divide(4,3);
+   TCanvas *c5 = new TCanvas("c5","compare nodes", 2400, 900);
+   c5->Divide(4,3);
 
    for (int i=0; i<4; i++){
+
+	int nnodes_og=6;
+	const char *AMS_Element[n_ele] = { "b", "c", "n", "o", "f" }; // to solve the upper/lower case conflict
+	TFile file1(Form("data/amsfit/fit_result_node%d.root", nnodes_og));
+	
+	Spline *sp_ams = new Spline("sp_ams", nnodes_og, Spline::LogLog | Spline::PowerLaw);
+	TF1 *fsp_ams = sp_ams->GetTF1Pointer(); 
+	TF1 *fit_ams = (TF1*) file1.Get(Form("fsp_%s", AMS_Element[i]));
+
+	HistTools::CopyParameters(fit_ams, fsp_ams);
+	double x1, x2;
+	fit_ams->GetRange(x1,x2);
+	fsp_ams->SetRange(x1,x2);
 
 	TH1 *h_ams = Experiments::GetMeasurementHistogram(Experiments::AMS02, data_value[i+4], 0); // load AMS data for a given element
 	TH1 *h_ene = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[i] , &BRs[0], BRs.size() )); 
 	TH1 *h_ace = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, ACE_Isotope[i], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element, converted in rigidity
 	h_ace->SetTitle(Form("ACE %s Flux in same time span", ACE_Element[i]));
-	// UShort_t nnodes =  // choose number of nodes for the spline
 
 	UShort_t namsbins = h_ams->GetNbinsX();
 	UShort_t nacebins = h_ace->GetNbinsX();
@@ -594,12 +561,8 @@ void ace_fitboth(int nnodes){
 
 	// create spline
 	Spline *sp = new Spline("sp", nnodes, Spline::LogLog | Spline::PowerLaw, xnodes, ynodes);
-	Spline *sp_ams = Spline::BuildFromHistogram(h_ams, "sp_ams", nnodes, Spline::LogLog | Spline::PowerLaw); // AMS alone 
 	sp->SetSpectralIndices(3, -2.8, 0, 4, -3.5, -1); // set initial values and limits for the spectral index at first and last node
 	TF1 *fit = sp->GetTF1Pointer();	
-	TF1 *fit_ams = sp_ams->GetTF1Pointer(); 
-
-	// h_ams->Fit(sp_ams, "NIQ");
 	
 	// create array of data to be fitted together
 	TObjArray data; 
@@ -609,21 +572,24 @@ void ace_fitboth(int nnodes){
 	// fit AMS and ACE data at the same time
 	vector<double> rigmin, rigmax, chi2norm(2);
 	ROOT::Fit::Fitter fitter;
-	HistTools::PrintFunction(fit);
+	//HistTools::PrintFunction(fit);
 	FitTools::SetCommonFitterOptions(fitter);
 	FitTools::FitCombinedData(data, fit, "I", rigmin, rigmax, chi2norm, fitter, 3); 
 
-	ROOT::Math::IntegratorOneDimOptions::SetDefaultAbsTolerance(1.E-4); // adjust tolerance
-	ROOT::Math::IntegratorOneDimOptions::SetDefaultRelTolerance(1.E-2); 
+	//ROOT::Math::IntegratorOneDimOptions::SetDefaultAbsTolerance(1.E-4); // adjust tolerance
+	//ROOT::Math::IntegratorOneDimOptions::SetDefaultRelTolerance(1.E-2); 
 
-	TF1 *f_ratio = HistTools::CombineTF1(fit_ams, fit, HistTools::Divide, "f_ratio", R1, R2); // fit ratio of AMS vs. Combined
+	// compare original AMS fit with ACE/AMS Combined fit 
+	TF1 *f_ratio = HistTools::CombineTF1(fsp_ams, fit, HistTools::Divide, "f_ratio", R1, R2); // fit ratio of AMS vs. Combined
 
-	//HistTools::PrintFunction(fit);
 	cout << "" << endl;
-	fitter.Result().Print(cout);
+	//fitter.Result().Print(cout);
 	cout << "" << endl;
 	TH1D *h_fitres[2];
 	//TH1 *h_fiterr[2];
+	
+	//bestnode.open();
+
 	for (UShort_t i = 0; i < 2; ++i)
 	{
   		TH1 *hist = HistTools::ToHist(data[i]);
@@ -633,10 +599,14 @@ void ace_fitboth(int nnodes){
 
    		UShort_t ndf  = hist->GetNbinsX();
    		Double_t chi2 = chi2norm[i]*ndf;
-   		printf(" %d ### %-34s    %6.2f / %-2u   %5.2f   %5.2f%%\n", i, hist->GetTitle(), chi2, ndf, chi2norm[i], TMath::Prob(chi2, ndf)*1e2);
+   		printf(" %d nodes ### %-34s   chi2/ndf=%6.2f/%-2u   chi2norm=%5.2f   prob.=%5.2f%%\n", nnodes, hist->GetTitle(), chi2, ndf, chi2norm[i], TMath::Prob(chi2, ndf)*1e2);
+		
+		//bestnode << " " << nnodes << " nodes" << hist->GetTitle() << ", chi2=" << chi2 << ", ndf=" << ndf << ", chi2norm=" << chi2norm[i] << ", prob.=" << TMath::Prob(chi2, ndf)*1e2 << endl;
 	}
-
-	c6->cd(i+1);
+	
+	//bestnode.close();
+	
+	c5->cd(i+1);
 
 	TH1 *ha = HistTools::CreateAxis("ha", "haxis1", 0.1, 2500., 7, 1e-10, 1e3, false);
 	ha->SetXTitle(Unit::GetEnergyLabel("GV"));
@@ -646,10 +616,10 @@ void ace_fitboth(int nnodes){
 	TH1 *ha_res = HistTools::CreateAxis("ha_res", "haxis2", 0.1, 2500., 7, -1, 1, false);
 	HistTools::CopyStyle(ha, ha_res);
 
-	TLegend *legend6 = new TLegend(0.1,0.8,0.28,0.9); // left, down, right, top
-	legend6->AddEntry(h_ace, Form("ACE %s Flux", ACE_Element[i]), "p");
-	legend6->AddEntry(h_ams, Form("AMS Integrated %s Flux", ACE_Element[i]), "p");
-	legend6->AddEntry(fit, Form("ACE & AMS Combined %s Flux Fit", ACE_Element[i]), "l"); 
+	TLegend *legend5 = new TLegend(0.1,0.8,0.28,0.9); // left, down, right, top
+	legend5->AddEntry(h_ace, Form("ACE %s Flux", ACE_Element[i]), "p");
+	legend5->AddEntry(h_ams, Form("AMS Integrated %s Flux", ACE_Element[i]), "p");
+	legend5->AddEntry(fit, Form("ACE & AMS Combined %s Flux Fit", ACE_Element[i]), "l"); 
 		
 	gPad->SetLogy();
 	gPad->SetLogx();
@@ -658,28 +628,78 @@ void ace_fitboth(int nnodes){
 	ha->Draw("E1X0 SAME");
 	h_ace->Draw("E1X0 SAME");
 	h_ams->Draw("E1X0 SAME");
-	legend6->Draw("SAME");
+	legend5->Draw("SAME");
 	
 	//fit->SetLineColor(kRed);
 	//fit->SetLineWidth(1);
-	//fit->SetRange(0.1,2500.);	
+	fit->SetRange(0.1,2500.);	
 	fit->Draw("SAME");
 
-	c6->cd(i+5);
+	c5->cd(i+5);
 
 	gPad->SetLogx();
-	ha_res->SetTitle("");
+	ha_res->SetTitle(Form("%s Fit Residuals;Rigidity [GV];", ACE_Element[i]));
 	ha_res->Draw("E1X0 SAME");
 	h_fitres[0]->Draw("E1X0 SAME");
 	h_fitres[1]->Draw("E1X0 SAME");
 	
-	c6->cd(i+9);
+	c5->cd(i+9);
+	
+	TH1 *ha_ratio = HistTools::CreateAxis("ha_ratio", "haxis_ratio", 0.1, 2500., 7, 0., 2.5, false);
+	ha_ratio->SetTitle(Form("AMS %s Fit vs. Combined Fit Ratio;Rigidity [GV];", ACE_Element[i]));
+	HistTools::SetMarkerStyle(f_ratio, kRed, kFullCircle, 0.6);
+	gPad->SetLogx();
+	
+	//f_ratio->GetYaxis()->SetRangeUser(0., 1.);
+	f_ratio->SetRange(0.1,2500.);
+	ha_ratio->Draw("E1X0");
+	f_ratio->Draw("SAME");
 
-	f_ratio->Draw("APL");
+	TFile file0(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[i], nnodes), "RECREATE"); 
+
+	fit->Write("fit_both"); 
+
+	file0.Write();
+   	file0.Close();
 
    } // end of BCNO loop
 
-   c6->Print(Form("./data/ACE/compare/compare_BCNO_%dnodes.png", nnodes)); 
+   c5->Print(Form("./data/ACE/compare/compare_BCNO_%dnodes.png", nnodes));
+
+}
+
+void compare_nodes(int k){ 
+
+	TH2D *fit = new TH2D("fit", "ACE/AMS Combined Fit Sigma Test for All Nodes for BCNO",5,0,5,5,0,5); 
+	TCanvas *c1 = new TCanvas();
+	//c1->Divide(2,2);
+	c1->cd(1);
+
+	for (int i=5;i<=9;i++){
+
+	fit->GetXaxis()->SetBinLabel(i-4, Form("%d", i));
+
+	   for (int j=i+1;j<=9;j++){
+
+		TFile file1(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[k], i));
+		TFile file2(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[k], j));
+	
+		TF1 *fit1 = (TF1*) file1.Get("fit_both");
+		TF1 *fit2 = (TF1*) file2.Get("fit_both");		
+		
+		double sigma = compare_sig(fit1, fit2);
+		//HistTools::PrintFunction(fit1);	
+		printf("%s Fit %d vs. %d, sigma = %0.4f \n", ACE_Element[k], i, j, sigma); 
+
+		fit->SetBinContent(i-4,j-i+1,sigma);
+		fit->GetYaxis()->SetBinLabel(j-4, Form("%d", j));
+		fit->SetTitle(Form("ACE/AMS Combined Fit Sigma Test for All Nodes for %s", ACE_Element[k]));
+		fit->Draw("Colz");
+
+		file1.Close();
+		file2.Close();
+	   }
+	}
 }
 
 UInt_t UTimeToBR(Long64_t utime){
@@ -798,6 +818,25 @@ TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_
    _file2->Close();
    return graph;
 }
+
+double compare_sig(TF1 *fit1, TF1 *fit2){ 
+
+			// w/ nnodes = fit1 
+			double chi2_1 = fit1->GetChisquare(); // chi-squared = sum of the square of the residuals, where residual = (data - fit)/data_error
+			double dof_1 = fit1->GetNDF(); // number of degrees of freedom = number of data points - number of free parameters in the fit
+			double norm_chi2_1 = chi2_1/dof_1; // normalized chi-squared
+
+			// w/ nnodes = fit2 
+			double chi2_2 = fit2->GetChisquare(); // chi-squared = sum of the square of the residuals, where residual = (data - fit)/data_error
+			double dof_2 = fit2->GetNDF(); // number of degrees of freedom = number of data points - number of free parameters in the fit
+			double norm_chi2_2 = chi2_2/dof_2; // normalized chi-squared
+
+			double pvalue = TMath::Prob(chi2_1 - chi2_2, dof_1 - dof_2);
+			double sigma = TMath::Sqrt2()*TMath::ErfcInverse(pvalue);	
+				
+			return sigma; 
+}
+
 
 double *get_kin_bins(const char *element)
 {
