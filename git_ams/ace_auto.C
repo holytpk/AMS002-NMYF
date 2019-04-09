@@ -31,12 +31,13 @@ double *get_EMed(const char *element);
 double *get_kin_bins(const char *element);
 double *get_spall_corr(const char *element);
 double *get_spall_corr_unc(const char *element);
-void ace_fill(const char *element, Particle::Type isotope);
-void ace_all_average();
-void ace_convert(const char *element, Particle::Type isotope);
-void ace_fitboth(int nnodes);
-void compare_nodes(int k);
-double compare_sig(TF1 *fit1, TF1 *fit2);
+void ace_fill(const char *element, Particle::Type isotope); // fill ACE/CRIS data into root histograms then save 
+void ace_all_average(); // plot averaged flux over energy bins for all elements
+void ace_convert(const char *element, Particle::Type isotope); // convert h_ene into h_rig and also plot flux and normalized flux over time
+void ace_fitboth(int nnodes); // fit ACE&AMS combined data 
+void compare_nodes(int k); // compare among spline fit results for 5-9 nodes 
+double compare_sig(TF1 *fit1, TF1 *fit2); // obtain sigma value between two fits
+void ace_extend(); // divide remaining ACE data that is not measured by AMS by combined fit to find a flat residual for ACE assumption at high energy region
 
 TGraphAsymmErrors *get_ace_graph(const char *element, UInt_t iBin, UInt_t nBRs); // flux in Kinetic Energy over time 
 TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_t nBRs); // flux in Kinetic over energy bins 
@@ -49,6 +50,7 @@ void ace_auto(const char *operation){
 	//gROOT->ProcessLine(".L ace_auto.C");
 
 	gSystem->mkdir("data/ACE/fill", true);
+	gSystem->mkdir("data/ACE/extend", true);
 	gSystem->mkdir("data/ACE/compare", true);
 	gSystem->mkdir("data/ACE/convert", true);
 
@@ -59,7 +61,7 @@ void ace_auto(const char *operation){
 	gStyle->SetPalette(55); 
 
 	const int nAce = 28-5+1; 
-	const char *elements[nAce] = { "B11", "C12", "N15", "O16", "F19", "Ne20", "Na23", "Mg24", "Al27", "Si28", "P31", "S32", "Cl35", "Ar36", "K41", "Ca40", "Sc45", "Ti46", "Va51", "Cr52", "Mn55", "Fe56", "Co59", "Ni60" };
+	// const char *elements[nAce] = { "B11", "C12", "N15", "O16", "F19", "Ne20", "Na23", "Mg24", "Al27", "Si28", "P31", "S32", "Cl35", "Ar36", "K41", "Ca40", "Sc45", "Ti46", "Va51", "Cr52", "Mn55", "Fe56", "Co59", "Ni60" }; list of chosen isotopes
 	
 	if (strcmp(operation, "fill") == 0){
 
@@ -143,6 +145,8 @@ void ace_auto(const char *operation){
 		ace_fitboth(nnodes);
 	   }
 	   gROOT->ProcessLine(".> "); 
+	} else if (strcmp(operation, "extend") == 0){
+		ace_extend();
 	}
 
 } 
@@ -702,6 +706,111 @@ void compare_nodes(int k){
 	}
 }
 
+// make extension assumption for remaining ACE element data that is not measured by AMS
+void ace_extend(){
+
+	const UInt_t FirstACEBR = 2240;
+   	vector<UInt_t> BRs;
+  	// we stop at BR 2493, which ends on 2016/05/23, just 3 days before the end of the data taking period for AMS nuclei
+   	for (UInt_t br=2426; br<=2493; ++br) { 
+	   	if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
+   	}
+
+	/* for (int i=0; i<4; i++){
+
+		int nnodes = 7;
+
+		TFile file1(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[i], nnodes)); // load combined fit
+	
+		Spline *sp_comb = new Spline("sp_comb", nnodes, Spline::LogLog | Spline::PowerLaw);
+		TF1 *fsp_comb = sp_comb->GetTF1Pointer();  
+		TF1 *fit_comb = (TF1*) file1.Get("fit_both");
+
+		HistTools::CopyParameters(fit_comb, fsp_comb);
+		double x1, x2;
+		fit_comb->GetRange(x1,x2);
+		fsp_comb->SetRange(x1,x2);
+
+		fit_comb->SetTitle(Form("ACE+AMS %s Flux Combined Fit", ACE_Element[i]));
+
+		//TLegend *legend6 = new TLegend(0.1,0.8,0.28,0.9); // left, down, right, top
+
+		for (int j=4; j<24; j++){
+
+			c6->cd(j+1);
+
+			TH1 *h_ene = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[j] , &BRs[0], BRs.size() )); 
+			TH1 *h_ace = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, ACE_Isotope[j], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity
+			TH1 *h_ratio = (TH1D *)HistTools::GetResiduals(h_ace, fit_comb, "_ratio", false, true, true, 4, 1);
+			h_ratio->SetTitle(Form("ACE %s Flux Divided by Combined Fit Residuals", ACE_Element[j]));
+			HistTools::SetMarkerStyle(h_ratio, HistTools::GetColorPalette(i, 4), kFullCircle, 0.9);
+
+			//TH1 *ha_ratio = HistTools::CreateAxis("ha_ratio", "haxis_ratio", 0., 2.5, 7, 0., 30.*h_ratio->GetBinContent(1), false);
+			//ha_ratio->SetTitle(Form("ACE %s Data vs. Combined Fit Ratio;Rigidity [GV];", ACE_Element[j]));
+			//ha_ratio->Draw("E1X0");
+			
+			//legend6->AddEntry(h_ratio, Form("Divided by %s Fit", ACE_Element[i]), "p"); 
+	
+			h_ratio->Draw("E1X0 SAME");
+			//legend6->Draw("SAME");
+
+		}
+
+		file1.Close();
+	} */
+
+	TCanvas *c6 = new TCanvas("c6","f_ratio residuals for remaining elements", 2400, 900);
+	c6->Divide(6, 4);
+
+	for (int i=4; i<24; i++){
+  
+		c6->cd(i+1);
+
+		TLegend *legend6 = new TLegend(0.1,0.8,0.28,0.9); // left, down, right, top
+
+		for (int j=0; j<4; j++){
+
+			int nnodes = 7;
+
+			TFile file1(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[j], nnodes)); // load combined fit
+			TH1 *h_ene = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[i] , &BRs[0], BRs.size() )); 
+			TH1 *h_ace = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, ACE_Isotope[i], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity
+	
+			Spline *sp_comb = new Spline("sp_comb", nnodes, Spline::LogLog | Spline::PowerLaw);
+			TF1 *fsp_comb = sp_comb->GetTF1Pointer();  
+			TF1 *fit_comb = (TF1*) file1.Get("fit_both");
+
+			HistTools::CopyParameters(fit_comb, fsp_comb);
+			double x1, x2;
+			fit_comb->GetRange(x1,x2);
+			fsp_comb->SetRange(x1,x2);
+
+			TH1 *h_ratio = (TH1D *)HistTools::GetResiduals(h_ace, fit_comb, "_ratio", false, true, true, 4, 1);
+			HistTools::SetMarkerStyle(h_ratio, HistTools::GetColorPalette(j, 4), kFullCircle, 0.9);
+
+			//for(int k=0;k<14;k++){
+			//	
+			//	if (k%2==0) printf("h_ace=%0.18f, h_ratio=%0.18f \n", h_ace->GetBinContent(k+1), h_ratio->GetBinContent(k+1));
+			//}
+
+			//HistTools::PrintFunction(fit_comb);
+			legend6->AddEntry(h_ratio, Form("Divided by %s Fit", ACE_Element[j]), "p"); 
+
+			h_ratio->SetTitle(Form("Scaled ACE %s Data vs. Combined Fit Ratio;Rigidity [GV];", ACE_Element[j]));
+			h_ratio->Draw("E1X0 SAME"); 
+			legend6->Draw("SAME");
+
+			//double avg = h_ratio->GetMean(2);
+			//h_ratio->Scale(1./avg);
+			//file1.Close();
+		}
+
+		
+	} 
+
+	c6->Print("./data/ACE/extend/ACE_extend_residuals.png");
+}
+
 UInt_t UTimeToBR(Long64_t utime){
 	Long64_t first_BR = -4351622400; // Unix time corresponding to the first Bartels rotation: Feb. 8th, 1832
 	return (utime - first_BR) / (27*86400) + 1;
@@ -750,8 +859,6 @@ TGraphAsymmErrors *get_ace_graph(const char *element, UInt_t iBin, UInt_t nBRs){
 
    }
 
-   //graph->RemovePoint(46); 
-   //graph->RemovePoint(46);
    graph->Set(65);
 
    _file2->Close();
