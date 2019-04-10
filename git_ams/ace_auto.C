@@ -38,6 +38,7 @@ void ace_fitboth(int nnodes); // fit ACE&AMS combined data
 void compare_nodes(int k); // compare among spline fit results for 5-9 nodes 
 double compare_sig(TF1 *fit1, TF1 *fit2); // obtain sigma value between two fits
 void ace_extend(); // divide remaining ACE data that is not measured by AMS by combined fit to find a flat residual for ACE assumption at high energy region
+void ace_extend2(); // fit_comb of BNO / C
 
 TGraphAsymmErrors *get_ace_graph(const char *element, UInt_t iBin, UInt_t nBRs); // flux in Kinetic Energy over time 
 TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_t nBRs); // flux in Kinetic over energy bins 
@@ -51,6 +52,7 @@ void ace_auto(const char *operation){
 
 	gSystem->mkdir("data/ACE/fill", true);
 	gSystem->mkdir("data/ACE/extend", true);
+	gSystem->mkdir("data/ACE/extend2", true);
 	gSystem->mkdir("data/ACE/compare", true);
 	gSystem->mkdir("data/ACE/convert", true);
 
@@ -147,6 +149,8 @@ void ace_auto(const char *operation){
 	   gROOT->ProcessLine(".> "); 
 	} else if (strcmp(operation, "extend") == 0){
 		ace_extend();
+	} else if (strcmp(operation, "extend2") == 0){
+		ace_extend2();
 	}
 
 } 
@@ -716,59 +720,17 @@ void ace_extend(){
 	   	if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
    	}
 
-	/* for (int i=0; i<4; i++){
-
-		int nnodes = 7;
-
-		TFile file1(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[i], nnodes)); // load combined fit
-	
-		Spline *sp_comb = new Spline("sp_comb", nnodes, Spline::LogLog | Spline::PowerLaw);
-		TF1 *fsp_comb = sp_comb->GetTF1Pointer();  
-		TF1 *fit_comb = (TF1*) file1.Get("fit_both");
-
-		HistTools::CopyParameters(fit_comb, fsp_comb);
-		double x1, x2;
-		fit_comb->GetRange(x1,x2);
-		fsp_comb->SetRange(x1,x2);
-
-		fit_comb->SetTitle(Form("ACE+AMS %s Flux Combined Fit", ACE_Element[i]));
-
-		//TLegend *legend6 = new TLegend(0.1,0.8,0.28,0.9); // left, down, right, top
-
-		for (int j=4; j<24; j++){
-
-			c6->cd(j+1);
-
-			TH1 *h_ene = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[j] , &BRs[0], BRs.size() )); 
-			TH1 *h_ace = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, ACE_Isotope[j], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity
-			TH1 *h_ratio = (TH1D *)HistTools::GetResiduals(h_ace, fit_comb, "_ratio", false, true, true, 4, 1);
-			h_ratio->SetTitle(Form("ACE %s Flux Divided by Combined Fit Residuals", ACE_Element[j]));
-			HistTools::SetMarkerStyle(h_ratio, HistTools::GetColorPalette(i, 4), kFullCircle, 0.9);
-
-			//TH1 *ha_ratio = HistTools::CreateAxis("ha_ratio", "haxis_ratio", 0., 2.5, 7, 0., 30.*h_ratio->GetBinContent(1), false);
-			//ha_ratio->SetTitle(Form("ACE %s Data vs. Combined Fit Ratio;Rigidity [GV];", ACE_Element[j]));
-			//ha_ratio->Draw("E1X0");
-			
-			//legend6->AddEntry(h_ratio, Form("Divided by %s Fit", ACE_Element[i]), "p"); 
-	
-			h_ratio->Draw("E1X0 SAME");
-			//legend6->Draw("SAME");
-
-		}
-
-		file1.Close();
-	} */
-
-	TCanvas *c6 = new TCanvas("c6","f_ratio residuals for remaining elements", 2400, 900);
-	c6->Divide(6, 4);
-
 	for (int i=4; i<24; i++){
-  
-		c6->cd(i+1);
 
-		TLegend *legend6 = new TLegend(0.1,0.8,0.28,0.9); // left, down, right, top
+		TCanvas *c6 = new TCanvas("c6","f_ratio residuals for remaining elements", 2400, 900);
+		c6->Divide(2, 2);
 
 		for (int j=0; j<4; j++){
+	
+			c6->cd(j+1);
+
+			TH1 *ha_ratio = HistTools::CreateAxis("ha_ratio", Form("%s/%s;Rigidity [GV];", ACE_Element[i], ACE_Element[j]), 0.8, 2.5, 7, 0.6, 1.2, false);
+			ha_ratio->Draw("E1X0");
 
 			int nnodes = 7;
 
@@ -786,29 +748,133 @@ void ace_extend(){
 			fsp_comb->SetRange(x1,x2);
 
 			TH1 *h_ratio = (TH1D *)HistTools::GetResiduals(h_ace, fit_comb, "_ratio", false, true, true, 4, 1);
-			HistTools::SetMarkerStyle(h_ratio, HistTools::GetColorPalette(j, 4), kFullCircle, 0.9);
+			HistTools::SetStyle(h_ratio, HistTools::GetColorPalette(j, 4), kFullCircle, 0.9, 1, 1);
 
-			//for(int k=0;k<14;k++){
-			//	
-			//	if (k%2==0) printf("h_ace=%0.18f, h_ratio=%0.18f \n", h_ace->GetBinContent(k+1), h_ratio->GetBinContent(k+1));
-			//}
-
+			double ratio_sum=0; // compute average of h_ratio manually  
+			for(int k=0;k<14;k++){
+				ratio_sum += h_ratio->GetBinContent(k);
+				//printf("ratio_sum = %0.6f \n", ratio_sum);
+			}
+			double ratio_ave = ratio_sum/h_ratio->GetEntries();
+			
+			//printf("ratio_ave = %0.6f w/ %0.1f Entries \n", ratio_ave, h_ratio->GetEntries());
 			//HistTools::PrintFunction(fit_comb);
-			legend6->AddEntry(h_ratio, Form("Divided by %s Fit", ACE_Element[j]), "p"); 
+			
+			double scale = 1./ratio_ave;
+			//printf("i=%d, j=%d, scale = %0.6f \n", i, j, scale); 
+			h_ratio->Scale(scale);
 
-			h_ratio->SetTitle(Form("Scaled ACE %s Data vs. Combined Fit Ratio;Rigidity [GV];", ACE_Element[j]));
+			h_ratio->Print("range");
+
+			gPad->SetGrid();
+			//gPad->SetLogx();
+
+			h_ratio->SetTitle(Form("Scaled ACE %s Data vs. Combined Fit Ratio;Rigidity [GV];", ACE_Element[i]));
 			h_ratio->Draw("E1X0 SAME"); 
-			legend6->Draw("SAME");
-
-			//double avg = h_ratio->GetMean(2);
-			//h_ratio->Scale(1./avg);
+						
 			//file1.Close();
 		}
 
-		
+		//break; 
+		c6->Print(Form("./data/ACE/extend/ACE_extend_residuals_%s.png", ACE_Element[i]));
 	} 
+}
 
-	c6->Print("./data/ACE/extend/ACE_extend_residuals.png");
+void ace_extend2(){
+
+	const UInt_t FirstACEBR = 2240;
+   	vector<UInt_t> BRs;
+  	// we stop at BR 2493, which ends on 2016/05/23, just 3 days before the end of the data taking period for AMS nuclei
+   	for (UInt_t br=2426; br<=2493; ++br) { 
+	   	if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
+   	}
+
+	TCanvas *c7 = new TCanvas("c7","f_ratio residuals for remaining elements", 2400, 900);
+	c7->Divide(2, 2);
+
+	TLegend *legend6 = new TLegend(0.1,0.8,0.28,0.9); // left, down, right, top
+
+/*	for (int i=0; i<4; i++){
+
+		c7->cd(1);
+	
+		int nnodes = 7;
+
+		TFile file1(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[i], nnodes)); // load combined fit
+		TH1 *h_ene = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[i] , &BRs[0], BRs.size() )); 
+		TH1 *h_ace = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, ACE_Isotope[i], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity
+	
+		Spline *sp_comb = new Spline("sp_comb", nnodes, Spline::LogLog | Spline::PowerLaw);
+		TF1 *fsp_comb = sp_comb->GetTF1Pointer();  
+		TF1 *fit_comb = (TF1*) file1.Get("fit_both");
+
+		HistTools::CopyParameters(fit_comb, fsp_comb);
+		double x1, x2;
+		fit_comb->GetRange(x1,x2);
+		fsp_comb->SetRange(x1,x2);
+
+		legend6->AddEntry(Form("ACE %s Combined Fit", ACE_Element[i]));  
+		fit_comb->Draw("SAME");
+
+	}
+*/
+
+	int k=0; 
+
+	for (int j=0; j<4; j++){
+
+	   if (j!=1){
+
+		c7->cd(k+2); 
+		//TH1 *ha_ratio = HistTools::CreateAxis("ha_ratio", Form("%s/%s;Rigidity [GV];", BNO[j], BNO[j]), 0.8, 2.5, 7, 0.6, 1.2, false);
+		//ha_ratio->Draw("E1X0");
+
+		int nnodes = 7;
+
+		TFile file1(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[j], nnodes)); // load combined fit
+		TH1 *h_ene = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[j] , &BRs[0], BRs.size() )); 
+		TH1 *h_ace = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, ACE_Isotope[j], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity
+	
+		Spline *sp_comb = new Spline("sp_comb", nnodes, Spline::LogLog | Spline::PowerLaw);
+		TF1 *fsp_comb = sp_comb->GetTF1Pointer();  
+		TF1 *fit_comb = (TF1*) file1.Get("fit_both");
+
+		HistTools::CopyParameters(fit_comb, fsp_comb);
+		double x1, x2;
+		fit_comb->GetRange(x1,x2); 
+		fsp_comb->SetRange(x1,x2);
+
+		TFile file2(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[1], nnodes)); // load C combined fit
+		TH1 *h_ene_C = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[1] , &BRs[0], BRs.size() )); 
+		TH1 *h_ace_C = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene_C, ACE_Isotope[1], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity
+	
+		Spline *sp_comb_C = new Spline("sp_comb_C", nnodes, Spline::LogLog | Spline::PowerLaw);
+		TF1 *fsp_comb_C = sp_comb_C->GetTF1Pointer();  
+		TF1 *fit_comb_C = (TF1*) file1.Get("fit_both");
+
+		HistTools::CopyParameters(fit_comb_C, fsp_comb_C);
+		double x1_C, x2_C;
+		fit_comb_C->GetRange(x1_C,x2_C);
+		fsp_comb_C->SetRange(x1_C,x2_C);
+
+		double R1 = h_ace->GetBinLowEdge(1);
+		double R2 = h_ace_C->GetBinLowEdge(h_ace_C->GetNbinsX()+1);
+ 
+		TF1 *f_ratio = HistTools::CombineTF1(fit_comb, fit_comb_C, HistTools::Divide, "f_ratio", R1, R2); // fit ratio of Combined vs. Combined C
+
+		gPad->SetGrid();
+		//gPad->SetLogx();
+
+		f_ratio->Draw("SAME"); 	
+					
+		k++;	
+
+		//break; 
+	   } else if (j==1) continue; 
+	} 	
+
+	c7->Print("./data/ACE/extend2/BNOvsC.png");
+
 }
 
 UInt_t UTimeToBR(Long64_t utime){
