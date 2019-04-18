@@ -1,4 +1,4 @@
-// Fill ACE data
+// Manipulate ACE/CRIS data by Lingqiang He, updated on 04/17/2019
 // for i in {5..28}; do sed -r -e'1,5d' -e's/^ +//' -e's/ +/ /g' cris_energy_bands.txt | egrep "^$((i))" | cut -d' ' -f3,4 | paste -sd' ' | sed -r 's/ /, /g' >> ace_energy_band.dat; done
 
 //CRIS: BR 2240-2529
@@ -6,6 +6,7 @@
 #include "TFile.h"
 #include "TTree.h"
 #include <set>
+#include <array>
 #include <string>
 #include <FitTools.hh> 
 #include <iostream>
@@ -24,6 +25,63 @@ const int n_ele = 24; // number of elements
 const char *ACE_Element[n_ele] = { "B", "C", "N", "O", "F", "Ne", "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar", "K", "Ca", "Sc", "Ti", "Va", "Cr", "Mn", "Fe", "Co", "Ni" };
 Particle::Type ACE_Isotope[n_ele] = { Particle::BORON11, Particle::CARBON12, Particle::NITROGEN15, Particle::OXYGEN16, Particle::FLUORINE19, Particle::NEON20, Particle::SODIUM23, Particle::MAGNESIUM24, Particle::ALUMINUM27, Particle::SILICON28, Particle::PHOSPHORUS31, Particle::SULFUR32, Particle::CHLORINE35, Particle::ARGON36, Particle::POTASSIUM41, Particle::CALCIUM40, Particle::SCANDIUM45, Particle::TITANIUM46, Particle::VANADIUM51, Particle::CHROMIUM52, Particle::MANGANESE55, Particle::IRON56, Particle::COBALT59, Particle::NICKEL60 };
 
+Particle::Type compare_isotope[24][10] = {
+      { Particle::BORON10, Particle::BORON11 }, // sec, sec
+      { Particle::CARBON12,  Particle::CARBON13, Particle::CARBON14 }, // pri, sec, abs
+      { Particle::NITROGEN14, Particle::NITROGEN15 }, // mix, sec
+      { Particle::OXYGEN16, Particle::OXYGEN17, Particle::OXYGEN18 }, // pri, sec, mix
+      { Particle::FLUORINE18, Particle::FLUORINE19 }, // abs, sec 
+      { Particle::NEON20, Particle::NEON21, Particle::NEON22 }, // pri, sec, mix
+      { Particle::SODIUM22, Particle::SODIUM23, Particle::SODIUM24 }, // abs, mix, abs
+      { Particle::MAGNESIUM24, Particle::MAGNESIUM25, Particle::MAGNESIUM26 }, // pri, mix, mix
+      { Particle::ALUMINUM26, Particle::ALUMINUM27 }, // sec, mix
+      { Particle::SILICON28, Particle::SILICON29, Particle::SILICON30, Particle::SILICON31, Particle::SILICON32 }, // pri, mix, mix, abs, abs
+      { Particle::PHOSPHORUS29, Particle::PHOSPHORUS31, Particle::PHOSPHORUS32, Particle::PHOSPHORUS33 }, // abs, mix, abs, abs
+      { Particle::SULFUR30, Particle::SULFUR31, Particle::SULFUR32, Particle::SULFUR33, Particle::SULFUR34, Particle::SULFUR35, Particle::SULFUR36 }, // abs, abs, pri, sec, mix, abs, mix
+      { Particle::CHLORINE33, Particle::CHLORINE35, Particle::CHLORINE36, Particle::CHLORINE37 }, // abs, sec, sec, sec
+      { Particle::ARGON34, Particle::ARGON36, Particle::ARGON37, Particle::ARGON38, Particle::ARGON39, Particle::ARGON40, Particle::ARGON41, Particle::ARGON42 }, // abs, mix, sec, mix, abs, sec, abs, abs
+      { Particle::POTASSIUM37, Particle::POTASSIUM39, Particle::POTASSIUM40, Particle::POTASSIUM41 }, // abs, sec, sec, sec
+      { Particle::CALCIUM40, Particle::CALCIUM41, Particle::CALCIUM42, Particle::CALCIUM43, Particle::CALCIUM44, Particle::CALCIUM45, Particle::CALCIUM46, Particle::CALCIUM47, Particle::CALCIUM48 }, // pri, sec, sec, sec, sec, abs, sec, abs, sec
+      { Particle::SCANDIUM43, Particle::SCANDIUM44, Particle::SCANDIUM45, Particle::SCANDIUM46, Particle::SCANDIUM47, Particle::SCANDIUM48 }, // abs, abs, sec, abs, abs, abs
+      { Particle::TITANIUM44, Particle::TITANIUM45, Particle::TITANIUM46, Particle::TITANIUM47, Particle::TITANIUM48, Particle::TITANIUM49, Particle::TITANIUM50 }, // sec, abs, sec, sec, sec, sec, sec
+      { Particle::VANADIUM48, Particle::VANADIUM49, Particle::VANADIUM50, Particle::VANADIUM51 }, // abs, sec, sec, sec
+      { Particle::CHROMIUM50, Particle::CHROMIUM51, Particle::CHROMIUM52, Particle::CHROMIUM53, Particle::CHROMIUM54 }, // sec, sec, mix, sec, sec
+      { Particle::MANGANESE52, Particle::MANGANESE53, Particle::MANGANESE54, Particle::MANGANESE55 }, // abs, sec, sec, mix
+      { Particle::IRON54, Particle::IRON55, Particle::IRON56, Particle::IRON57, Particle::IRON58, Particle::IRON59, Particle::IRON60 }, // mix, sec, pri, pri, pri, abs, abs
+      { Particle::COBALT56, Particle::COBALT57, Particle::COBALT58, Particle::COBALT59, Particle::COBALT60 }, // abs, sec, abs, pri, abs
+      { Particle::NICKEL56, Particle::NICKEL58, Particle::NICKEL59, Particle::NICKEL60, Particle::NICKEL61, Particle::NICKEL62, Particle::NICKEL63, Particle::NICKEL64 } // abs, pri, sec, pri, pri, pri, abs, pri
+};
+
+string name_isotope[24][10] = {
+
+      { "B10", "B11" },
+      { "C12", "C13", "C14" },
+      { "N14", "N15" },
+      { "O16", "O17", "O18" },
+      { "F18", "F19" },
+      { "Ne20", "Ne21", "Ne22" },
+      { "Na22", "Na23", "Na24" },
+      { "Mg24", "Mg25", "Mg26" },
+      { "Al26", "Al27" },
+      { "Si28", "Si29", "Si30", "Si31", "Si32" },
+      { "P29", "P31", "P32", "P33" },
+      { "S30", "S31", "S32", "S33", "S34", "S35", "S36" },
+      { "Cl33", "Cl35", "Cl36", "Cl37" },
+      { "Ar34", "Ar36", "Ar37", "Ar38", "Ar39", "Ar40", "Ar41", "Ar42" },
+      { "K37", "K39", "K40", "K41" },
+      { "Ca40", "Ca41", "Ca42", "Ca43", "Ca44", "Ca45", "Ca46", "Ca47", "Ca48" },
+      { "Sc43", "Sc44", "Sc45", "Sc46", "Sc47", "Sc48" },
+      { "Ti44", "Ti45", "Ti46", "Ti47", "Ti48", "Ti49", "Ti50" },
+      { "V48", "V49", "V50", "V51" },
+      { "Cr50", "Cr51", "Cr52", "Cr53", "Cr54" },
+      { "Mn52", "Mn53", "Mn54", "Mn55" },
+      { "Fe54", "Fe55", "Fe56", "Fe57", "Fe58", "Fe59", "Fe60" },
+      { "Co56", "Co57", "Co58", "Co59", "Co60" },
+      { "Ni56", "Ni58", "Ni59", "Ni60", "Ni61", "Ni62", "Ni63", "Ni64" },
+};
+
+int isotope_size[24] = { 2, 3, 2, 3, 2, 3, 3, 3, 2, 5, 4, 7, 4, 8, 4, 9, 6, 7, 4, 5, 4, 7, 5, 8 }; // change when compare_isotope[][] is changed 
+
 // list of functions 
 UInt_t UTimeToBR(Long64_t utime);
 UInt_t UBRToTime(int BR);
@@ -38,7 +96,9 @@ void ace_fitboth(int nnodes); // fit ACE&AMS combined data
 void compare_nodes(int k); // compare among spline fit results for 5-9 nodes 
 double compare_sig(TF1 *fit1, TF1 *fit2); // obtain sigma value between two fits
 void ace_extend(); // divide remaining ACE data that is not measured by AMS by combined fit to find a flat residual for ACE assumption at high energy region
+		   // divide elements with Z>8 ACE data by combinced C cit 
 void ace_extend2(); // fit_comb of BNO / C
+void ace_extend3(); // group ratios from extend() part II and check isotope assumptions 
 
 TGraphAsymmErrors *get_ace_graph(const char *element, UInt_t iBin, UInt_t nBRs); // flux in Kinetic Energy over time 
 TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_t nBRs); // flux in Kinetic over energy bins 
@@ -151,6 +211,8 @@ void ace_auto(const char *operation){
 		ace_extend();
 	} else if (strcmp(operation, "extend2") == 0){
 		ace_extend2();
+	} else if (strcmp(operation, "extend3") == 0){
+		ace_extend3();
 	}
 
 } 
@@ -723,12 +785,12 @@ void ace_extend(){
 
 	for (int i=4; i<24; i++){
 
-		TCanvas *c6 = new TCanvas("c6","f_ratio residuals for remaining elements", 2400, 900);
-		c6->Divide(2, 2);
+		TCanvas *c1 = new TCanvas("c1","f_ratio residuals for remaining elements", 2400, 900);
+		c1->Divide(2, 2);
 
 		for (int j=0; j<4; j++){
 	
-			c6->cd(j+1);
+			c1->cd(j+1);
 
 			TH1 *ha_ratio = HistTools::CreateAxis("ha_ratio", Form("Norm %s/%s;Rigidity [GV];", ACE_Element[i], ACE_Element[j]), 0.8, 2.5, 7, 0.6, 1.2, false);
 			ha_ratio->Draw("E1X0");
@@ -777,76 +839,94 @@ void ace_extend(){
 		}
 
 		//break; 
-		c6->Print(Form("./data/ACE/extend/ACE_extend_residuals_byBCNO_%s.png", ACE_Element[i]));
+		c1->Print(Form("./data/ACE/extend/ACE_extend_residuals_byBCNO_%s.png", ACE_Element[i]));
 	} 
 
-	TCanvas *c7 = new TCanvas("c7","f_ratio residuals for remaining elements", 2400, 900);
-	c7->Divide(2, 1);
+	TCanvas *c2 = new TCanvas("c2","f_ratio residuals for remaining elements", 2400, 900);
+	c2->Divide(2, 1);
 
 	int nnodes = 7;
 	TFile file2(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[1], nnodes)); // load C combined fit	
 
-	// ACE Z>8 element data over C Combined Fit Normalized Ratio
+	// ACE Z>8 element data over C Combined Fit Normalized Ratio for varies isotopes 
 	for (int i=4; i<24; i++){
 	
-		c7->cd(1);
+		c2->cd(1);
 
 		gPad->SetGrid();
 		gPad->SetLogy();
 		gPad->SetLogx();
 
-		TH1 *ha = HistTools::CreateAxis("ha", Form("ACE %s Flux & Combined Fit", ACE_Element[i]), 0.1, 2500., 7, 1e-10, 1e2, false);
-
+		TH1 *ha = HistTools::CreateAxis("ha", Form("ACE %s Flux & C Combined Fit", ACE_Element[i]), 0.1, 2500., 7, 1e-10, 1e2, false);
 		ha->Draw("E1X0");
-	
-		TH1 *h_ene = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[i] , &BRs[0], BRs.size() )); 
-		TH1 *h_ace = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, ACE_Isotope[i], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity
-		HistTools::SetStyle(h_ace, kBlue, kFullCircle, 0.9, 1, 1);
 
-		Spline *sp_comb = new Spline("sp_comb", nnodes, Spline::LogLog | Spline::PowerLaw);
-		TF1 *fsp_comb = sp_comb->GetTF1Pointer();  
-		TF1 *fit_comb = (TF1*) file2.Get("fit_both");
+		c2->cd(2);
 
-		HistTools::CopyParameters(fit_comb, fsp_comb);
-		double x1, x2;
-		fit_comb->GetRange(x1,x2);
-		fsp_comb->SetRange(x1,x2);
-
-		h_ace->Draw("E1X0 SAME");
-		fit_comb->Draw("SAME");
-
-		TH1 *h_res = (TH1D *) HistTools::GetResiduals(h_ace, fit_comb, "_ratio", false, true, true, 4, 1);
-		TH1 *h_ratio = (TH1 *) h_ace->Clone("h_ratio");
-		h_ratio->Divide(fit_comb);
-		HistTools::SetStyle(h_ratio, kRed, kFullCircle, 0.9, 1, 1);
-
-		double ratio_sum=0; // compute average of h_ratio manually  
-		for(int k=0;k<14;k++){
-			ratio_sum += h_ratio->GetBinContent(k);
-			//printf("ratio_sum = %0.6f \n", ratio_sum);
-		}
-		double ratio_ave = ratio_sum/h_res->GetEntries();
-			
-		printf("ratio_ave = %0.6f w/ %0.1f Entries \n", ratio_ave, h_ratio->GetEntries());
-		//HistTools::PrintFunction(fit_comb);
-			
-		double scale = 1./ratio_ave;
-		//printf("i=%d, j=%d, scale = %0.6f \n", i, j, scale); 
-		h_ratio->Scale(scale);
-
-		//h_ratio->Print("range");
-
-		c7->cd(2);
-
-		TH1 *ha_ratio = HistTools::CreateAxis("ha_ratio", Form("Norm %s/%s;Rigidity [GV];", ACE_Element[i], ACE_Element[1]), 0.8, 2.4, 7, 0.7, 1.3, false);
+		TH1 *ha_ratio = HistTools::CreateAxis("ha_ratio", Form("Normalized %s/%s;Rigidity [GV];", ACE_Element[i], ACE_Element[1]), 0.8, 2.4, 7, 0.7, 1.3, false);
 		ha_ratio->Draw("E1X0");
 
-		gPad->SetGrid();
+		TLegend *legend1 = new TLegend(0.1,0.8,0.24,0.9); // left, down, right, top
+		TLegend *legend2 = new TLegend(0.1,0.8,0.24,0.9); // left, down, right, top
 
-		h_ratio->SetTitle(Form("Scaled Ratio between ACE %s Data & Combined Fit;Rigidity [GV];", ACE_Element[i]));
-		h_ratio->Draw("E1X0 SAME"); 
+		for (int j=0; j<isotope_size[i]; j++){
 
-		c7->Print(Form("./data/ACE/extend/ACE_extend_ratio_byC_%s.png", ACE_Element[i]));
+			TH1 *h_ene = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[i] , &BRs[0], BRs.size() )); 
+			TH1 *h_ace = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, compare_isotope[i][j], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity
+			HistTools::SetStyle(h_ace, kBlue, kFullCircle, 0.9, 1, 1);
+
+			Spline *sp_comb = new Spline("sp_comb", nnodes, Spline::LogLog | Spline::PowerLaw);
+			TF1 *fsp_comb = sp_comb->GetTF1Pointer();  
+			TF1 *fit_comb = (TF1*) file2.Get("fit_both");
+
+			HistTools::CopyParameters(fit_comb, fsp_comb);
+			double x1, x2;
+			fit_comb->GetRange(x1,x2);
+			fsp_comb->SetRange(x1,x2);
+	
+			c2->cd(1);
+
+			HistTools::SetStyle(h_ace, HistTools::GetColorPalette(j, isotope_size[i]), kFullCircle, 0.9, 1, 1);
+			legend1->AddEntry(h_ace, Form("%s", name_isotope[i][j].c_str())); 
+			
+			h_ace->Draw("E1X0 SAME");
+			fit_comb->Draw("SAME");
+			legend1->Draw("SAME");
+
+			TH1 *h_res = (TH1D *) HistTools::GetResiduals(h_ace, fit_comb, "_ratio", false, true, true, 4, 1);
+			TH1 *h_ratio = (TH1 *) h_ace->Clone("h_ratio");
+			h_ratio->Divide(fit_comb);
+			HistTools::SetStyle(h_ratio, kRed, kFullCircle, 0.9, 1, 1);
+
+			double ratio_sum=0; // compute average of h_ratio manually  
+			for(int k=0;k<14;k++){
+				ratio_sum += h_ratio->GetBinContent(k);
+				//printf("ratio_sum = %0.6f \n", ratio_sum);
+			}
+			double ratio_ave = ratio_sum/h_res->GetEntries();
+			
+			//printf("ratio_ave = %0.6f w/ %0.1f Entries \n", ratio_ave, h_ratio->GetEntries());
+			//HistTools::PrintFunction(fit_comb);
+			
+			double scale = 1./ratio_ave;
+			//printf("i=%d, j=%d, scale = %0.6f \n", i, j, scale); 
+			h_ratio->Scale(scale);
+
+			//h_ratio->Print("range");
+
+			c2->cd(2); 
+
+			gPad->SetGrid();
+
+			HistTools::SetStyle(h_ratio, HistTools::GetColorPalette(j, isotope_size[i]), kFullCircle, 0.9, 1, 1);
+			legend2->AddEntry(h_ratio, Form("%s/%s", name_isotope[i][j].c_str(), ACE_Element[1])); 
+			legend2->Draw("SAME");
+
+			h_ratio->SetTitle(Form("Scaled Ratio between ACE %s Data & Combined Fit;Rigidity [GV];", ACE_Element[i]));
+			h_ratio->Draw("E1X0 SAME"); 
+
+		}
+
+		c2->Print(Form("./data/ACE/extend/ACE_extend_ratio_byC_%s.png", ACE_Element[i]));
 
 	} 
 	
@@ -967,8 +1047,88 @@ void ace_extend2(){
 	   //break;
 	} 	
 
-
 	c8->Print("./data/ACE/extend2/BNOvsC.png");
+
+}
+
+void ace_extend3(){
+
+	const UInt_t FirstACEBR = 2240;
+   	vector<UInt_t> BRs;
+  	// we stop at BR 2493, which ends on 2016/05/23, just 3 days before the end of the data taking period for AMS nuclei
+   	for (UInt_t br=2426; br<=2493; ++br) { 
+	   	if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
+	}
+
+	string group[5][6] = {  { "Al", "Ar", "Ca", "Cr", "F", "Na" },
+				{ "Cl", "K", "P" }, 
+				{ "Co", "Mn", "Ni", "S" }, 
+				{ "Mg", "Ne", "Si" }, 
+				{ "Fe", "Sc", "Ti", "Va" } };
+
+	Particle::Type group_iso[5][6] = { { Particle::ALUMINUM27, Particle::ARGON36, Particle::CALCIUM40, Particle::CHROMIUM52, Particle::FLUORINE19, Particle::SODIUM23 }, 
+					   { Particle::CHLORINE35, Particle::POTASSIUM41, Particle::PHOSPHORUS31 }, 
+					   { Particle::COBALT59, Particle::MANGANESE55, Particle::NICKEL60, Particle::SULFUR32 }, 
+					   { Particle::MAGNESIUM24, Particle::NEON20, Particle::SILICON28 }, 
+					   { Particle::IRON56, Particle::SCANDIUM45, Particle::TITANIUM46, Particle::VANADIUM51 } }; 
+	
+	int size[5] = { 6, 3, 4, 3, 4 }; // update every time when the line above is changed 
+
+	TCanvas *c1 = new TCanvas("c1","f_ratio for Z>8 elements with similar shape of ratio", 2400, 900);
+	c1->Divide(3, 2);
+
+	// group similar ratios together 
+ 	for (int i=0; i<5; i++){
+
+		c1->cd(i+1);
+
+		TH1 *ha_ratio = HistTools::CreateAxis("ha_ratio", Form("Normalized Flux/C Ratio Shape #%d;Rigidity [GV];", i+1), 0.8, 2.5, 7, 0.6, 1.2, false);
+		ha_ratio->Draw("E1X0");
+
+		TLegend *legend1 = new TLegend(0.1,0.8,0.24,0.9); 
+
+		for (int j=0; j<size[i]; j++){
+
+			int nnodes = 7;
+
+			TFile file1(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[1], nnodes)); // load combined fit
+			TH1 *h_ene = HistTools::GraphToHist(get_ace_average_graph( group[i][j].c_str() , &BRs[0], BRs.size() )); 
+			TH1 *h_ace = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, group_iso[i][j], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity
+	
+			Spline *sp_comb = new Spline("sp_comb", nnodes, Spline::LogLog | Spline::PowerLaw);
+			TF1 *fsp_comb = sp_comb->GetTF1Pointer();  
+			TF1 *fit_comb = (TF1*) file1.Get("fit_both");
+
+			HistTools::CopyParameters(fit_comb, fsp_comb);
+			double x1, x2;
+			fit_comb->GetRange(x1,x2);
+			fsp_comb->SetRange(x1,x2);
+
+			TH1 *h_ratio = (TH1D *)HistTools::GetResiduals(h_ace, fit_comb, "_ratio", false, true, true, 4, 1);
+			HistTools::SetStyle(h_ratio, HistTools::GetColorPalette(j, 4), kFullCircle, 0.9, 1, 1);
+
+			double ratio_sum=0; // compute average of h_ratio manually  
+			for(int k=0;k<14;k++){
+				ratio_sum += h_ratio->GetBinContent(k);
+				//printf("ratio_sum = %0.6f \n", ratio_sum);
+			}
+			double ratio_ave = ratio_sum/h_ratio->GetEntries();
+			
+			double scale = 1./ratio_ave;
+			h_ratio->Scale(scale);
+
+			legend1->AddEntry(h_ratio, Form("%s/C", group[i][j].c_str() )); 
+
+			gPad->SetGrid();
+			h_ratio->Draw("E1X0 SAME"); 
+						
+			file1.Close();
+		}
+		//break; 
+		legend1->Draw("SAME");
+	} 
+
+	c1->Print("./data/ACE/extend/ACE_extend_group_ratio_dividebyC.png");
 
 }
 
