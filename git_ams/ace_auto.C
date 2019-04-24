@@ -844,8 +844,11 @@ void ace_extend(){
 		c1->Print(Form("./data/ACE/extend/ACE_extend_residuals_byBCNO_%s.png", ACE_Element[i]));
 	} 
 
-	TCanvas *c2 = new TCanvas("c2","f_ratio residuals for remaining elements", 2400, 900);
-	c2->Divide(2, 2);
+	TCanvas *c2 = new TCanvas("c2","f_ratio panel for remaining elements", 2400, 3600);
+	c2->Divide(2, 3);
+
+	//TCanvas *c3 = new TCanvas("c3","f_ratio stats for remaining elements", 2400, 900);
+	//c3->Divide(2, 2);
 
 	int nnodes = 7;
 	TFile file2(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[1], nnodes)); // load C combined fit
@@ -873,7 +876,8 @@ void ace_extend(){
 		legend2->SetNColumns(2);
 
 		TH1D *h_chi2 = new TH1D();  
-		TH1D *h_var = new TH1D();
+		TH1D *h_var1 = new TH1D();	
+		TH1D *h_var2 = new TH1D();
 
 		for (int j=0; j<isotope_size[i]; j++){
 
@@ -953,6 +957,56 @@ void ace_extend(){
 			c2->cd(3);
 			gPad->SetGrid();
 
+			int Nbins = 7;
+
+			double mu_abs=0, std_abs=0; // average relative absolute difference
+			for(int k=0;k<14;k++){
+				if(k%2==0) mu_abs += abs(h_ratio->GetBinContent(k+1)-1); 
+			
+			}
+			mu_abs = mu_abs/Nbins; 
+
+			for(int k=0;k<14;k++){
+				if(k%2==0) std_abs += pow(h_ratio->GetBinContent(k+1)-mu_abs, 2)/(Nbins-1); 
+			
+			}
+
+			std_abs = sqrt(std_abs); 
+
+			h_var1->SetBinContent(j+1, mu_abs); 
+			h_var1->SetBinError(j+1, std_abs);
+			h_var1->GetXaxis()->SetBinLabel(j+1, name_isotope[i][j].c_str());  
+			HistTools::SetStyle(h_var1, kRed, kFullCircle, 0.9, 1, 1);
+			h_var1->SetTitle(Form("%s/%s Average Absolute Variation;;abs(data-1)/N", ACE_Element[i], ACE_Element[1])); 
+			h_var1->Draw("E1X0"); 
+
+			c2->cd(4);
+			gPad->SetGrid();
+
+			double mu=0, std=0; // average relative absolute difference
+			for(int k=0;k<14;k++){
+				if(k%2==0) mu += h_ratio->GetBinContent(k+1)-1; 
+				printf("data = %0.7f, mu = %0.20f \n", h_ratio->GetBinContent(k+1), mu);  
+			}
+			mu = mu/Nbins;
+			
+			for(int k=0;k<14;k++){
+				if(k%2==0) std += pow(h_ratio->GetBinContent(k+1)-mu, 2)/(Nbins-1); 
+				printf("std = %0.7f \n", std);  
+			}
+
+			std = sqrt(std); 
+
+			h_var2->SetBinContent(j+1, mu); 
+			h_var2->SetBinError(j+1, std); 
+			h_var2->GetXaxis()->SetBinLabel(j+1, name_isotope[i][j].c_str());  
+			HistTools::SetStyle(h_var2, kRed, kFullCircle, 0.9, 1, 1);
+			h_var2->SetTitle(Form("%s/%s Average Relative Variation Test;;(data-1)/N", ACE_Element[i], ACE_Element[1])); 
+			h_var2->Draw("E1X0"); 
+
+			c2->cd(5);
+			gPad->SetGrid();
+
 			TF1 *f_flat = new TF1("f_flat","[0]"); // create flat ratio line   
 			f_flat->SetParameter(0, 1);  	
 
@@ -961,7 +1015,7 @@ void ace_extend(){
 			double chi2_flat=0; 
 
 			for(int k=0;k<14;k++){
-				if(k%2==0) chi2_flat += pow(h_ratio->GetBinContent(k+1)-1, 2);
+				if(k%2==0) chi2_flat += pow(h_ratio->GetBinContent(k+1)-1, 2)/h_ratio->GetBinError(k+1); 
 				//printf("%0.7f \n", h_ratio->GetBinError(k+1)); 
 			}
 
@@ -976,21 +1030,9 @@ void ace_extend(){
 			h_chi2->SetTitle(Form("%s/%s Chi-2 Test;;(data-1)^2/error", ACE_Element[i], ACE_Element[1])); 
 			h_chi2->Draw("HIST P"); 
 
-			c2->cd(4);
+			c2->cd(6);
 			gPad->SetGrid();
 
-			double var_flat=0;
-
-			for(int k=0;k<14;k++){
-				if(k%2==0) var_flat += abs(h_ratio->GetBinContent(k+1)-1)/7;
-			}
-
-			h_var->SetBinContent(j+1, var_flat); 
-
-			h_var->GetXaxis()->SetBinLabel(j+1, name_isotope[i][j].c_str());  
-			HistTools::SetStyle(h_var, kRed, kFullCircle, 0.9, 1, 1);
-			h_var->SetTitle(Form("%s/%s Variation Test;;abs(data-1)", ACE_Element[i], ACE_Element[1])); 
-			h_var->Draw("HIST P"); 
 
 		}
 
