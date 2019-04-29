@@ -123,7 +123,7 @@ void ace_auto(const char *operation){
 	gStyle->SetPalette(55); 
 
 	const int nAce = 28-5+1; 
-	// const char *elements[nAce] = { "B11", "C12", "N15", "O16", "F19", "Ne20", "Na23", "Mg24", "Al27", "Si28", "P31", "S32", "Cl35", "Ar36", "K41", "Ca40", "Sc45", "Ti46", "Va51", "Cr52", "Mn55", "Fe56", "Co59", "Ni60" }; list of chosen isotopes
+	// const char *elements[nAce] = { "B11", "C12", "N15", "O16", "F19", "Ne20", "Na23", "Mg24", "Al27", "Si28", "P31", "S32", "Cl35", "Ar36", "K41", "Ca40", "Sc45", "Ti46", "Va51", "Cr52", "Mn55", "Fe56", "Co59", "Ni60" }; list of most abundant isotopes
 	
 	if (strcmp(operation, "fill") == 0){
 
@@ -1145,6 +1145,8 @@ void ace_extend2(){
 
 void ace_extend3(){
 
+	Debug::Enable(Debug::ALL); 
+
 	const UInt_t FirstACEBR = 2240;
    	vector<UInt_t> BRs;
   	// we stop at BR 2493, which ends on 2016/05/23, just 3 days before the end of the data taking period for AMS nuclei
@@ -1152,19 +1154,25 @@ void ace_extend3(){
 	   	if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
 	}
 
-	string group[5][6] = {  { "Al", "Ar", "Ca", "Cr", "F", "Na" },
+	string group[5][6] = {  { "Al", "Ar", "Ca", "Cr", "Na" },
 				{ "Cl", "K", "P" }, 
 				{ "Co", "Mn", "Ni", "S" }, 
-				{ "Mg", "Ne", "Si" }, 
-				{ "Fe", "Sc", "Ti", "Va" } };
+				{ "Mg", "Ne", "Si", "F" }, 
+				{ "Fe", "Sc", "Ti", "Va" } }; 
 
-	Particle::Type group_iso[5][6] = { { Particle::ALUMINUM27, Particle::ARGON36, Particle::CALCIUM40, Particle::CHROMIUM52, Particle::FLUORINE19, Particle::SODIUM23 }, 
+	Particle::Type group_iso[5][6] = { { Particle::ALUMINUM27, Particle::ARGON36, Particle::CALCIUM40, Particle::CHROMIUM52, Particle::SODIUM23 }, 
 					   { Particle::CHLORINE35, Particle::POTASSIUM41, Particle::PHOSPHORUS31 }, 
 					   { Particle::COBALT59, Particle::MANGANESE55, Particle::NICKEL60, Particle::SULFUR32 }, 
-					   { Particle::MAGNESIUM24, Particle::NEON20, Particle::SILICON28 }, 
+					   { Particle::MAGNESIUM24, Particle::NEON20, Particle::SILICON28, Particle::FLUORINE19 }, 
 					   { Particle::IRON56, Particle::SCANDIUM45, Particle::TITANIUM46, Particle::VANADIUM51 } }; 
 	
-	int size[5] = { 6, 3, 4, 3, 4 }; // update every time when the line above is changed 
+	int size[5] = { 5, 3, 4, 4, 4 }; // update every time when the line above is changed 
+	
+	string group_abund[5][6] = {  { "Al27", "Ar36", "Ca40", "Cr52", "Na23" },
+				{ "Cl35", "K41", "P31" }, 
+				{ "Co59", "Mn55", "Ni60", "S32" }, 
+				{ "Mg24", "Ne20", "Si28", "F19" }, 
+				{ "Fe56", "Sc45", "Ti46", "Va51" } };
 
 	TCanvas *c1 = new TCanvas("c1","f_ratio for Z>8 elements with similar shape of ratio", 2400, 900);
 	c1->Divide(3, 2);
@@ -1175,7 +1183,7 @@ void ace_extend3(){
 		c1->cd(i+1);
 
 		TH1 *ha_ratio = HistTools::CreateAxis("ha_ratio", Form("Normalized Flux/C Ratio Shape #%d;Rigidity [GV];", i+1), 0.8, 2.5, 7, 0.6, 1.2, false);
-		ha_ratio->Draw("E1X0");
+		ha_ratio->Draw("E1X0"); 
 
 		TLegend *legend1 = new TLegend(0.1,0.8,0.24,0.9); 
 
@@ -1196,31 +1204,177 @@ void ace_extend3(){
 			fit_comb->GetRange(x1,x2);
 			fsp_comb->SetRange(x1,x2);
 
-			TH1 *h_ratio = (TH1D *)HistTools::GetResiduals(h_ace, fit_comb, "_ratio", false, true, true, 4, 1);
-			HistTools::SetStyle(h_ratio, HistTools::GetColorPalette(j, 4), kFullCircle, 0.9, 1, 1);
+			TH1 *h_res = (TH1D *)HistTools::GetResiduals(h_ace, fit_comb, "_ratio", false, true, true, 4, 1);
+			HistTools::SetStyle(h_res, HistTools::GetColorPalette(j, size[i]), kFullCircle, 0.9, 1, 1);
 
-			double ratio_sum=0; // compute average of h_ratio manually  
+			double res_sum=0; // compute average of h_res manually  
 			for(int k=0;k<14;k++){
-				ratio_sum += h_ratio->GetBinContent(k);
+				res_sum += h_res->GetBinContent(k);
 				//printf("ratio_sum = %0.6f \n", ratio_sum);
 			}
-			double ratio_ave = ratio_sum/h_ratio->GetEntries();
+			double res_ave = res_sum/h_res->GetEntries();
 			
-			double scale = 1./ratio_ave;
-			h_ratio->Scale(scale); 
+			double scale = 1./res_ave;
+			h_res->Scale(scale); 
 
-			legend1->AddEntry(h_ratio, Form("%s/C", group[i][j].c_str() )); 
+			legend1->AddEntry(h_res, Form("%s/C", group[i][j].c_str() )); 
 
 			gPad->SetGrid();
-			h_ratio->Draw("E1X0 SAME"); 
-						
-			file1.Close();
+			h_res->Draw("E1X0 SAME");
+
 		}
 		//break; 
 		legend1->Draw("SAME");
 	} 
 
 	c1->Print("./data/ACE/extend/ACE_extend_group_ratio_dividebyC.png");
+
+	// group similar ratios together 
+ 	for (int i=0; i<5; i++){
+
+		TCanvas *c2 = new TCanvas("c2","f_ratio for Z>8 elements with similar shape of ratio", 2400, 900);
+		c2->Divide(3, 2);
+
+		c2->cd(1); 
+
+		TH1 *ha_ratio = HistTools::CreateAxis("ha_ratio", Form("Normalized Flux/C Ratio Shape #%d;Rigidity [GV];", i+1), 0.8, 2.5, 7, 0.6, 1.2, false);
+		ha_ratio->Draw("E1X0");
+
+		c2->cd(2); 
+
+		TH1 *ha_res = HistTools::CreateAxis("ha_res", Form("Normalized Flux/C Residual Shape #%d;Rigidity [GV];", i+1), 0.8, 2.5, 7, 0.6, 1.2, false);
+		ha_res->Draw("E1X0");
+
+		TLegend *legend1 = new TLegend(0.1,0.8,0.24,0.9); 
+		TLegend *legend2 = new TLegend(0.1,0.8,0.24,0.9); 
+
+		TH1D *h_chi2 = new TH1D();  
+		TH1D *h_var1 = new TH1D();	
+		TH1D *h_var1a = new TH1D();
+
+		for (int j=0; j<size[i]; j++){
+
+			int nnodes = 7;
+
+			TFile file1(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[1], nnodes)); // load combined fit
+			TH1 *h_ene = HistTools::GraphToHist(get_ace_average_graph( group[i][j].c_str() , &BRs[0], BRs.size() ), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
+			TH1 *h_ace = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, group_iso[i][j], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity
+	
+			Spline *sp_comb = new Spline("sp_comb", nnodes, Spline::LogLog | Spline::PowerLaw); 
+			TF1 *fsp_comb = sp_comb->GetTF1Pointer();  
+			TF1 *fit_comb = (TF1*) file1.Get("fit_both");
+
+			HistTools::CopyParameters(fit_comb, fsp_comb);
+			double x1, x2;
+			fit_comb->GetRange(x1,x2);
+			fsp_comb->SetRange(x1,x2);
+
+			TH1 *h_ratio = (TH1 *) h_ace->Clone("h_ratio");
+			HistTools::SetStyle(h_ratio, HistTools::GetColorPalette(j, size[i]), kFullCircle, 0.9, 1, 1);
+			h_ratio->Divide(fit_comb);
+			legend1->AddEntry(h_ratio, Form("%s/C", group_abund[i][j].c_str() ));
+
+			TH1 *h_res = (TH1D *)HistTools::GetResiduals(h_ace, fit_comb, "_ratio", false, true, true, 4, 1);
+			HistTools::SetStyle(h_res, HistTools::GetColorPalette(j, size[i]), kFullCircle, 0.9, 1, 1);
+			legend2->AddEntry(h_res, Form("%s/C", group_abund[i][j].c_str() ));
+
+		//	PRINT_HIST(h_res);
+
+			double ratio_sum=0; // compute average of h_res manually  
+			for(int k=0;k<14;k++){
+				ratio_sum += h_ratio->GetBinContent(k);
+				printf("ratio_sum = %0.6f, # of bins = %f \n", ratio_sum, h_res->GetEntries()); // after divide by the fit, the entries of h_ratio changes  
+			}
+			double ratio_ave = ratio_sum/h_res->GetEntries();
+
+			PRINT_HIST(h_ratio);
+		
+			h_ratio->Scale(1./ratio_ave); 
+
+			double res_sum=0; // compute average of h_ratio manually  
+			for(int k=0;k<14;k++){
+				res_sum += h_res->GetBinContent(k);
+				//printf("ratio_sum = %0.6f \n", ratio_sum);
+			}
+			double res_ave = res_sum/h_res->GetEntries();
+			
+			//printf("ratio_ave = %0.6f w/ %0.1f Entries \n", ratio_ave, h_ratio->GetEntries());
+			//HistTools::PrintFunction(fit_comb);
+
+			//printf("i=%d, j=%d, scale = %0.6f \n", i, j, scale); 
+			h_res->Scale(1./res_ave); 
+		
+			c2->cd(1); 
+			gPad->SetGrid();	
+
+			h_ratio->Draw("E1X0 SAME");
+			legend1->Draw("SAME");		
+
+			c2->cd(2);
+			gPad->SetGrid();
+
+			h_res->Draw("E1X0 SAME");
+			legend2->Draw("SAME"); 
+
+			c2->cd(4);
+			gPad->SetGrid();
+	
+			int Nbins = 7;
+
+			double mu_abs=0; // average relative absolute difference
+			for(int k=0;k<14;k++){
+				if(k%2==0) mu_abs += abs(h_ratio->GetBinContent(k+1)-1); 
+			
+			}
+			mu_abs = mu_abs/Nbins; 
+
+			h_var1->SetBinContent(j+1, mu_abs); 
+			h_var1->GetXaxis()->SetBinLabel(j+1, group_abund[i][j].c_str());  
+			HistTools::SetStyle(h_var1, kRed, kFullCircle, 0.9, 1, 1);
+			h_var1->SetTitle("Average Absolute Variation;; (sum of abs(data-1))/N"); 
+			h_var1->Draw("HIST P"); 
+
+			c2->cd(5);
+			gPad->SetGrid();
+
+			double std_abs=0; 
+
+			for(int k=0;k<14;k++){
+				if(k%2==0) std_abs += pow(h_ratio->GetBinContent(k+1)-1-mu_abs, 2); 
+				//printf("data = %0.7f, mu_abs = %0.7f, std_abs = %0.7f \n", h_ratio->GetBinContent(k+1), mu_abs, std_abs);  
+			}
+
+			std_abs = std_abs/(Nbins-1); 
+			std_abs = sqrt(std_abs); 
+
+			h_var1a->SetBinContent(j+1, std_abs);
+			h_var1a->GetXaxis()->SetBinLabel(j+1, group_abund[i][j].c_str());  
+			HistTools::SetStyle(h_var1a, kRed, kFullCircle, 0.9, 1, 1);
+			h_var1a->SetTitle("Average Absolute Variation STD;; std_abs"); 
+			h_var1a->Draw("HIST P"); 
+
+			c2->cd(6);
+			gPad->SetGrid();
+
+			double chi2_flat=0; 
+
+			for(int k=0;k<14;k++){
+				if(k%2==0) chi2_flat += pow((h_ratio->GetBinContent(k+1)-1)/h_ratio->GetBinError(k+1), 2); 
+				//printf("chi2 = %0.7f, data = %0.7f, error = %0.7f \n", chi2_flat, h_ratio->GetBinContent(k+1), h_ratio->GetBinError(k+1)); 
+			}
+
+			h_chi2->SetBinContent(j+1, chi2_flat); 
+
+			h_chi2->GetXaxis()->SetBinLabel(j+1, group_abund[i][j].c_str());  
+			HistTools::SetStyle(h_chi2, kRed, kFullCircle, 0.9, 1, 1);
+			h_chi2->SetTitle(Form("%s/%s Chi-2 Test;;sum of ((data-1)/error)^2", group[i][j].c_str(), ACE_Element[1])); 
+			h_chi2->Draw("HIST P");  
+						
+			//file1.Close();
+		}
+ 	
+		c2->Print(Form("./data/ACE/extend/ACE_extend_group_ratio_dividebyC_shape%d.png", i+1));
+	} 
 
 }
 
