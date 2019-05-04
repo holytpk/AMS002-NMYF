@@ -286,8 +286,9 @@ void ace_all_average(){
 
    gSystem->mkdir("data/ACE/average", true);
 
-   TCanvas *c1 = new TCanvas("c1","", 1600, 1200);
+   TCanvas *c1 = new TCanvas("c1","", 2400, 1200);
    c1->Divide(2, 1);
+   gStyle->SetPalette(1);
 
    TLegend *legend1 = new TLegend(0.1,0.6,0.28,0.9); // left, down, right, top
    TLegend *legend2 = new TLegend(0.1,0.6,0.28,0.9); // left, down, right, top
@@ -299,13 +300,13 @@ void ace_all_average(){
    c1->cd(1);
    gPad->SetLogy();
    h1->Draw();
-   h1->SetTitle("All Element Average Kinetic Energy Spectrum");
+   h1->SetTitle("All Element Kinetic Energy Spectrum (Averaged by Months)");
    h1->SetXTitle(Unit::GetEnergyLabel("MeV/n"));
    h1->SetYTitle(Unit::GetDifferentialFluxLabel("MeV/n cm"));
    c1->cd(2);
    gPad->SetLogy();
    h2->Draw();
-   h2->SetTitle("All Element Average Energy Spectrum");
+   h2->SetTitle("All Element Rigidity Spectrum (Averaged by Months)");
    h2->SetXTitle(Unit::GetEnergyLabel("GV"));
    h2->SetYTitle(Unit::GetDifferentialFluxLabel("GV m"));
 
@@ -323,6 +324,7 @@ void ace_all_average(){
 	HistTools::SetMarkerStyle(h_ene, HistTools::GetColorPalette(i, n_ele), kFullCircle, 0.9);	
 	c1->cd(1);
 	gPad->SetGrid(); 
+	gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
 	legend1->AddEntry(h_ene, Form("%s", ACE_Element[i]), "p");
 	legend1->SetNColumns(2);
 	h_ene->Draw("E1X0 SAME"); 
@@ -331,6 +333,7 @@ void ace_all_average(){
 	HistTools::SetMarkerStyle(h_rig, HistTools::GetColorPalette(i, n_ele), kFullCircle, 0.9);
 	c1->cd(2);
 	gPad->SetGrid();
+	gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
 	legend2->AddEntry(h_rig, Form("%s", ACE_Element[i]), "p");
 	legend2->SetNColumns(2);
 	h_rig->Draw("E1X0 SAME"); 
@@ -548,7 +551,8 @@ void ace_convert(const char *element, Particle::Type isotope){
 			//gPad->SetLogy();
 			g_norm->GetYaxis()->SetRangeUser(y-y*0.99, y+y*0.9);
 			g_norm->GetXaxis()->SetRangeUser(UBRToTime(2425), UBRToTime(2494));
-			g_norm->SetTitle(Form("%s All Energy Bin Flux Time Series (Normalized)", element));
+			g_norm->SetTitle(Form("%s All Energy Bin Flux Time Series (Normalized by Months); ;Normalized Flux", element)); 
+
 			//g_norm->Print();
 			c4->cd(1);
 			
