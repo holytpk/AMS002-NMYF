@@ -1413,6 +1413,11 @@ void ace_extend4(){
 	TGraph *g_chisq = new TGraph();
 	TGraph *g_maxres = new TGraph(); 
 
+	TGraph *g_rad1 = new TGraph();	
+	TGraph *g_radstd1 = new TGraph();
+	TGraph *g_chisq1 = new TGraph();
+	TGraph *g_maxres1 = new TGraph();
+
 	TGraph *g_rad2 = new TGraph();	
 	TGraph *g_radstd2 = new TGraph();
 	TGraph *g_chisq2 = new TGraph();
@@ -1424,7 +1429,7 @@ void ace_extend4(){
 	TGraph *g_maxres3 = new TGraph(); 
 
 	TCanvas *c1 = new TCanvas("c1","statistic check for all ratios", 4800, 3600); 
-	c1->Divide(4, 3);
+	c1->Divide(4, 4);
 
 	int startpoint = 4; 
 
@@ -1519,7 +1524,7 @@ void ace_extend4(){
 		g_chisq->SetPoint(i-startpoint, Particle::Z[ACE_Isotope[i]], chi2_flat);  
 		//h_chisq->Print("range");
 		HistTools::SetStyle(g_chisq, kRed, kFullCircle, 0.9, 1, 1);
-		g_chisq->SetTitle(Form("Chi-2 Test of All Ratio over C Combined Fit;Z;sum of ((data-1)/error)^2")); 
+		g_chisq->SetTitle(Form("Chi-2 Test;Z;sum of ((data-1)/error)^2")); 
 		g_chisq->Draw("AP"); 
 		
 		c1->cd(4);
@@ -1539,7 +1544,44 @@ void ace_extend4(){
 		HistTools::SetStyle(g_maxres, kRed, kFullCircle, 0.9, 1, 1);	
 		g_maxres->Draw("AP"); 
 
-		c1->cd(5); 
+		c1->cd(5);
+		gPad->SetGrid();
+		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);	
+
+		g_rad1->SetPoint(i-startpoint, Particle::A[ACE_Isotope[i]], mu_abs);  
+		HistTools::SetStyle(g_rad1, kRed, kFullCircle, 0.9, 1, 1);
+		g_rad1->SetTitle(Form("Average Absolute Variation of All Ratio over C Combined Fit;A; (sum of abs(data-1))/N")); 
+		g_rad1->Draw("AP"); 
+
+		c1->cd(6);
+		gPad->SetGrid();
+		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
+
+		g_radstd1->SetPoint(i-startpoint, Particle::A[ACE_Isotope[i]], std_abs);  
+		HistTools::SetStyle(g_radstd1, kRed, kFullCircle, 0.9, 1, 1);
+		g_radstd1->SetTitle(Form("Average Absolute Variation STD of All Ratio over C Combined Fit;A; std_abs")); 
+		g_radstd1->Draw("AP"); 	
+
+		c1->cd(7);
+		gPad->SetGrid();
+		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
+
+		g_chisq1->SetPoint(i-startpoint, Particle::A[ACE_Isotope[i]], chi2_flat);  
+		//h_chisq->Print("range");
+		HistTools::SetStyle(g_chisq1, kRed, kFullCircle, 0.9, 1, 1);
+		g_chisq1->SetTitle(Form("Chi-2 Test;A;sum of ((data-1)/error)^2")); 
+		g_chisq1->Draw("AP"); 	
+
+		c1->cd(8);
+		gPad->SetGrid();
+		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);	
+
+		g_maxres1->SetPoint(i-startpoint, Particle::A[ACE_Isotope[i]], maxres);
+		g_maxres1->SetTitle(Form("%s/%s Max Residual;A; max residual", ACE_Element[i], ACE_Element[1]));   
+		HistTools::SetStyle(g_maxres1, kRed, kFullCircle, 0.9, 1, 1);	
+		g_maxres1->Draw("AP"); 
+
+		c1->cd(9); 
 		gPad->SetGrid();
 		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
 
@@ -1548,7 +1590,7 @@ void ace_extend4(){
 		g_rad2->SetTitle(Form("Average Absolute Variation of All Ratio over C Combined Fit;Z/A; (sum of abs(data-1))/N")); 
 		g_rad2->Draw("AP"); 
 
-		c1->cd(6);
+		c1->cd(10);
 		gPad->SetGrid();
 		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
 
@@ -1557,7 +1599,7 @@ void ace_extend4(){
 		g_radstd2->SetTitle(Form("Average Absolute Variation STD of All Ratio over C Combined Fit;Z/A; std_abs")); 
 		g_radstd2->Draw("AP"); 
 
-		c1->cd(7); 
+		c1->cd(11); 
 		gPad->SetGrid();
 		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
 
@@ -1567,7 +1609,7 @@ void ace_extend4(){
 		g_chisq2->SetTitle(Form("Chi-2 Test;Z/A;sum of ((data-1)/error)^2")); 
 		g_chisq2->Draw("AP"); 
 		
-		c1->cd(8);
+		c1->cd(12);
 		gPad->SetGrid();
 		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);	
 
@@ -1576,7 +1618,7 @@ void ace_extend4(){
 		HistTools::SetStyle(g_maxres2, kRed, kFullCircle, 0.9, 1, 1);	
 		g_maxres2->Draw("AP"); 
 
-		c1->cd(9); 
+		c1->cd(13); 
 		gPad->SetGrid();
 		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
 
@@ -1585,7 +1627,7 @@ void ace_extend4(){
 		g_rad3->SetTitle(Form("Average Absolute Variation of All Ratio over C Combined Fit;(Z/A)_element-(Z/A)_C; (sum of abs(data-1))/N")); 
 		g_rad3->Draw("AP"); 
 
-		c1->cd(10);
+		c1->cd(14);
 		gPad->SetGrid();
 		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
 
@@ -1594,7 +1636,7 @@ void ace_extend4(){
 		g_radstd3->SetTitle(Form("Average Absolute Variation STD of All Ratio over C Combined Fit;(Z/A)_element-(Z/A)_C; std_abs")); 
 		g_radstd3->Draw("AP"); 
 
-		c1->cd(11); 
+		c1->cd(15); 
 		gPad->SetGrid();
 		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
 
@@ -1604,7 +1646,7 @@ void ace_extend4(){
 		g_chisq3->SetTitle(Form("Chi-2 Test;(Z/A)_element-(Z/A)_C;sum of ((data-1)/error)^2")); 
 		g_chisq3->Draw("AP"); 
 		
-		c1->cd(12);
+		c1->cd(16);
 		gPad->SetGrid();
 		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);	
 
