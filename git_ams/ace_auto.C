@@ -99,6 +99,7 @@ void ace_extend(); // divide remaining ACE data that is not measured by AMS by c
 		   // divide elements with Z>8 ACE data by combinced C cit 
 void ace_extend2(); // fit_comb of BNO / C
 void ace_extend3(); // group ratios from extend() part II and check isotope assumptions 
+void ace_extend4(); // plot average relative absolute difference, chi-2, max variation of residuals vs. element Z, element Z/A, difference (Z/A)_element - (Z/A)_C 
 
 TGraphAsymmErrors *get_ace_graph(const char *element, UInt_t iBin, UInt_t nBRs); // flux in Kinetic Energy over time 
 TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_t nBRs); // flux in Kinetic over energy bins 
@@ -213,6 +214,8 @@ void ace_auto(const char *operation){
 		ace_extend2();
 	} else if (strcmp(operation, "extend3") == 0){
 		ace_extend3();
+	} else if (strcmp(operation, "extend4") == 0){
+		ace_extend4();
 	}
 
 } 
@@ -425,7 +428,10 @@ void ace_convert(const char *element, Particle::Type isotope){
 			//gPad->SetLogx(); 
 			//gPad->SetLogy();
 			h_rig->GetYaxis()->SetRangeUser(0, h_rig->GetBinContent(1)*4.0);
-			h_rig->SetTitle(Form("%s All BR Energy Spectrum; Rigidity; Differential Flux", element));
+			h_rig->SetTitle(Form("%s All BR Energy Spectrum", element));
+			h_rig->SetXTitle(Unit::GetEnergyLabel("GV"));
+			h_rig->SetYTitle(Unit::GetDifferentialFluxLabel("GV m"));
+
 			c2->cd(2);
 			gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
 			h_rig->Draw("E1X0 SAME"); 
@@ -440,6 +446,17 @@ void ace_convert(const char *element, Particle::Type isotope){
 	// plot flux_time 
 	TCanvas *c3 = new TCanvas("c3","",800,600);
 	TLegend *legend3 = new TLegend(0.1,0.7,0.28,0.9); // left, down, right, top 
+
+	const UInt_t FirstACEBR = 2240;
+	vector<UInt_t> BRs;
+	// we stop at BR 2493, which ends on 2016/05/23, just 3 days before the end of the data taking period for AMS nuclei
+	for (UInt_t br=2426; br<=2493; ++br) { 
+		if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
+	}
+
+	TH1D *h_ene = HistTools::GraphToHist( get_ace_average_graph( element, &BRs[0], BRs.size()), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
+	TH1 *h_ave = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, isotope, "MeV/n cm", "GV m", "_rig");
+
 	for (int i=0; i<nBins; ++i){
 		
 		if (i%2==0){	
@@ -462,11 +479,11 @@ void ace_convert(const char *element, Particle::Type isotope){
 
 			g->GetXaxis()->SetTimeDisplay(1);
 			g->GetXaxis()->SetTimeFormat("%m-%y");
-			g->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00");
+			g->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
 			g->GetXaxis()->SetTitleSize(0.7);			
 			g->SetMarkerStyle(kFullCircle);
-			g->SetMarkerColor(HistTools::GetColorPalette(i, nBins));
-			g->SetLineColor(HistTools::GetColorPalette(i, nBins));
+			g->SetMarkerColor(HistTools::GetColorPalette(i, nBins)); 
+			g->SetLineColor(HistTools::GetColorPalette(i, nBins)); 
 			g->SetLineWidth(1);
 			g->SetMarkerSize(0.7);
 
@@ -477,11 +494,11 @@ void ace_convert(const char *element, Particle::Type isotope){
 			//gPad->SetLogy();
 			g->GetYaxis()->SetRangeUser(y-y*0.99, y+y*2.5);
 			g->GetXaxis()->SetRangeUser(UBRToTime(2425), UBRToTime(2507));
-			g->SetTitle(Form("%s All Energy Bin Flux Time Series; ;Flux [1/(m^2 sr s GV)]", element));
+			g->SetTitle(Form("%s All Energy Bin Flux Time Series; ;%s", element, Unit::GetDifferentialFluxLabel("GV m"))); 
 			//g->Print();
 			c3->cd(1);
 			
-			legend3->AddEntry(g, Form("%d-th Bin Flux", i/2+1), "l");
+			if (i%2==0) legend3->AddEntry(g, Form("%0.4f GV", h_ave->GetBinLowEdge(i)), "l");
 
 			if (i/2==0){
 				g->Draw("ALP");
@@ -497,15 +514,8 @@ void ace_convert(const char *element, Particle::Type isotope){
 	TCanvas *c4 = new TCanvas("c4","",800,600);
 	TLegend *legend4 = new TLegend(0.1,0.7,0.28,0.9); // left, down, right, top 
 
-	const UInt_t FirstACEBR = 2240;
-	vector<UInt_t> BRs;
-	// we stop at BR 2493, which ends on 2016/05/23, just 3 days before the end of the data taking period for AMS nuclei
-	for (UInt_t br=2426; br<=2493; ++br) { 
-		if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
-	}
-
-	TH1D *h_ene = HistTools::GraphToHist( get_ace_average_graph( element, &BRs[0], BRs.size()), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
-	TH1 *h_ave = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, isotope, "MeV/n cm", "GV m", "_rig");
+	//TH1D *h_ene = HistTools::GraphToHist( get_ace_average_graph( element, &BRs[0], BRs.size()), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
+	//TH1 *h_ave = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, isotope, "MeV/n cm", "GV m", "_rig");
 
 	for (int i=0; i<nBins/2; ++i){
 		printf("i=%d flux_ave=%10.4e dflux_ave=%10.4e \n", i, h_ave->GetBinContent(i+1), h_ave->GetBinError(i+1));
@@ -556,7 +566,7 @@ void ace_convert(const char *element, Particle::Type isotope){
 			//g_norm->Print();
 			c4->cd(1);
 			
-			legend4->AddEntry(g_norm, Form("%d-th Bin Flux", i/2+1), "l");
+			if (i%2==0) legend4->AddEntry(g_norm, Form("%0.4f GV", h_ave->GetBinLowEdge(i)), "l");
 
 			if (i==0){
 				g_norm->Draw("ALP");
@@ -1048,7 +1058,7 @@ void ace_extend2(){
 
 	TH1 *ha = HistTools::CreateAxis("ha", "ACE BCNO Flux", 0.1, 1450., 7, 1e-10, 1e1, false);
 
-	for (int i=0; i<4; i++){
+	for (int i=0; i<4; i++){ 
 
 		int nnodes = 7;
 
@@ -1258,7 +1268,7 @@ void ace_extend3(){
 
 		for (int j=0; j<size[i]; j++){
 
-			int nnodes = 7;
+			int nnodes = 7; 
 
 			TFile file1(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[1], nnodes)); // load combined fit
 			TH1 *h_ene = HistTools::GraphToHist(get_ace_average_graph( group[i][j].c_str() , &BRs[0], BRs.size() ), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
@@ -1379,6 +1389,233 @@ void ace_extend3(){
  	
 		c2->Print(Form("./data/ACE/extend/ACE_extend_group_ratio_dividebyC_shape%d.png", i+1));
 	} 
+
+}
+
+void ace_extend4(){
+
+	Debug::Enable(Debug::ALL); 
+
+	const UInt_t FirstACEBR = 2240;
+   	vector<UInt_t> BRs;
+  	// we stop at BR 2493, which ends on 2016/05/23, just 3 days before the end of the data taking period for AMS nuclei
+   	for (UInt_t br=2426; br<=2493; ++br) { 
+	   	if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
+	}
+
+	TLegend *legend1 = new TLegend(0.1,0.7,0.2,0.9); // left, down, right, top
+	TLegend *legend2 = new TLegend(0.1,0.7,0.48,0.9); // left, down, right, top
+	//legend1->SetNColumns(2);
+	legend2->SetNColumns(2);
+  
+	TGraph *g_rad = new TGraph();	
+	TGraph *g_radstd = new TGraph();
+	TGraph *g_chisq = new TGraph();
+	TGraph *g_maxres = new TGraph(); 
+
+	TGraph *g_rad2 = new TGraph();	
+	TGraph *g_radstd2 = new TGraph();
+	TGraph *g_chisq2 = new TGraph();
+	TGraph *g_maxres2 = new TGraph(); 
+
+	TGraph *g_rad3 = new TGraph();	
+	TGraph *g_radstd3 = new TGraph();
+	TGraph *g_chisq3 = new TGraph();
+	TGraph *g_maxres3 = new TGraph(); 
+
+	TCanvas *c1 = new TCanvas("c1","statistic check for all ratios", 4800, 3600); 
+	c1->Divide(4, 3);
+
+	int startpoint = 4; 
+
+	for (int i=startpoint; i<24; i++){
+
+		int nnodes = 7; 
+
+		TFile file1(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[1], nnodes)); // load combined C fit
+		
+		TH1 *h_ene = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[i] , &BRs[0], BRs.size() ), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
+		TH1 *h_ace = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, ACE_Isotope[i], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity 
+		
+		HistTools::SetStyle(h_ace, kBlue, kFullCircle, 0.9, 1, 1); 
+
+		Spline *sp_comb = new Spline("sp_comb", nnodes, Spline::LogLog | Spline::PowerLaw);
+		TF1 *fsp_comb = sp_comb->GetTF1Pointer();  
+		TF1 *fit_comb = (TF1*) file1.Get("fit_both"); 
+
+		HistTools::CopyParameters(fit_comb, fsp_comb);
+		double x1, x2;
+		fit_comb->GetRange(x1,x2);
+		fsp_comb->SetRange(x1,x2); 
+
+		TH1 *h_res = (TH1D *) HistTools::GetResiduals(h_ace, fit_comb, "_ratio", false, true, true, 4, 1);
+		TH1 *h_ratio = (TH1 *) h_ace->Clone("h_ratio");
+
+		h_ratio->Divide(fit_comb);
+		HistTools::SetStyle(h_ratio, kRed, kFullCircle, 0.9, 1, 1);
+
+		double ratio_sum=0; // compute average of h_ratio manually  
+		for(int k=0;k<14;k++){
+			ratio_sum += h_ratio->GetBinContent(k);
+			//printf("ratio_sum = %0.6f \n", ratio_sum);
+		}
+		double ratio_ave = ratio_sum/h_res->GetEntries();
+			
+		//printf("ratio_ave = %0.6f w/ %0.1f Entries \n", ratio_ave, h_ratio->GetEntries());
+		//HistTools::PrintFunction(fit_comb);
+			
+		double scale = 1./ratio_ave;
+		//printf("i=%d, j=%d, scale = %0.6f \n", i, j, scale); 
+		h_ratio->Scale(scale);	
+
+		c1->cd(1);
+		gPad->SetGrid();
+		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
+
+		int Nbins = 7;
+
+		double mu_abs=0; // average relative absolute difference
+		for(int k=0;k<14;k++){
+			if(k%2==0) mu_abs += abs(h_ratio->GetBinContent(k+1)-1); 
+			
+		}
+		mu_abs = mu_abs/Nbins; 
+
+		g_rad->SetPoint(i-startpoint, Particle::Z[ACE_Isotope[i]], mu_abs);  
+		HistTools::SetStyle(g_rad, kRed, kFullCircle, 0.9, 1, 1);
+		g_rad->SetTitle(Form("Average Absolute Variation of All Ratio over C Combined Fit;Z; (sum of abs(data-1))/N")); 
+		g_rad->Draw("AP"); 
+
+		c1->cd(2);
+		gPad->SetGrid();
+		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
+
+		double std_abs=0; 
+
+		for(int k=0;k<14;k++){
+			if(k%2==0) std_abs += pow(h_ratio->GetBinContent(k+1)-1-mu_abs, 2); 
+			//printf("data = %0.7f, mu_abs = %0.7f, std_abs = %0.7f \n", h_ratio->GetBinContent(k+1), mu_abs, std_abs);  
+		}
+
+		std_abs = std_abs/(Nbins-1); 
+		std_abs = sqrt(std_abs); 
+
+		g_radstd->SetPoint(i-startpoint, Particle::Z[ACE_Isotope[i]], std_abs);  
+		HistTools::SetStyle(g_radstd, kRed, kFullCircle, 0.9, 1, 1);
+		g_radstd->SetTitle(Form("Average Absolute Variation STD of All Ratio over C Combined Fit;Z; std_abs")); 
+		g_radstd->Draw("AP"); 
+
+		c1->cd(3);
+		gPad->SetGrid();
+		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);	
+
+		double chi2_flat=0; 
+
+		for(int k=0;k<14;k++){
+			if(k%2==0) chi2_flat += pow((h_ratio->GetBinContent(k+1)-1)/h_ratio->GetBinError(k+1), 2); 
+			//printf("chi2 = %0.7f, data = %0.7f, error = %0.7f \n", chi2_flat, h_ratio->GetBinContent(k+1), h_ratio->GetBinError(k+1)); 
+		}
+
+		g_chisq->SetPoint(i-startpoint, Particle::Z[ACE_Isotope[i]], chi2_flat);  
+		//h_chisq->Print("range");
+		HistTools::SetStyle(g_chisq, kRed, kFullCircle, 0.9, 1, 1);
+		g_chisq->SetTitle(Form("Chi-2 Test of All Ratio over C Combined Fit;Z;sum of ((data-1)/error)^2")); 
+		g_chisq->Draw("AP"); 
+		
+		c1->cd(4);
+		gPad->SetGrid();
+		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);	
+
+		double maxres = 0;    
+		for(int k=0; k<h_ratio->GetNbinsX(); ++k) {
+			if(k%2==0){
+				if ( abs(h_ratio->GetBinContent(k+1)-1) > maxres ) maxres = abs(h_ratio->GetBinContent(k+1)-1); 
+			}
+			printf("bin = %d, bin value = %0.3f, maxres = %0.3f \n",  k+1, h_ratio->GetBinContent(k+1), maxres);
+		} 
+
+		g_maxres->SetPoint(i-startpoint, Particle::Z[ACE_Isotope[i]], maxres);
+		g_maxres->SetTitle(Form("%s/%s Max Residual;Z; max residual", ACE_Element[i], ACE_Element[1]));   
+		HistTools::SetStyle(g_maxres, kRed, kFullCircle, 0.9, 1, 1);	
+		g_maxres->Draw("AP"); 
+
+		c1->cd(5); 
+		gPad->SetGrid();
+		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
+
+		g_rad2->SetPoint(i-startpoint, Particle::Z[ACE_Isotope[i]]/Particle::A[ACE_Isotope[i]], mu_abs);  
+		HistTools::SetStyle(g_rad2, kRed, kFullCircle, 0.9, 1, 1);
+		g_rad2->SetTitle(Form("Average Absolute Variation of All Ratio over C Combined Fit;Z/A; (sum of abs(data-1))/N")); 
+		g_rad2->Draw("AP"); 
+
+		c1->cd(6);
+		gPad->SetGrid();
+		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
+
+		g_radstd2->SetPoint(i-startpoint, Particle::Z[ACE_Isotope[i]]/Particle::A[ACE_Isotope[i]], std_abs);  
+		HistTools::SetStyle(g_radstd2, kRed, kFullCircle, 0.9, 1, 1);
+		g_radstd2->SetTitle(Form("Average Absolute Variation STD of All Ratio over C Combined Fit;Z/A; std_abs")); 
+		g_radstd2->Draw("AP"); 
+
+		c1->cd(7); 
+		gPad->SetGrid();
+		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
+
+		g_chisq2->SetPoint(i-startpoint, Particle::Z[ACE_Isotope[i]]/Particle::A[ACE_Isotope[i]], chi2_flat);  
+		//h_chisq->Print("range");
+		HistTools::SetStyle(g_chisq2, kRed, kFullCircle, 0.9, 1, 1);
+		g_chisq2->SetTitle(Form("Chi-2 Test;Z/A;sum of ((data-1)/error)^2")); 
+		g_chisq2->Draw("AP"); 
+		
+		c1->cd(8);
+		gPad->SetGrid();
+		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);	
+
+		g_maxres2->SetPoint(i-startpoint, Particle::Z[ACE_Isotope[i]]/Particle::A[ACE_Isotope[i]], maxres);
+		g_maxres2->SetTitle(Form("Max Residual;Z/A; max residual"));   
+		HistTools::SetStyle(g_maxres2, kRed, kFullCircle, 0.9, 1, 1);	
+		g_maxres2->Draw("AP"); 
+
+		c1->cd(9); 
+		gPad->SetGrid();
+		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
+
+		g_rad3->SetPoint(i-startpoint, Particle::Z[ACE_Isotope[i]]/Particle::A[ACE_Isotope[i]]-Particle::Z[ACE_Isotope[1]]/Particle::A[ACE_Isotope[1]], mu_abs);  
+		HistTools::SetStyle(g_rad3, kRed, kFullCircle, 0.9, 1, 1);
+		g_rad3->SetTitle(Form("Average Absolute Variation of All Ratio over C Combined Fit;(Z/A)_element-(Z/A)_C; (sum of abs(data-1))/N")); 
+		g_rad3->Draw("AP"); 
+
+		c1->cd(10);
+		gPad->SetGrid();
+		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
+
+		g_radstd3->SetPoint(i-startpoint, Particle::Z[ACE_Isotope[i]]/Particle::A[ACE_Isotope[i]]-Particle::Z[ACE_Isotope[1]]/Particle::A[ACE_Isotope[1]], std_abs);  
+		HistTools::SetStyle(g_radstd3, kRed, kFullCircle, 0.9, 1, 1);
+		g_radstd3->SetTitle(Form("Average Absolute Variation STD of All Ratio over C Combined Fit;(Z/A)_element-(Z/A)_C; std_abs")); 
+		g_radstd3->Draw("AP"); 
+
+		c1->cd(11); 
+		gPad->SetGrid();
+		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
+
+		g_chisq3->SetPoint(i-startpoint, Particle::Z[ACE_Isotope[i]]/Particle::A[ACE_Isotope[i]]-Particle::Z[ACE_Isotope[1]]/Particle::A[ACE_Isotope[1]], chi2_flat);  
+		//h_chisq->Print("range");
+		HistTools::SetStyle(g_chisq3, kRed, kFullCircle, 0.9, 1, 1);
+		g_chisq3->SetTitle(Form("Chi-2 Test;(Z/A)_element-(Z/A)_C;sum of ((data-1)/error)^2")); 
+		g_chisq3->Draw("AP"); 
+		
+		c1->cd(12);
+		gPad->SetGrid();
+		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);	
+
+		g_maxres3->SetPoint(i-startpoint, Particle::Z[ACE_Isotope[i]]/Particle::A[ACE_Isotope[i]]-Particle::Z[ACE_Isotope[1]]/Particle::A[ACE_Isotope[1]], maxres);
+		g_maxres3->SetTitle(Form("Max Residual;(Z/A)_element-(Z/A)_C; max residual"));   
+		HistTools::SetStyle(g_maxres3, kRed, kFullCircle, 0.9, 1, 1);	
+		g_maxres3->Draw("AP"); 
+	
+	} 
+	
+	c1->Print(Form("./data/ACE/extend/ACE_extend_last_ratio_test.png"));
 
 }
 
