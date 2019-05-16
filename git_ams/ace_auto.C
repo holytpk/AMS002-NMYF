@@ -1403,44 +1403,206 @@ void ace_extend4(){
 	   	if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
 	}
 
-	TLegend *legend1 = new TLegend(0.1,0.7,0.2,0.9); // left, down, right, top
-	TLegend *legend2 = new TLegend(0.1,0.7,0.48,0.9); // left, down, right, top
-	//legend1->SetNColumns(2);
-	legend2->SetNColumns(2);
+	string group[5][6] = {  { "Al", "Ar", "Ca", "Cr", "Na" },
+				{ "Cl", "K", "P" }, 
+				{ "Co", "Mn", "Ni", "S" }, 
+				{ "Mg", "Ne", "Si", "F" }, 
+				{ "Fe", "Sc", "Ti", "Va" } }; 
+	
+	string group_name[5] = { "Al, Ar, Ca, Cr, Na", "Cl, K, P", "Co, Mn, Ni, S", "Mg, Ne, Si, F", "Fe, Sc, Ti, Va"}; 
+
+	Particle::Type group_iso[5][6] = { { Particle::ALUMINUM27, Particle::ARGON36, Particle::CALCIUM40, Particle::CHROMIUM52, Particle::SODIUM23 }, 
+					   { Particle::CHLORINE35, Particle::POTASSIUM41, Particle::PHOSPHORUS31 }, 
+					   { Particle::COBALT59, Particle::MANGANESE55, Particle::NICKEL60, Particle::SULFUR32 }, 
+					   { Particle::MAGNESIUM24, Particle::NEON20, Particle::SILICON28, Particle::FLUORINE19 }, 
+					   { Particle::IRON56, Particle::SCANDIUM45, Particle::TITANIUM46, Particle::VANADIUM51 } }; 
+	
+	int size[5] = { 5, 3, 4, 4, 4 }; // update every time when the line above is changed 
+	
+	string group_abund[5][6] = {  { "Al27", "Ar36", "Ca40", "Cr52", "Na23" },
+				{ "Cl35", "K41", "P31" }, 
+				{ "Co59", "Mn55", "Ni60", "S32" }, 
+				{ "Mg24", "Ne20", "Si28", "F19" }, 
+				{ "Fe56", "Sc45", "Ti46", "Va51" } };
+
+	int ngroups = 5;  
   
-	TGraph *g_rad = new TGraph();	
-	TGraph *g_radstd = new TGraph();
-	TGraph *g_chisq = new TGraph();
-	TGraph *g_maxres = new TGraph(); 
+	// over Z
+	TGraph *g_rad[ngroups];	
+	TGraph *g_radstd[ngroups];
+	TGraph *g_chisq[ngroups];
+	TGraph *g_maxres[ngroups]; 
 
-	TGraph *g_rad1 = new TGraph();	
-	TGraph *g_radstd1 = new TGraph();
-	TGraph *g_chisq1 = new TGraph();
-	TGraph *g_maxres1 = new TGraph();
+	// over A
+	TGraph *g_rad1[ngroups];	
+	TGraph *g_radstd1[ngroups];
+	TGraph *g_chisq1[ngroups];
+	TGraph *g_maxres1[ngroups];
 
-	TGraph *g_rad2 = new TGraph();	
-	TGraph *g_radstd2 = new TGraph();
-	TGraph *g_chisq2 = new TGraph();
-	TGraph *g_maxres2 = new TGraph(); 
+	// over Z/A
+	TGraph *g_rad2[ngroups];	
+	TGraph *g_radstd2[ngroups];
+	TGraph *g_chisq2[ngroups];
+	TGraph *g_maxres2[ngroups]; 
 
-	TGraph *g_rad3 = new TGraph();	
-	TGraph *g_radstd3 = new TGraph();
-	TGraph *g_chisq3 = new TGraph();
-	TGraph *g_maxres3 = new TGraph(); 
+	// over (Z/A)_element - (Z/A)_C
+	TGraph *g_rad3[ngroups];	
+	TGraph *g_radstd3[ngroups];
+	TGraph *g_chisq3[ngroups];
+	TGraph *g_maxres3[ngroups]; 
 
 	TCanvas *c1 = new TCanvas("c1","statistic check for all ratios", 4800, 3600); 
 	c1->Divide(4, 4);
 
-	int startpoint = 4; 
+	//int startpoint = 4; 
 
-	for (int i=startpoint; i<24; i++){
+	TH1 *ha1 = HistTools::CreateAxis("ha1", "Average Absolute Variation of All Ratio over C Combined Fit;Z; (sum of abs(data-1))/N", 8, 30, size[0], 0.0, 0.11, false);
+	TH1 *ha2 = HistTools::CreateAxis("ha2", "Average Absolute Variation STD of All Ratio over C Combined Fit;Z; std_abs", 8, 30, size[1], 0.0, 0.2, false);
+	TH1 *ha3 = HistTools::CreateAxis("ha3", "Chi-2 Test;Z;sum of ((data-1)/error)^2", 8, 30, size[0], 0.0, 50.0, false);
+	TH1 *ha4 = HistTools::CreateAxis("ha4", "Max Residual;Z; max residual", 8, 30, size[0], 0.0, 0.2, false); 
+
+	TH1 *ha5 = HistTools::CreateAxis("ha5", "Average Absolute Variation of All Ratio over C Combined Fit;Z; (sum of abs(data-1))/N", 15, 65, size[1], 0.0, 0.11, false);
+	TH1 *ha6 = HistTools::CreateAxis("ha6", "Average Absolute Variation STD of All Ratio over C Combined Fit;Z; std_abs", 15, 65, size[1], 0.0, 0.2, false);
+	TH1 *ha7 = HistTools::CreateAxis("ha7", "Chi-2 Test;Z;sum of ((data-1)/error)^2", 15, 65, size[1], 0.0, 50.0, false);
+	TH1 *ha8 = HistTools::CreateAxis("ha8", "Max Residual;Z; max residual", 15, 65, size[1], 0.0, 0.2, false);
+
+	TH1 *ha9 = HistTools::CreateAxis("ha9", "Average Absolute Variation of All Ratio over C Combined Fit;Z; (sum of abs(data-1))/N", 0.42, 0.54, size[2], 0.0, 0.11, false);
+	TH1 *ha10 = HistTools::CreateAxis("ha10", "Average Absolute Variation STD of All Ratio over C Combined Fit;Z; std_abs", 0.42, 0.54, size[2], 0.0, 0.2, false);
+	TH1 *ha11 = HistTools::CreateAxis("ha11", "Chi-2 Test;Z;sum of ((data-1)/error)^2", 0.42, 0.54, size[2], 0.0, 50.0, false);
+	TH1 *ha12 = HistTools::CreateAxis("ha12", "Max Residual;Z; max residual", 0.42, 0.54, size[2], 0.0, 0.2, false);
+
+	TH1 *ha13 = HistTools::CreateAxis("ha13", "Average Absolute Variation of All Ratio over C Combined Fit;Z; (sum of abs(data-1))/N", -0.07, 0.01, size[3], 0.0, 0.11, false);
+	TH1 *ha14 = HistTools::CreateAxis("ha14", "Average Absolute Variation STD of All Ratio over C Combined Fit;Z; std_abs", -0.07, 0.01, size[3], 0.0, 0.2, false);
+	TH1 *ha15 = HistTools::CreateAxis("ha15", "Chi-2 Test;Z;sum of ((data-1)/error)^2", -0.07, 0.01, size[3], 0.0, 50.0, false);
+	TH1 *ha16 = HistTools::CreateAxis("ha16", "Max Residual;Z; max residual", -0.07, 0.01, size[3], 0.0, 0.2, false);
+
+	TLegend *legend1 = new TLegend(0.1,0.8,0.24,0.9); 
+	TLegend *legend2 = new TLegend(0.1,0.8,0.24,0.9); 
+	TLegend *legend3 = new TLegend(0.1,0.8,0.24,0.9); 
+	TLegend *legend4 = new TLegend(0.1,0.8,0.24,0.9); 
+	TLegend *legend5 = new TLegend(0.1,0.8,0.24,0.9); 
+	TLegend *legend6 = new TLegend(0.1,0.8,0.24,0.9); 
+	TLegend *legend7 = new TLegend(0.1,0.8,0.24,0.9); 
+	TLegend *legend8 = new TLegend(0.1,0.8,0.24,0.9); 
+	TLegend *legend9 = new TLegend(0.1,0.8,0.24,0.9); 
+	TLegend *legend10 = new TLegend(0.1,0.8,0.24,0.9); 
+	TLegend *legend11 = new TLegend(0.1,0.8,0.24,0.9); 
+	TLegend *legend12 = new TLegend(0.1,0.8,0.24,0.9); 
+	TLegend *legend13 = new TLegend(0.1,0.8,0.24,0.9); 
+	TLegend *legend14 = new TLegend(0.1,0.8,0.24,0.9); 
+	TLegend *legend15 = new TLegend(0.1,0.8,0.24,0.9); 
+	TLegend *legend16 = new TLegend(0.1,0.8,0.24,0.9); 
+
+	c1->cd(1); 
+	gPad->SetGrid();
+	gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
+	ha1->Draw("E1X0"); 
+
+	c1->cd(2);
+	gPad->SetGrid();
+	gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
+	ha2->Draw("E1X0");
+
+	c1->cd(3);
+	gPad->SetGrid();
+	gPad->SetMargin(0.12, 0.08, 0.08, 0.08); 
+	ha3->Draw("E1X0");
+
+	c1->cd(4);
+	gPad->SetGrid();
+	gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
+	ha4->Draw("E1X0"); 
+
+	c1->cd(5); 
+	gPad->SetGrid();
+	gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
+	ha5->Draw("E1X0"); 
+
+	c1->cd(6); 
+	gPad->SetGrid();
+	gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
+	ha6->Draw("E1X0"); 
+
+	c1->cd(7); 
+	gPad->SetGrid();
+	gPad->SetMargin(0.12, 0.08, 0.08, 0.08); 
+	ha7->Draw("E1X0"); 
+
+	c1->cd(8); 
+	gPad->SetGrid();
+	gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
+	ha8->Draw("E1X0"); 
+
+	c1->cd(9); 
+	gPad->SetGrid();
+	gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
+	ha9->Draw("E1X0");
+
+	c1->cd(10); 
+	gPad->SetGrid();
+	gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
+	ha10->Draw("E1X0"); 
+
+	c1->cd(11); 
+	gPad->SetGrid();
+	gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
+	ha11->Draw("E1X0"); 
+
+	c1->cd(12); 
+	gPad->SetGrid();
+	gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
+	ha12->Draw("E1X0"); 
+
+	c1->cd(13); 
+	gPad->SetGrid();
+	gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
+	ha13->Draw("E1X0"); 
+
+	c1->cd(14); 
+	gPad->SetGrid();
+	gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
+	ha14->Draw("E1X0"); 
+
+	c1->cd(15); 
+	gPad->SetGrid();
+	gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
+	ha15->Draw("E1X0"); 
+	   
+	c1->cd(16); 
+	gPad->SetGrid();
+	gPad->SetMargin(0.12, 0.08, 0.08, 0.08); 
+	ha16->Draw("E1X0"); 
+
+	for (int i=0; i<ngroups; i++){
+	   
+	   g_rad[i] = new TGraph();
+	   g_radstd[i] = new TGraph();
+	   g_chisq[i] = new TGraph();
+	   g_maxres[i] = new TGraph(); 	
+
+	   g_rad1[i] = new TGraph();
+	   g_radstd1[i] = new TGraph();
+	   g_chisq1[i] = new TGraph();
+	   g_maxres1[i] = new TGraph(); 
+
+	   g_rad2[i] = new TGraph();
+	   g_radstd2[i] = new TGraph();
+	   g_chisq2[i] = new TGraph();
+	   g_maxres2[i] = new TGraph(); 
+	
+	   g_rad3[i] = new TGraph();
+	   g_radstd3[i] = new TGraph();
+	   g_chisq3[i] = new TGraph();
+	   g_maxres3[i] = new TGraph(); 	   
+
+	   for (int j=0; j<size[i]; j++){
 
 		int nnodes = 7; 
 
 		TFile file1(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[1], nnodes)); // load combined C fit
 		
-		TH1 *h_ene = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[i] , &BRs[0], BRs.size() ), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
-		TH1 *h_ace = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, ACE_Isotope[i], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity 
+		TH1 *h_ene = HistTools::GraphToHist(get_ace_average_graph( group[i][j].c_str(), &BRs[0], BRs.size() ), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
+		TH1 *h_ace = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, group_iso[i][j], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity 
 		
 		HistTools::SetStyle(h_ace, kBlue, kFullCircle, 0.9, 1, 1); 
 
@@ -1457,7 +1619,7 @@ void ace_extend4(){
 		TH1 *h_ratio = (TH1 *) h_ace->Clone("h_ratio");
 
 		h_ratio->Divide(fit_comb);
-		HistTools::SetStyle(h_ratio, kRed, kFullCircle, 0.9, 1, 1);
+		//HistTools::SetStyle(h_ratio, HistTools::GetColorPalette(j, size[i]), kFullCircle, 0.9, 1, 1);
 
 		double ratio_sum=0; // compute average of h_ratio manually  
 		for(int k=0;k<14;k++){
@@ -1473,10 +1635,6 @@ void ace_extend4(){
 		//printf("i=%d, j=%d, scale = %0.6f \n", i, j, scale); 
 		h_ratio->Scale(scale);	
 
-		c1->cd(1);
-		gPad->SetGrid();
-		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
-
 		int Nbins = 7;
 
 		double mu_abs=0; // average relative absolute difference
@@ -1486,14 +1644,9 @@ void ace_extend4(){
 		}
 		mu_abs = mu_abs/Nbins; 
 
-		g_rad->SetPoint(i-startpoint, Particle::Z[ACE_Isotope[i]], mu_abs);  
-		HistTools::SetStyle(g_rad, kRed, kFullCircle, 0.9, 1, 1);
-		g_rad->SetTitle(Form("Average Absolute Variation of All Ratio over C Combined Fit;Z; (sum of abs(data-1))/N")); 
-		g_rad->Draw("AP"); 
-
-		c1->cd(2);
-		gPad->SetGrid();
-		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
+		g_rad[i]->SetPoint(j, Particle::Z[group_iso[i][j]], mu_abs);  
+		
+		//PRINT_GRAPH(g_rad[i]);
 
 		double std_abs=0; 
 
@@ -1503,16 +1656,9 @@ void ace_extend4(){
 		}
 
 		std_abs = std_abs/(Nbins-1); 
-		std_abs = sqrt(std_abs); 
+		std_abs = sqrt(std_abs); 	
 
-		g_radstd->SetPoint(i-startpoint, Particle::Z[ACE_Isotope[i]], std_abs);  
-		HistTools::SetStyle(g_radstd, kRed, kFullCircle, 0.9, 1, 1);
-		g_radstd->SetTitle(Form("Average Absolute Variation STD of All Ratio over C Combined Fit;Z; std_abs")); 
-		g_radstd->Draw("AP"); 
-
-		c1->cd(3);
-		gPad->SetGrid();
-		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);	
+		g_radstd[i]->SetPoint(j, Particle::Z[group_iso[i][j]], std_abs); 
 
 		double chi2_flat=0; 
 
@@ -1521,141 +1667,129 @@ void ace_extend4(){
 			//printf("chi2 = %0.7f, data = %0.7f, error = %0.7f \n", chi2_flat, h_ratio->GetBinContent(k+1), h_ratio->GetBinError(k+1)); 
 		}
 
-		g_chisq->SetPoint(i-startpoint, Particle::Z[ACE_Isotope[i]], chi2_flat);  
-		//h_chisq->Print("range");
-		HistTools::SetStyle(g_chisq, kRed, kFullCircle, 0.9, 1, 1);
-		g_chisq->SetTitle(Form("Chi-2 Test;Z;sum of ((data-1)/error)^2")); 
-		g_chisq->Draw("AP"); 
-		
-		c1->cd(4);
-		gPad->SetGrid();
-		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);	
+		g_chisq[i]->SetPoint(j, Particle::Z[group_iso[i][j]], chi2_flat);  
+		//h_chisq->Print("range");	
 
 		double maxres = 0;    
 		for(int k=0; k<h_ratio->GetNbinsX(); ++k) {
 			if(k%2==0){
 				if ( abs(h_ratio->GetBinContent(k+1)-1) > maxres ) maxres = abs(h_ratio->GetBinContent(k+1)-1); 
 			}
-			printf("bin = %d, bin value = %0.3f, maxres = %0.3f \n",  k+1, h_ratio->GetBinContent(k+1), maxres);
+			//printf("bin = %d, bin value = %0.3f, maxres = %0.3f \n",  k+1, h_ratio->GetBinContent(k+1), maxres);
 		} 
 
-		g_maxres->SetPoint(i-startpoint, Particle::Z[ACE_Isotope[i]], maxres);
-		g_maxres->SetTitle(Form("%s/%s Max Residual;Z; max residual", ACE_Element[i], ACE_Element[1]));   
-		HistTools::SetStyle(g_maxres, kRed, kFullCircle, 0.9, 1, 1);	
-		g_maxres->Draw("AP"); 
-
-		c1->cd(5);
-		gPad->SetGrid();
-		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);	
-
-		g_rad1->SetPoint(i-startpoint, Particle::A[ACE_Isotope[i]], mu_abs);  
-		HistTools::SetStyle(g_rad1, kRed, kFullCircle, 0.9, 1, 1);
-		g_rad1->SetTitle(Form("Average Absolute Variation of All Ratio over C Combined Fit;A; (sum of abs(data-1))/N")); 
-		g_rad1->Draw("AP"); 
-
-		c1->cd(6);
-		gPad->SetGrid();
-		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
-
-		g_radstd1->SetPoint(i-startpoint, Particle::A[ACE_Isotope[i]], std_abs);  
-		HistTools::SetStyle(g_radstd1, kRed, kFullCircle, 0.9, 1, 1);
-		g_radstd1->SetTitle(Form("Average Absolute Variation STD of All Ratio over C Combined Fit;A; std_abs")); 
-		g_radstd1->Draw("AP"); 	
-
-		c1->cd(7);
-		gPad->SetGrid();
-		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
-
-		g_chisq1->SetPoint(i-startpoint, Particle::A[ACE_Isotope[i]], chi2_flat);  
-		//h_chisq->Print("range");
-		HistTools::SetStyle(g_chisq1, kRed, kFullCircle, 0.9, 1, 1);
-		g_chisq1->SetTitle(Form("Chi-2 Test;A;sum of ((data-1)/error)^2")); 
-		g_chisq1->Draw("AP"); 	
-
-		c1->cd(8);
-		gPad->SetGrid();
-		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);	
-
-		g_maxres1->SetPoint(i-startpoint, Particle::A[ACE_Isotope[i]], maxres);
-		g_maxres1->SetTitle(Form("%s/%s Max Residual;A; max residual", ACE_Element[i], ACE_Element[1]));   
-		HistTools::SetStyle(g_maxres1, kRed, kFullCircle, 0.9, 1, 1);	
-		g_maxres1->Draw("AP"); 
-
-		c1->cd(9); 
-		gPad->SetGrid();
-		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
-
-		g_rad2->SetPoint(i-startpoint, Particle::Z[ACE_Isotope[i]]/Particle::A[ACE_Isotope[i]], mu_abs);  
-		HistTools::SetStyle(g_rad2, kRed, kFullCircle, 0.9, 1, 1);
-		g_rad2->SetTitle(Form("Average Absolute Variation of All Ratio over C Combined Fit;Z/A; (sum of abs(data-1))/N")); 
-		g_rad2->Draw("AP"); 
-
-		c1->cd(10);
-		gPad->SetGrid();
-		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
-
-		g_radstd2->SetPoint(i-startpoint, Particle::Z[ACE_Isotope[i]]/Particle::A[ACE_Isotope[i]], std_abs);  
-		HistTools::SetStyle(g_radstd2, kRed, kFullCircle, 0.9, 1, 1);
-		g_radstd2->SetTitle(Form("Average Absolute Variation STD of All Ratio over C Combined Fit;Z/A; std_abs")); 
-		g_radstd2->Draw("AP"); 
-
-		c1->cd(11); 
-		gPad->SetGrid();
-		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
-
-		g_chisq2->SetPoint(i-startpoint, Particle::Z[ACE_Isotope[i]]/Particle::A[ACE_Isotope[i]], chi2_flat);  
-		//h_chisq->Print("range");
-		HistTools::SetStyle(g_chisq2, kRed, kFullCircle, 0.9, 1, 1);
-		g_chisq2->SetTitle(Form("Chi-2 Test;Z/A;sum of ((data-1)/error)^2")); 
-		g_chisq2->Draw("AP"); 
-		
-		c1->cd(12);
-		gPad->SetGrid();
-		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);	
-
-		g_maxres2->SetPoint(i-startpoint, Particle::Z[ACE_Isotope[i]]/Particle::A[ACE_Isotope[i]], maxres);
-		g_maxres2->SetTitle(Form("Max Residual;Z/A; max residual"));   
-		HistTools::SetStyle(g_maxres2, kRed, kFullCircle, 0.9, 1, 1);	
-		g_maxres2->Draw("AP"); 
-
-		c1->cd(13); 
-		gPad->SetGrid();
-		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
-
-		g_rad3->SetPoint(i-startpoint, Particle::Z[ACE_Isotope[i]]/Particle::A[ACE_Isotope[i]]-Particle::Z[ACE_Isotope[1]]/Particle::A[ACE_Isotope[1]], mu_abs);  
-		HistTools::SetStyle(g_rad3, kRed, kFullCircle, 0.9, 1, 1);
-		g_rad3->SetTitle(Form("Average Absolute Variation of All Ratio over C Combined Fit;(Z/A)_element-(Z/A)_C; (sum of abs(data-1))/N")); 
-		g_rad3->Draw("AP"); 
-
-		c1->cd(14);
-		gPad->SetGrid();
-		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
-
-		g_radstd3->SetPoint(i-startpoint, Particle::Z[ACE_Isotope[i]]/Particle::A[ACE_Isotope[i]]-Particle::Z[ACE_Isotope[1]]/Particle::A[ACE_Isotope[1]], std_abs);  
-		HistTools::SetStyle(g_radstd3, kRed, kFullCircle, 0.9, 1, 1);
-		g_radstd3->SetTitle(Form("Average Absolute Variation STD of All Ratio over C Combined Fit;(Z/A)_element-(Z/A)_C; std_abs")); 
-		g_radstd3->Draw("AP"); 
-
-		c1->cd(15); 
-		gPad->SetGrid();
-		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);
-
-		g_chisq3->SetPoint(i-startpoint, Particle::Z[ACE_Isotope[i]]/Particle::A[ACE_Isotope[i]]-Particle::Z[ACE_Isotope[1]]/Particle::A[ACE_Isotope[1]], chi2_flat);  
-		//h_chisq->Print("range");
-		HistTools::SetStyle(g_chisq3, kRed, kFullCircle, 0.9, 1, 1);
-		g_chisq3->SetTitle(Form("Chi-2 Test;(Z/A)_element-(Z/A)_C;sum of ((data-1)/error)^2")); 
-		g_chisq3->Draw("AP"); 
-		
-		c1->cd(16);
-		gPad->SetGrid();
-		gPad->SetMargin(0.12, 0.08, 0.08, 0.08);	
-
-		g_maxres3->SetPoint(i-startpoint, Particle::Z[ACE_Isotope[i]]/Particle::A[ACE_Isotope[i]]-Particle::Z[ACE_Isotope[1]]/Particle::A[ACE_Isotope[1]], maxres);
-		g_maxres3->SetTitle(Form("Max Residual;(Z/A)_element-(Z/A)_C; max residual"));   
-		HistTools::SetStyle(g_maxres3, kRed, kFullCircle, 0.9, 1, 1);	
-		g_maxres3->Draw("AP"); 
+		g_maxres[i]->SetPoint(j, Particle::Z[group_iso[i][j]], maxres); 
 	
-	} 
+		g_rad1[i]->SetPoint(j, Particle::A[group_iso[i][j]], mu_abs); 
+		g_radstd1[i]->SetPoint(j, Particle::A[group_iso[i][j]], std_abs);  
+		g_chisq1[i]->SetPoint(j, Particle::A[group_iso[i][j]], chi2_flat);  
+		g_maxres1[i]->SetPoint(j, Particle::A[group_iso[i][j]], maxres); 
+
+		g_rad2[i]->SetPoint(j, Particle::Z[group_iso[i][j]]/Particle::A[group_iso[i][j]], mu_abs); 
+		g_radstd2[i]->SetPoint(j, Particle::Z[group_iso[i][j]]/Particle::A[group_iso[i][j]], std_abs);  
+		g_chisq2[i]->SetPoint(j, Particle::Z[group_iso[i][j]]/Particle::A[group_iso[i][j]], chi2_flat);  
+		g_maxres2[i]->SetPoint(j, Particle::Z[group_iso[i][j]]/Particle::A[group_iso[i][j]], maxres); 
+
+		g_rad3[i]->SetPoint(j, Particle::Z[group_iso[i][j]]/Particle::A[group_iso[i][j]]-Particle::Z[ACE_Isotope[1]]/Particle::A[ACE_Isotope[1]], mu_abs); 
+		g_radstd3[i]->SetPoint(j, Particle::Z[group_iso[i][j]]/Particle::A[group_iso[i][j]]-Particle::Z[ACE_Isotope[1]]/Particle::A[ACE_Isotope[1]], std_abs);  
+		g_chisq3[i]->SetPoint(j, Particle::Z[group_iso[i][j]]/Particle::A[group_iso[i][j]]-Particle::Z[ACE_Isotope[1]]/Particle::A[ACE_Isotope[1]], chi2_flat);  
+		g_maxres3[i]->SetPoint(j, Particle::Z[group_iso[i][j]]/Particle::A[group_iso[i][j]]-Particle::Z[ACE_Isotope[1]]/Particle::A[ACE_Isotope[1]], maxres); 
+		
+	   } 	
+
+	   c1->cd(1); 
+	   legend1->AddEntry(g_rad[i], Form("%s", group_name[i].c_str()), "p");
+	   legend1->Draw("SAME");
+
+	   HistTools::SetStyle(g_rad[i], HistTools::GetColorPalette(i, size[i]), kFullCircle, 0.9, 1, 1);
+	   g_rad[i]->Draw("PSAME");  
+
+	   c1->cd(2);
+	   legend2->AddEntry(g_radstd[i], Form("%s ", group_name[i].c_str()), "p");
+	   legend2->Draw("SAME");
+ 
+	   HistTools::SetStyle(g_radstd[i], HistTools::GetColorPalette(i, size[i]), kFullCircle, 0.9, 1, 1); 
+	   g_radstd[i]->Draw("PSAME"); 
+
+	   c1->cd(3);
+	   legend3->AddEntry(g_chisq[i], Form("%s", group_name[i].c_str()), "p");
+	   legend3->Draw("SAME");
+
+	   HistTools::SetStyle(g_chisq[i], HistTools::GetColorPalette(i, size[i]), kFullCircle, 0.9, 1, 1); 
+	   g_chisq[i]->Draw("PSAME"); 
+
+	   c1->cd(4);
+	   legend4->AddEntry(g_maxres[i], Form("%s", group_name[i].c_str()), "p");
+	   legend4->Draw("SAME");
+   
+	   HistTools::SetStyle(g_maxres[i], HistTools::GetColorPalette(i, size[i]), kFullCircle, 0.9, 1, 1);	
+	   g_maxres[i]->Draw("PSAME"); 
+
+	   c1->cd(5); 
+	   legend5->AddEntry(g_rad1[i], Form("%s", group_name[i].c_str()), "p");
+	   legend5->Draw("SAME");
+
+	   HistTools::SetStyle(g_rad1[i], HistTools::GetColorPalette(i, size[i]), kFullCircle, 0.9, 1, 1);
+	   g_rad1[i]->Draw("PSAME"); 
+
+	   c1->cd(6);  
+	   legend6->AddEntry(g_radstd1[i], Form("%s ", group_name[i].c_str()), "p");
+	   legend6->Draw("SAME");
+
+	   HistTools::SetStyle(g_radstd1[i], HistTools::GetColorPalette(i, size[i]), kFullCircle, 0.9, 1, 1); 
+	   g_radstd1[i]->Draw("PSAME"); 
+
+	   c1->cd(7); 
+
+	   HistTools::SetStyle(g_chisq1[i], HistTools::GetColorPalette(i, size[i]), kFullCircle, 0.9, 1, 1); 
+	   g_chisq1[i]->Draw("PSAME");  
+
+	   c1->cd(8); 
+
+	   HistTools::SetStyle(g_maxres1[i], HistTools::GetColorPalette(i, size[i]), kFullCircle, 0.9, 1, 1);	
+	   g_maxres1[i]->Draw("PSAME"); 
+
+	   c1->cd(9); 
+
+	   HistTools::SetStyle(g_rad2[i], HistTools::GetColorPalette(i, size[i]), kFullCircle, 0.9, 1, 1);
+	   g_rad2[i]->Draw("PSAME");  
+
+	   c1->cd(10);  
+
+	   HistTools::SetStyle(g_radstd2[i], HistTools::GetColorPalette(i, size[i]), kFullCircle, 0.9, 1, 1); 
+	   g_radstd2[i]->Draw("PSAME"); 
+
+	   c1->cd(11); 
+	
+	   HistTools::SetStyle(g_chisq2[i], HistTools::GetColorPalette(i, size[i]), kFullCircle, 0.9, 1, 1); 
+	   g_chisq2[i]->Draw("PSAME"); 
+
+	   c1->cd(12); 
+
+	   HistTools::SetStyle(g_maxres2[i], HistTools::GetColorPalette(i, size[i]), kFullCircle, 0.9, 1, 1);	
+	   g_maxres2[i]->Draw("PSAME"); 
+
+	   c1->cd(13); 
+
+	   HistTools::SetStyle(g_rad3[i], HistTools::GetColorPalette(i, size[i]), kFullCircle, 0.9, 1, 1);
+	   g_rad3[i]->Draw("PSAME");
+
+	   c1->cd(14); 
+
+	   HistTools::SetStyle(g_radstd3[i], HistTools::GetColorPalette(i, size[i]), kFullCircle, 0.9, 1, 1); 
+	   g_radstd3[i]->Draw("PSAME"); 
+
+	   c1->cd(15); 
+
+	   HistTools::SetStyle(g_chisq3[i], HistTools::GetColorPalette(i, size[i]), kFullCircle, 0.9, 1, 1); 
+	   g_chisq3[i]->Draw("PSAME"); 
+	   
+	   c1->cd(16);  
+
+	   HistTools::SetStyle(g_maxres3[i], HistTools::GetColorPalette(i, size[i]), kFullCircle, 0.9, 1, 1);	
+	   g_maxres3[i]->Draw("PSAME"); 
+
+	} 	
 	
 	c1->Print(Form("./data/ACE/extend/ACE_extend_last_ratio_test.png"));
 
