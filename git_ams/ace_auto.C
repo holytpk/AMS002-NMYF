@@ -1451,7 +1451,7 @@ void ace_extend4(){
 	TGraph *g_chisq3[ngroups];
 	TGraph *g_maxres3[ngroups]; 
 
-	TCanvas *c1 = new TCanvas("c1","statistic check for all ratios", 4800, 3600); 
+	TCanvas *c1 = new TCanvas("c1","statistic check for all ratios", 8000, 4500); 
 	c1->Divide(4, 4);
 
 	//int startpoint = 4; 
@@ -1461,10 +1461,10 @@ void ace_extend4(){
 	TH1 *ha3 = HistTools::CreateAxis("ha3", "Chi-2 Test;Z;sum of ((data-1)/error)^2", 8, 30, size[0], 0.0, 50.0, false);
 	TH1 *ha4 = HistTools::CreateAxis("ha4", "Max Residual;Z; max residual", 8, 30, size[0], 0.0, 0.2, false); 
 
-	TH1 *ha5 = HistTools::CreateAxis("ha5", "Average Absolute Variation of All Ratio over C Combined Fit;Z; (sum of abs(data-1))/N", 15, 65, size[1], 0.0, 0.11, false);
-	TH1 *ha6 = HistTools::CreateAxis("ha6", "Average Absolute Variation STD of All Ratio over C Combined Fit;Z; std_abs", 15, 65, size[1], 0.0, 0.2, false);
-	TH1 *ha7 = HistTools::CreateAxis("ha7", "Chi-2 Test;Z;sum of ((data-1)/error)^2", 15, 65, size[1], 0.0, 50.0, false);
-	TH1 *ha8 = HistTools::CreateAxis("ha8", "Max Residual;Z; max residual", 15, 65, size[1], 0.0, 0.2, false);
+	TH1 *ha5 = HistTools::CreateAxis("ha5", "Average Absolute Variation of All Ratio over C Combined Fit;Z; (sum of abs(data-1))/N", 5, 70, size[1], 0.0, 0.11, false);
+	TH1 *ha6 = HistTools::CreateAxis("ha6", "Average Absolute Variation STD of All Ratio over C Combined Fit;Z; std_abs", 5, 70, size[1], 0.0, 0.2, false);
+	TH1 *ha7 = HistTools::CreateAxis("ha7", "Chi-2 Test;Z;sum of ((data-1)/error)^2", 5, 70, size[1], 0.0, 50.0, false);
+	TH1 *ha8 = HistTools::CreateAxis("ha8", "Max Residual;Z; max residual", 5, 70, size[1], 0.0, 0.2, false);
 
 	TH1 *ha9 = HistTools::CreateAxis("ha9", "Average Absolute Variation of All Ratio over C Combined Fit;Z; (sum of abs(data-1))/N", 0.42, 0.54, size[2], 0.0, 0.11, false);
 	TH1 *ha10 = HistTools::CreateAxis("ha10", "Average Absolute Variation STD of All Ratio over C Combined Fit;Z; std_abs", 0.42, 0.54, size[2], 0.0, 0.2, false);
@@ -1476,22 +1476,22 @@ void ace_extend4(){
 	TH1 *ha15 = HistTools::CreateAxis("ha15", "Chi-2 Test;Z;sum of ((data-1)/error)^2", -0.07, 0.01, size[3], 0.0, 50.0, false);
 	TH1 *ha16 = HistTools::CreateAxis("ha16", "Max Residual;Z; max residual", -0.07, 0.01, size[3], 0.0, 0.2, false);
 
-	TLegend *legend1 = new TLegend(0.1,0.8,0.24,0.9); 
-	TLegend *legend2 = new TLegend(0.1,0.8,0.24,0.9); 
-	TLegend *legend3 = new TLegend(0.1,0.8,0.24,0.9); 
-	TLegend *legend4 = new TLegend(0.1,0.8,0.24,0.9); 
-	TLegend *legend5 = new TLegend(0.1,0.8,0.24,0.9); 
-	TLegend *legend6 = new TLegend(0.1,0.8,0.24,0.9); 
-	TLegend *legend7 = new TLegend(0.1,0.8,0.24,0.9); 
-	TLegend *legend8 = new TLegend(0.1,0.8,0.24,0.9); 
-	TLegend *legend9 = new TLegend(0.1,0.8,0.24,0.9); 
-	TLegend *legend10 = new TLegend(0.1,0.8,0.24,0.9); 
-	TLegend *legend11 = new TLegend(0.1,0.8,0.24,0.9); 
-	TLegend *legend12 = new TLegend(0.1,0.8,0.24,0.9); 
-	TLegend *legend13 = new TLegend(0.1,0.8,0.24,0.9); 
-	TLegend *legend14 = new TLegend(0.1,0.8,0.24,0.9); 
-	TLegend *legend15 = new TLegend(0.1,0.8,0.24,0.9); 
-	TLegend *legend16 = new TLegend(0.1,0.8,0.24,0.9); 
+	TLegend *legend1 = new TLegend(0.1,0.7,0.48,0.9); 
+	TLegend *legend2 = new TLegend(0.1,0.7,0.48,0.9); 
+	TLegend *legend3 = new TLegend(0.1,0.7,0.48,0.9); 
+	TLegend *legend4 = new TLegend(0.1,0.7,0.48,0.9); 
+	TLegend *legend5 = new TLegend(0.1,0.7,0.48,0.9); 
+	TLegend *legend6 = new TLegend(0.1,0.7,0.48,0.9); 
+	TLegend *legend7 = new TLegend(0.1,0.7,0.48,0.9); 
+	TLegend *legend8 = new TLegend(0.1,0.7,0.48,0.9); 
+	TLegend *legend9 = new TLegend(0.1,0.7,0.48,0.9); 
+	TLegend *legend10 = new TLegend(0.1,0.7,0.48,0.9); 
+	TLegend *legend11 = new TLegend(0.1,0.7,0.48,0.9); 
+	TLegend *legend12 = new TLegend(0.1,0.7,0.48,0.9); 
+	TLegend *legend13 = new TLegend(0.1,0.7,0.48,0.9); 
+	TLegend *legend14 = new TLegend(0.1,0.7,0.48,0.9); 
+	TLegend *legend15 = new TLegend(0.1,0.7,0.48,0.9); 
+	TLegend *legend16 = new TLegend(0.1,0.7,0.48,0.9); 
 
 	c1->cd(1); 
 	gPad->SetGrid();
@@ -1740,51 +1740,71 @@ void ace_extend4(){
 	   g_radstd1[i]->Draw("PSAME"); 
 
 	   c1->cd(7); 
+	   legend7->AddEntry(g_chisq1[i], Form("%s", group_name[i].c_str()), "p");
+	   legend7->Draw("SAME");
 
 	   HistTools::SetStyle(g_chisq1[i], HistTools::GetColorPalette(i, size[i]), kFullCircle, 0.9, 1, 1); 
 	   g_chisq1[i]->Draw("PSAME");  
 
 	   c1->cd(8); 
+	   legend8->AddEntry(g_maxres1[i], Form("%s", group_name[i].c_str()), "p");
+	   legend8->Draw("SAME");
 
 	   HistTools::SetStyle(g_maxres1[i], HistTools::GetColorPalette(i, size[i]), kFullCircle, 0.9, 1, 1);	
 	   g_maxres1[i]->Draw("PSAME"); 
 
 	   c1->cd(9); 
+	   legend9->AddEntry(g_rad2[i], Form("%s", group_name[i].c_str()), "p");
+	   legend9->Draw("SAME");
 
 	   HistTools::SetStyle(g_rad2[i], HistTools::GetColorPalette(i, size[i]), kFullCircle, 0.9, 1, 1);
 	   g_rad2[i]->Draw("PSAME");  
 
 	   c1->cd(10);  
+	   legend10->AddEntry(g_radstd2[i], Form("%s ", group_name[i].c_str()), "p");
+	   legend10->Draw("SAME");
 
 	   HistTools::SetStyle(g_radstd2[i], HistTools::GetColorPalette(i, size[i]), kFullCircle, 0.9, 1, 1); 
 	   g_radstd2[i]->Draw("PSAME"); 
 
-	   c1->cd(11); 
+	   c1->cd(11);
+	   legend11->AddEntry(g_chisq2[i], Form("%s", group_name[i].c_str()), "p");
+	   legend11->Draw("SAME"); 
 	
 	   HistTools::SetStyle(g_chisq2[i], HistTools::GetColorPalette(i, size[i]), kFullCircle, 0.9, 1, 1); 
 	   g_chisq2[i]->Draw("PSAME"); 
 
 	   c1->cd(12); 
+	   legend12->AddEntry(g_maxres2[i], Form("%s", group_name[i].c_str()), "p");
+	   legend12->Draw("SAME"); 
 
 	   HistTools::SetStyle(g_maxres2[i], HistTools::GetColorPalette(i, size[i]), kFullCircle, 0.9, 1, 1);	
 	   g_maxres2[i]->Draw("PSAME"); 
 
-	   c1->cd(13); 
+	   c1->cd(13);
+	   legend13->AddEntry(g_rad3[i], Form("%s", group_name[i].c_str()), "p");
+	   legend13->Draw("SAME");  
 
 	   HistTools::SetStyle(g_rad3[i], HistTools::GetColorPalette(i, size[i]), kFullCircle, 0.9, 1, 1);
 	   g_rad3[i]->Draw("PSAME");
 
 	   c1->cd(14); 
+	   legend14->AddEntry(g_radstd3[i], Form("%s", group_name[i].c_str()), "p");
+	   legend14->Draw("SAME");
 
 	   HistTools::SetStyle(g_radstd3[i], HistTools::GetColorPalette(i, size[i]), kFullCircle, 0.9, 1, 1); 
 	   g_radstd3[i]->Draw("PSAME"); 
 
 	   c1->cd(15); 
+	   legend15->AddEntry(g_chisq3[i], Form("%s", group_name[i].c_str()), "p");
+	   legend15->Draw("SAME");
 
 	   HistTools::SetStyle(g_chisq3[i], HistTools::GetColorPalette(i, size[i]), kFullCircle, 0.9, 1, 1); 
 	   g_chisq3[i]->Draw("PSAME"); 
 	   
 	   c1->cd(16);  
+	   legend16->AddEntry(g_maxres3[i], Form("%s", group_name[i].c_str()), "p");
+	   legend16->Draw("SAME");
 
 	   HistTools::SetStyle(g_maxres3[i], HistTools::GetColorPalette(i, size[i]), kFullCircle, 0.9, 1, 1);	
 	   g_maxres3[i]->Draw("PSAME"); 
