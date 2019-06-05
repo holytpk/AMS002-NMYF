@@ -8,11 +8,14 @@
 #include "commonlib/include/Experiments.hh"
 #include "commonlib/include/HistTools.hh"
 #include "commonlib/include/Spline.hh"
+#include "commonlib/include/DateTimeTools.hh"
+#include "commonlib/include/debug.hh"
 
 void amsfit(int nnodes);
 void amsnode(char const *item, int i, int j);
 void amsnodeBR(char const *item, int i, int j); 
 
+// check if there is missing files which means you need to redo amsfit()  
 void amsauto(char const *item, int redo, int node_min, int node_max){
 
 	gROOT->ProcessLine(".L amsauto.C");
@@ -49,6 +52,8 @@ void amsauto(char const *item, int redo, int node_min, int node_max){
 
 void amsfit(int nnodes){
 
+	Debug::Enable(Debug::ALL); 
+
 	gROOT->SetBatch(); // disable canvas loop	
 
 	gStyle->SetOptStat(0);
@@ -83,6 +88,8 @@ void amsfit(int nnodes){
 
 	for (iBR = 0; iBR < nBRs; iBR++)
 	{
+
+			// monthly +integrated 
     			h_BR_p_all[iBR] = (TH1D *)h_p->Clone(Form("%s_all", h_BR_p[iBR]->GetName())); // set the histogram style as you prefer, with 
 			HistTools::SetStyle(h_BR_p_all[iBR], kBlue, kFullCircle, 1.1, 1, 1);
 
@@ -91,7 +98,7 @@ void amsfit(int nnodes){
 
     			for (int bin = 1; bin <= h_BR_p[0]->GetNbinsX(); ++bin)
     			{
-       				h_BR_p_all[iBR]->SetBinContent(bin, h_BR_p[iBR]->GetBinContent(bin));
+       				h_BR_p_all[iBR]->SetBinContent(bin, h_BR_p[iBR]->GetBinContent(bin)); 
        				h_BR_p_all[iBR]->SetBinError(bin, h_BR_p[iBR]->GetBinError(bin));
 
     			}
@@ -103,7 +110,96 @@ void amsfit(int nnodes){
 
     			}
 
+
 	} // acquiring the data
+
+	TFile fin1("./data/ams02-monthly/ams02_phe_monthly_BR2426_BR2506.root"); 
+	TH1D *h_p_ave = new TH1D("h_p_ave", "Average Proton Flux BR2426-2493", 45, 0, 45); //"h_p_ave", "Average Proton Flux", 45, 0, 45
+	h_p_ave->SetXTitle(Unit::GetEnergyLabel("GV"));
+   	h_p_ave->SetYTitle(Unit::GetDifferentialFluxLabel("GV m"));
+
+	int i_total = 45; // total number of energy bins 
+
+	for (int iBin = 0; iBin < i_total; iBin++){ 
+
+		double p_sum = 0, p_sum_error = 0; 
+
+		int effBR = 0; 
+
+		for (int iBR = 0; iBR < nBRs; iBR++) 
+		{
+
+		   if (iBR != 2472-2426 && iBR != 2473-2426){ 
+			
+			p_sum += h_BR_p_all[iBR]->GetBinContent(iBin+1);  
+			p_sum_error += h_BR_p_all[iBR]->GetBinError(iBin+1); 
+
+			//printf("i=%d, iBR/effBR=%d/%d, %f, %f \n", i, iBR, effBR, h_p_BR->GetBinContent(i+1), h_p_BR->GetBinError(i+1));  
+
+			// break; 
+
+			effBR++;  
+		   } 
+		} 
+
+		h_p_ave->SetBinContent(iBin+1, p_sum/effBR);
+		h_p_ave->SetBinError(iBin+1, p_sum_error/effBR); 
+
+		// break;     
+
+	} 
+
+	TCanvas *cp = new TCanvas("cp", "Average Proton Flux BR2426-2493", 2400, 1800);  
+	cp->Divide(1, 2); 
+
+	// Fit p monthly average
+	Spline *sp_p_ave = Spline::BuildFromHistogram(h_p_ave, "fsp_p_ave", nnodes, Spline::LogLog | Spline::PowerLaw);
+	TF1 *fsp_p_ave = sp_p_ave->GetTF1Pointer();
+        fsp_p_ave->SetRange(0.1, 3e3);
+	h_p_ave->Fit(fsp_p_ave, "NQ");
+	h_p_ave->Fit(fsp_p_ave, "NI");
+	HistTools::SetStyle(h_p_ave, kBlue, kFullCircle, 1.5, 1, 1); 
+	TH1 *h_fitres_p_ave = HistTools::GetResiduals(h_p_ave, fsp_p_ave, "_fitratio", false, true, true, 4, 1); 
+	HistTools::CopyStyle(h_p_ave, h_fitres_p_ave);
+	TH1 *h_fiterr_p_ave = HistTools::GetFitError(h_p_ave, fsp_p_ave, "_fiterr", true, false, true, 11, 1.); 
+	HistTools::SetFillStyle(h_fiterr_p_ave, kRed-7, 1001); 
+
+	cp->cd(1);
+	gPad->SetLogx();
+	gPad->SetLogy();
+	gPad->SetGrid(); 
+
+	TH1D *h_resaxis = HistTools::CreateAxis("h_resaxis", "Average Proton Flux BR2426-2493", 0.3, 50., 7, 0.1, 3e3, false); 
+	h_resaxis->SetXTitle(Unit::GetEnergyLabel("GV"));
+  	h_resaxis->SetYTitle(Unit::GetDifferentialFluxLabel("GV m")); 
+	
+	h_resaxis->Draw("E1X0");
+	h_p_ave->GetXaxis()->SetRangeUser(0.1, 10e2);
+	h_p_ave->Draw("E1X0 SAME");  
+	fsp_p_ave->Draw("SAME");
+
+	cp->cd(2);
+	gPad->SetLogx();
+   	gPad->SetGrid(); 
+	
+	//fsp_p_ave->Print("range"); 
+	PRINT_HIST(h_p_ave); 
+	PRINT_HIST(h_fiterr_p_ave);
+
+	TH1D *h_resaxis2 = HistTools::CreateAxis("h_resaxis2", ";Rigidity [GV];Data / Fit", 0.3, 50, 7, 0.94, 1.06, false); 
+
+	//h_fiterr_p_ave->SetTitle("");
+   	//h_fiterr_p_ave->SetXTitle("Rigidity [GV]"); 
+   	//h_fiterr_p_ave->SetYTitle("Data / Fit");
+
+	h_resaxis2->Draw("E1X0");
+   	h_fiterr_p_ave->Draw("E3 SAME");
+   	//h_fiterr_p_ave->GetXaxis()->SetRangeUser(0.1, 10e2);
+	h_fitres_p_ave->Draw("E1X0 SAME"); 
+
+	cp->Print("data/amsfit/nodes7/average_protonflux.png");  
+
+	fin1.Close(); 
 
 	// Open TFile
 	TFile file_fitresult(Form("data/amsfit/fit_result_node%d.root", nnodes), "RECREATE");
@@ -120,7 +216,7 @@ void amsfit(int nnodes){
 			TH1 *h_fitres_li = HistTools::GetResiduals(h_li, fsp_li, "_fitratio", false, true, true, 4, 1); // this will compute data/fit
 			HistTools::CopyStyle(h_li, h_fitres_li);
 			TH1 *h_fiterr_li = HistTools::GetFitError(h_li, fsp_li, "_fiterr", true, false, true, 11, 1.); // this will compute the relative error of the fit, centered in 1 (so 1.01 = 1% upward error; 0.98 = 2% downward error, etc)
-			HistTools::SetFillStyle(h_fiterr_li, kRed-7, 1001);
+			HistTools::SetFillStyle(h_fiterr_li, kRed-7, 1001); 
 
 			Spline *sp_be = Spline::BuildFromHistogram(h_be, "fsp_be", nnodes, Spline::LogLog | Spline::PowerLaw);
 			TF1 *fsp_be = sp_be->GetTF1Pointer(); 
@@ -331,6 +427,8 @@ void amsfit(int nnodes){
 
 	for (iBR = 0; iBR < nBRs; iBR++)
 	{
+			break; 
+			
 			gSystem->mkdir(Form("data/amsfit/nodes%d", nnodes), true);
 
 			// Fit the proton fluxes with a spline w/ nnodes nodes:
@@ -381,7 +479,7 @@ void amsfit(int nnodes){
 			TH1 *h_fiterr_he = HistTools::GetFitError(h_BR_he_all[iBR], fsp_he, "_fiterr", true, false, true, 11, 1.); // this will compute the relative error of the fit, centered in 1 (so 1.01 = 1% upward error; 0.98 = 2% downward error, etc)
 			HistTools::SetFillStyle(h_fiterr_he, kRed-7, 1001);
 
-			// Plot the Helium fluxes fit results:
+			// Plot the Helium fluxes fit results: 
 			c1->cd(2);
 			gPad->SetLogx();
 			gPad->SetLogy();
@@ -481,7 +579,6 @@ void amsnodeBR(char const *item, int i, int j){
 			{
 
 				TF1 *fsp_1 = (TF1*)file1.Get(Form("fsp_BR_%s_%02d", item, iBR)); 
-
 				TF1 *fsp_2 = (TF1*)file2.Get(Form("fsp_BR_%s_%02d", item, iBR)); 
 
 				// w/ nnodes = i 
@@ -518,5 +615,4 @@ void amsnodeBR(char const *item, int i, int j){
 	c2->Print(Form("./data/amsfit/%s_sigma_test_%dvs%d.png", item, i, j));
 
 }
-
 
