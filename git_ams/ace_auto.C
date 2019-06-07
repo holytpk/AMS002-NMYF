@@ -100,6 +100,7 @@ void ace_extend(); // divide remaining ACE data that is not measured by AMS by c
 void ace_extend2(); // fit_comb of BNO / C
 void ace_extend3(); // group ratios from extend() part II and check isotope assumptions 
 void ace_extend4(); // plot average relative absolute difference, chi-2, max variation of residuals vs. element Z, element Z/A, difference (Z/A)_element - (Z/A)_C 
+void ace_contribute(); // reconstructe ACE fit for all elements through C combined fit template, check the contribution of each element by plotting the ratio of CR Flux/total CR Flux 
 
 TGraphAsymmErrors *get_ace_graph(const char *element, UInt_t iBin, UInt_t nBRs); // flux in Kinetic Energy over time 
 TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_t nBRs); // flux in Kinetic over energy bins 
@@ -1205,7 +1206,7 @@ void ace_extend3(){
 
 			int nnodes = 7;
 
-			TFile file1(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[1], nnodes)); // load combined fit
+			TFile file1(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[1], nnodes)); // load combined C fit
 			TH1 *h_ene = HistTools::GraphToHist(get_ace_average_graph( group[i][j].c_str() , &BRs[0], BRs.size() ), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
 			TH1 *h_ace = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, group_iso[i][j], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity
 	
@@ -1811,7 +1812,62 @@ void ace_extend4(){
 
 	} 	
 	
-	c1->Print(Form("./data/ACE/extend/ACE_extend_last_ratio_test.png"));
+	c1->Print(Form("./data/ACE/extend/ACE_extend_last_ratio_test.pdf"));
+
+}
+
+void ace_contribute(){
+
+	Debug::Enable(Debug::ALL); 
+
+	const UInt_t FirstACEBR = 2240;
+   	vector<UInt_t> BRs;
+  	// we stop at BR 2493, which ends on 2016/05/23, just 3 days before the end of the data taking period for AMS nuclei
+   	for (UInt_t br=2426; br<=2493; ++br) { 
+	   	if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
+	}
+
+	// i begins wirh 0 
+	for (i=4;i<24;i++){ 
+
+		int nnodes = 7;
+
+		TH1 *h_ene = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[i] , &BRs[0], BRs.size() ), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
+		TH1 *h_ace = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, ACE_Isotope[i], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity
+	
+		TH1 *h_ratio = (TH1 *) h_ace->Clone("h_ratio");
+		h_ratio->Divide(fit_comb);
+		HistTools::SetStyle(h_ratio, kRed, kFullCircle, 0.9, 1, 1);
+
+		TFile file2(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[1], nnodes)); // load C combined fit
+
+		Spline *sp_comb_C = new Spline("sp_comb_C", nnodes, Spline::LogLog | Spline::PowerLaw);
+		TF1 *fsp_comb_C = sp_comb_C->GetTF1Pointer();  
+		TF1 *fit_comb_C = (TF1*) file2.Get("fit_both");
+
+		HistTools::CopyParameters(fit_comb_C, fsp_comb_C);
+		double x1_C, x2_C;
+		fit_comb_C->GetRange(x1_C,x2_C);
+		fsp_comb_C->SetRange(x1_C,x2_C);
+
+		double R1 = h_ace_C->GetBinLowEdge(1);
+		double R2 = h_ace->GetBinLowEdge(h_ace->GetNbinsX()+1);
+ 
+		TF1 *f_ratio = HistTools::CombineTF1(fit_comb, fit_comb_C, HistTools::Divide, "f_ratio", R1, R2); // fit ratio of Combined vs. Combined C
+
+		double ratio_sum=0; // compute average of h_ratio manually  
+		for(int k=0;k<14;k++){
+			ratio_sum += h_ratio->GetBinContent(k);
+		}
+		double ratio_ave = ratio_sum/h_res->GetEntries(); 
+
+		TF1 *f_fit = HistTools::CombineTF1Const(f_fit_C, ratio_ave, HistTools::MultiplyConst, "f_fit_C", Rmin, Rmax); 
+		
+	}
+
+	PRINT_HIST()
+
+	// TF1 *f_fit_F = HistTools::CombineTF1Const(f_fit_C, F_avg_ratio, HistTools::MultiplyConst, "f_fit_C", Rmin, Rmax);
 
 }
 
@@ -1825,7 +1881,7 @@ UInt_t UBRToTime(int BR){
 	return (BR - 1) * (27*86400) + first_BR;
 }
 
-// over time
+// flux over time (might be incorrect) 
 TGraphAsymmErrors *get_ace_graph(const char *element, UInt_t iBin, UInt_t nBRs){
 
    double *kin_bins = get_kin_bins(element);
@@ -1870,7 +1926,7 @@ TGraphAsymmErrors *get_ace_graph(const char *element, UInt_t iBin, UInt_t nBRs){
    return graph; 
 }
 
-// over energy bins
+// flux over energy bins
 TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_t nBRs){
 
    double *kin_bins = get_kin_bins(element);
@@ -1902,7 +1958,7 @@ TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_
    Double_t dT = 0.;
    for (UInt_t ibr = 0; ibr < nBRs; ++ibr)
    {
-      if (BRs[ibr] >= ace->GetEntries()) continue;
+      if (BRs[ibr] >= ace->GetEntries()) continue; 
 
       ace->GetEntry(BRs[ibr]);
       dT += livetime;
