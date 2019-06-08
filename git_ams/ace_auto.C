@@ -592,7 +592,7 @@ void ace_fitboth(int nnodes){
    ofstream bestnode(Form("data/ACE/compare/%dnodes.txt",nnodes));
 	
    Experiments::DataPath = "data";	
-   int data_value[n_ele] = {0, 18, 23, 27, 31, 20, 43, 22};
+   int data_value[n_ele] = {0, 18, 23, 27, 31, 20, 43, 22}; // p, He, Li, Be, B, C, N, O
 
    const UInt_t FirstACEBR = 2240;
    vector<UInt_t> BRs;
@@ -1820,6 +1820,10 @@ void ace_contribute(){
 
 	Debug::Enable(Debug::ALL); 
 
+	Experiments::DataPath = "data";
+
+	int data_value[n_ele] = {0, 18, 23, 27, 31, 20, 43, 22}; 
+
 	const UInt_t FirstACEBR = 2240;
    	vector<UInt_t> BRs;
   	// we stop at BR 2493, which ends on 2016/05/23, just 3 days before the end of the data taking period for AMS nuclei
@@ -1827,17 +1831,24 @@ void ace_contribute(){
 	   	if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
 	}
 
+	TCanvas *c1 = new TCanvas("c1", "Extend Fit", 1800, 900); 
+
 	// i begins wirh 0 
-	for (i=4;i<24;i++){ 
+	for (int i=4;i<24;i++){ 
+
+		TH1 *ha = HistTools::CreateAxis("ha", "haxis1", 0.1, 2500., 7, 1e-10, 1e3, false);
+		ha->SetXTitle(Unit::GetEnergyLabel("GV"));
+  		ha->SetYTitle(Unit::GetDifferentialFluxLabel("GV m")); 
+		ha->SetTitle(Form("Averaged ACE and Integrated %s AMS Flux vs. Rigidity", ACE_Element[i]));
 
 		int nnodes = 7;
 
+		TH1 *h_ams = Experiments::GetMeasurementHistogram(Experiments::AMS02, data_value[5], 0); // load AMS Carbon data in order to determine Rmax
+		HistTools::SetStyle(h_ams, kBlue, kFullCircle, 1.5, 1, 1); 
+
 		TH1 *h_ene = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[i] , &BRs[0], BRs.size() ), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
-		TH1 *h_ace = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, ACE_Isotope[i], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity
-	
-		TH1 *h_ratio = (TH1 *) h_ace->Clone("h_ratio");
-		h_ratio->Divide(fit_comb);
-		HistTools::SetStyle(h_ratio, kRed, kFullCircle, 0.9, 1, 1);
+		TH1 *h_ace = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, ACE_Isotope[i], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity 
+		HistTools::SetStyle(h_ace, HistTools::GetColorPalette(i, n_ele) , kFullCircle, 1.5, 1, 1); 
 
 		TFile file2(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[1], nnodes)); // load C combined fit
 
@@ -1849,25 +1860,45 @@ void ace_contribute(){
 		double x1_C, x2_C;
 		fit_comb_C->GetRange(x1_C,x2_C);
 		fsp_comb_C->SetRange(x1_C,x2_C);
+		
+		TH1 *h_ratio = (TH1 *) h_ace->Clone("h_ratio");
+		h_ratio->Divide(fit_comb_C); // WARNING! Doing this will change the resolution (or # of bins) of the histogram. 
+		HistTools::SetStyle(h_ratio, kRed, kFullCircle, 0.9, 1, 1);
 
-		double R1 = h_ace_C->GetBinLowEdge(1);
-		double R2 = h_ace->GetBinLowEdge(h_ace->GetNbinsX()+1);
- 
-		TF1 *f_ratio = HistTools::CombineTF1(fit_comb, fit_comb_C, HistTools::Divide, "f_ratio", R1, R2); // fit ratio of Combined vs. Combined C
+		UShort_t namsbins = h_ams->GetNbinsX(); 
+		UShort_t nacebins = h_ace->GetNbinsX();
+	
+		double R1 = h_ace->GetBinLowEdge(1);
+		double R2 = h_ams->GetBinLowEdge(namsbins+1);
 
 		double ratio_sum=0; // compute average of h_ratio manually  
 		for(int k=0;k<14;k++){
-			ratio_sum += h_ratio->GetBinContent(k);
+			ratio_sum += h_ratio->GetBinContent(k); 
 		}
-		double ratio_ave = ratio_sum/h_res->GetEntries(); 
+		double ratio_ave = ratio_sum/h_ace->GetEntries(); 
 
-		TF1 *f_fit = HistTools::CombineTF1Const(f_fit_C, ratio_ave, HistTools::MultiplyConst, "f_fit_C", Rmin, Rmax); 
+		TF1 *fit = HistTools::CombineTF1Const(fit_comb_C, ratio_ave, HistTools::MultiplyConst, "f_fit_C", R1, R2); 
+
+		TLegend *legend = new TLegend(0.1,0.8,0.28,0.9); // left, down, right, top
+		legend->AddEntry(h_ace, Form("ACE %s Flux", ACE_Element[i]), "p");
+		legend->AddEntry(h_ams, Form("AMS Integrated %s Flux", ACE_Element[1]), "p");
+		legend->AddEntry(fit, Form("ACE %s Flux Reconstruction", ACE_Element[i]), "l"); 
+		
+		c1->cd(1);
+		gPad->SetLogx();
+		gPad->SetLogy();
+		gPad->SetGrid();
+
+		ha->Draw("E1X0");
+		h_ace->Draw("E1X0 SAME");  
+		h_ams->Draw("E1X0 SAME"); 
+		fit->Draw("LSAME");
+		legend->Draw("SAME");
 		
 	}
 
-	PRINT_HIST()
+	//PRINT_HIST()
 
-	// TF1 *f_fit_F = HistTools::CombineTF1Const(f_fit_C, F_avg_ratio, HistTools::MultiplyConst, "f_fit_C", Rmin, Rmax);
 
 }
 
