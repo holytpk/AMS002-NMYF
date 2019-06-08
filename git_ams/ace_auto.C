@@ -117,6 +117,7 @@ void ace_auto(const char *operation){
 	gSystem->mkdir("data/ACE/extend2", true);
 	gSystem->mkdir("data/ACE/compare", true);
 	gSystem->mkdir("data/ACE/convert", true);
+	gSystem->mkdir("data/ACE/contribute", true);
 
 	gSystem->Setenv("TZ", "UCT"); 
 	gStyle->SetTimeOffset(0);
@@ -217,6 +218,8 @@ void ace_auto(const char *operation){
 		ace_extend3();
 	} else if (strcmp(operation, "extend4") == 0){
 		ace_extend4();
+	} else if (strcmp(operation, "contribute") == 0){
+		ace_contribute();
 	}
 
 } 
@@ -946,7 +949,7 @@ void ace_extend(){
 				ratio_sum += h_ratio->GetBinContent(k);
 				//printf("ratio_sum = %0.6f \n", ratio_sum);
 			}
-			double ratio_ave = ratio_sum/h_res->GetEntries();
+			double ratio_ave = ratio_sum/7;
 			
 			//printf("ratio_ave = %0.6f w/ %0.1f Entries \n", ratio_ave, h_ratio->GetEntries());
 			//HistTools::PrintFunction(fit_comb);
@@ -1300,7 +1303,7 @@ void ace_extend3(){
 				ratio_sum += h_ratio->GetBinContent(k);
 				printf("ratio_sum = %0.6f, # of bins = %f \n", ratio_sum, h_res->GetEntries()); // after divide by the fit, the entries of h_ratio changes  
 			}
-			double ratio_ave = ratio_sum/h_res->GetEntries();
+			double ratio_ave = ratio_sum/7;
 
 			PRINT_HIST(h_ratio);
 		
@@ -1853,7 +1856,7 @@ void ace_contribute(){
 		TFile file2(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[1], nnodes)); // load C combined fit
 
 		Spline *sp_comb_C = new Spline("sp_comb_C", nnodes, Spline::LogLog | Spline::PowerLaw);
-		TF1 *fsp_comb_C = sp_comb_C->GetTF1Pointer();  
+		TF1 *fsp_comb_C = sp_comb_C->GetTF1Pointer();  // real function 
 		TF1 *fit_comb_C = (TF1*) file2.Get("fit_both");
 
 		HistTools::CopyParameters(fit_comb_C, fsp_comb_C);
@@ -1862,7 +1865,8 @@ void ace_contribute(){
 		fsp_comb_C->SetRange(x1_C,x2_C);
 		
 		TH1 *h_ratio = (TH1 *) h_ace->Clone("h_ratio");
-		h_ratio->Divide(fit_comb_C); // WARNING! Doing this will change the resolution (or # of bins) of the histogram. 
+
+		h_ratio->Divide(fsp_comb_C); // WARNING! Doing this will change the resolution (or # of bins) of the histogram. 
 		HistTools::SetStyle(h_ratio, kRed, kFullCircle, 0.9, 1, 1);
 
 		UShort_t namsbins = h_ams->GetNbinsX(); 
@@ -1875,9 +1879,9 @@ void ace_contribute(){
 		for(int k=0;k<14;k++){
 			ratio_sum += h_ratio->GetBinContent(k); 
 		}
-		double ratio_ave = ratio_sum/h_ace->GetEntries(); 
+		double ratio_ave = ratio_sum/7; 
 
-		TF1 *fit = HistTools::CombineTF1Const(fit_comb_C, ratio_ave, HistTools::MultiplyConst, "f_fit_C", R1, R2); 
+		TF1 *fit = HistTools::CombineTF1Const(fsp_comb_C, ratio_ave, HistTools::MultiplyConst, "f_fit_C", R1, R2); 
 
 		TLegend *legend = new TLegend(0.1,0.8,0.28,0.9); // left, down, right, top
 		legend->AddEntry(h_ace, Form("ACE %s Flux", ACE_Element[i]), "p");
@@ -1894,6 +1898,8 @@ void ace_contribute(){
 		h_ams->Draw("E1X0 SAME"); 
 		fit->Draw("LSAME");
 		legend->Draw("SAME");
+
+		c1->Print(Form("./data/ACE/contribute/extend_%s.png", ACE_Element[i]));
 		
 	}
 
