@@ -1834,10 +1834,25 @@ void ace_contribute(){
 	   	if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
 	}
 
+	TH1 *h_ams_C = Experiments::GetMeasurementHistogram(Experiments::AMS02, data_value[5], 0); // load AMS Carbon data in order to determine Rmax
+
+	TH1 *h_ene_C = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[1] , &BRs[0], BRs.size() ), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
+	TH1 *h_ace_C = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene_C, ACE_Isotope[1], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity
+
+	UShort_t namsbins = h_ams_C->GetNbinsX(); 
+	UShort_t nacebins = h_ace_C->GetNbinsX();
+	
+	double R1 = h_ace_C->GetBinLowEdge(1);
+	double R2 = h_ams_C->GetBinLowEdge(namsbins+1);
+
 	TCanvas *c1 = new TCanvas("c1", "Extend Fit", 1800, 900); 
+
+	TF1 *f_fit[n_ele]; 
 
 	// i begins wirh 0 
 	for (int i=4;i<24;i++){ 
+
+		f_fit[i] = new TF1(); 
 
 		TH1 *ha = HistTools::CreateAxis("ha", "haxis1", 0.1, 2500., 7, 1e-10, 1e3, false);
 		ha->SetXTitle(Unit::GetEnergyLabel("GV"));
@@ -1846,7 +1861,7 @@ void ace_contribute(){
 
 		int nnodes = 7;
 
-		TH1 *h_ams = Experiments::GetMeasurementHistogram(Experiments::AMS02, data_value[5], 0); // load AMS Carbon data in order to determine Rmax
+		TH1 *h_ams = Experiments::GetMeasurementHistogram(Experiments::AMS02, data_value[5], 0); 
 		HistTools::SetStyle(h_ams, kBlue, kFullCircle, 1.5, 1, 1); 
 
 		TH1 *h_ene = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[i] , &BRs[0], BRs.size() ), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
@@ -1869,24 +1884,18 @@ void ace_contribute(){
 		h_ratio->Divide(fsp_comb_C); // WARNING! Doing this will change the resolution (or # of bins) of the histogram. 
 		HistTools::SetStyle(h_ratio, kRed, kFullCircle, 0.9, 1, 1);
 
-		UShort_t namsbins = h_ams->GetNbinsX(); 
-		UShort_t nacebins = h_ace->GetNbinsX();
-	
-		double R1 = h_ace->GetBinLowEdge(1);
-		double R2 = h_ams->GetBinLowEdge(namsbins+1);
-
 		double ratio_sum=0; // compute average of h_ratio manually  
 		for(int k=0;k<14;k++){
 			ratio_sum += h_ratio->GetBinContent(k); 
 		}
 		double ratio_ave = ratio_sum/7; 
 
-		TF1 *fit = HistTools::CombineTF1Const(fsp_comb_C, ratio_ave, HistTools::MultiplyConst, "f_fit_C", R1, R2); 
+		f_fit[i] = HistTools::CombineTF1Const(fsp_comb_C, ratio_ave, HistTools::MultiplyConst, "f_fit_C", R1, R2); 
 
 		TLegend *legend = new TLegend(0.1,0.8,0.28,0.9); // left, down, right, top
 		legend->AddEntry(h_ace, Form("ACE %s Flux", ACE_Element[i]), "p");
 		legend->AddEntry(h_ams, Form("AMS Integrated %s Flux", ACE_Element[1]), "p");
-		legend->AddEntry(fit, Form("ACE %s Flux Reconstruction", ACE_Element[i]), "l"); 
+		legend->AddEntry(f_fit[i], Form("ACE %s Flux Reconstruction", ACE_Element[i]), "l"); 
 		
 		c1->cd(1);
 		gPad->SetLogx();
@@ -1896,15 +1905,43 @@ void ace_contribute(){
 		ha->Draw("E1X0");
 		h_ace->Draw("E1X0 SAME");  
 		h_ams->Draw("E1X0 SAME"); 
-		fit->Draw("LSAME");
+		f_fit[i]->Draw("LSAME");
 		legend->Draw("SAME");
 
-		c1->Print(Form("./data/ACE/contribute/extend_%s.png", ACE_Element[i]));
+		c1->Print(Form("./data/ACE/contribute/extend_%s.png", ACE_Element[i])); 
 		
 	}
 
-	//PRINT_HIST()
+	Int_t nbins = 200;
 
+	Double_t *bins = HistTools::BuildLogBins(R1, R2, nbins); // Rmin is the minimum rigidity of the ACE fluxes, Rmax the maximum rigidity of the AMS fluxes
+	TH1D *h_tot_cr_flux = new TH1D("h_tot_cr_flux", "Total cosmic ray flux;Rigidity [GV];Flux [1/(m^{2} sr s GV)]", nbins, bins);
+	HistTools::SetStyle(h_tot_cr_flux, kRed, kFullCircle, 0.9, 1, 1);
+	
+	for (int i = 4; i < n_ele; ++i) 
+	{
+	
+   		for (int bin = 1; bin <= nbins; ++bin)
+   		{
+      			Double_t R = h_tot_cr_flux->GetBinLowEdge(bin);
+     			Double_t w = h_tot_cr_flux->GetBinWidth(bin);
+      			Double_t flux = f_fit[i]->Integral(R, R+w)/w; 
+      			h_tot_cr_flux->AddBinContent(bin, flux);
+
+			// printf("i=%d, bin=%d, flux=%f \n", i, bin, flux); 
+   		}
+
+		//break; 
+	}
+
+	TCanvas *c2 = new TCanvas();
+	c2->cd(1); 
+	gPad->SetLogx();
+	gPad->SetLogy();
+	gPad->SetGrid();
+
+	h_tot_cr_flux->Draw("E1X0"); 
+	PRINT_HIST(h_tot_cr_flux) 
 
 }
 
