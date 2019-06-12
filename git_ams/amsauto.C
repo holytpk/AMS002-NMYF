@@ -113,16 +113,21 @@ void amsfit(int nnodes){
 
 	} // acquiring the data
 
-	TFile fin1("./data/ams02-monthly/ams02_phe_monthly_BR2426_BR2506.root"); 
-	TH1D *h_p_ave = new TH1D("h_p_ave", "Average Proton Flux BR2426-2493", 45, 0, 45); //"h_p_ave", "Average Proton Flux", 45, 0, 45
+	//TFile fin1("./data/ams02-monthly/ams02_phe_monthly_BR2426_BR2506.root"); 
+	TH1D *h_p_ave = new TH1D("h_p_ave", "Average Proton Flux BR2426-2493", 45, 0, 45); 
 	h_p_ave->SetXTitle(Unit::GetEnergyLabel("GV"));
    	h_p_ave->SetYTitle(Unit::GetDifferentialFluxLabel("GV m"));
+
+	TH1D *h_he_ave = new TH1D("h_he_ave", "Average Helium Flux BR2426-2493", 45, 0, 45); 
+	h_he_ave->SetXTitle(Unit::GetEnergyLabel("GV"));
+   	h_he_ave->SetYTitle(Unit::GetDifferentialFluxLabel("GV m")); 
 
 	int i_total = 45; // total number of energy bins 
 
 	for (int iBin = 0; iBin < i_total; iBin++){ 
 
 		double p_sum = 0, p_sum_error = 0; 
+		double he_sum = 0, he_sum_error = 0; 
 
 		int effBR = 0; 
 
@@ -133,6 +138,9 @@ void amsfit(int nnodes){
 			
 			p_sum += h_BR_p_all[iBR]->GetBinContent(iBin+1);  
 			p_sum_error += h_BR_p_all[iBR]->GetBinError(iBin+1); 
+
+			he_sum += h_BR_he_all[iBR]->GetBinContent(iBin+1);  
+			he_sum_error += h_BR_he_all[iBR]->GetBinError(iBin+1); 
 
 			//printf("i=%d, iBR/effBR=%d/%d, %f, %f \n", i, iBR, effBR, h_p_BR->GetBinContent(i+1), h_p_BR->GetBinError(i+1));  
 
@@ -145,12 +153,15 @@ void amsfit(int nnodes){
 		h_p_ave->SetBinContent(iBin+1, p_sum/effBR);
 		h_p_ave->SetBinError(iBin+1, p_sum_error/effBR); 
 
+		h_he_ave->SetBinContent(iBin+1, he_sum/effBR);
+		h_he_ave->SetBinError(iBin+1, he_sum_error/effBR); 
+
 		// break;     
 
 	} 
 
 	TCanvas *cp = new TCanvas("cp", "Average Proton Flux BR2426-2493", 2400, 1800);  
-	cp->Divide(1, 2); 
+	cp->Divide(2, 2); 
 
 	// Fit p monthly average
 	Spline *sp_p_ave = Spline::BuildFromHistogram(h_p_ave, "fsp_p_ave", nnodes, Spline::LogLog | Spline::PowerLaw);
@@ -178,31 +189,57 @@ void amsfit(int nnodes){
 	h_p_ave->Draw("E1X0 SAME");  
 	fsp_p_ave->Draw("SAME");
 
-	cp->cd(2);
+	cp->cd(3);
 	gPad->SetLogx();
    	gPad->SetGrid(); 
-	
-	//fsp_p_ave->Print("range"); 
-	PRINT_HIST(h_p_ave); 
-	PRINT_HIST(h_fiterr_p_ave);
 
 	TH1D *h_resaxis2 = HistTools::CreateAxis("h_resaxis2", ";Rigidity [GV];Data / Fit", 0.3, 50, 7, 0.94, 1.06, false); 
-
-	//h_fiterr_p_ave->SetTitle("");
-   	//h_fiterr_p_ave->SetXTitle("Rigidity [GV]"); 
-   	//h_fiterr_p_ave->SetYTitle("Data / Fit");
 
 	h_resaxis2->Draw("E1X0");
    	h_fiterr_p_ave->Draw("E3 SAME");
    	//h_fiterr_p_ave->GetXaxis()->SetRangeUser(0.1, 10e2);
 	h_fitres_p_ave->Draw("E1X0 SAME"); 
 
-	cp->Print("data/amsfit/nodes7/average_protonflux.png");  
+	// Fit He monthly average
+	Spline *sp_he_ave = Spline::BuildFromHistogram(h_he_ave, "fsp_he_ave", nnodes, Spline::LogLog | Spline::PowerLaw);
+	TF1 *fsp_he_ave = sp_he_ave->GetTF1Pointer();
+        fsp_he_ave->SetRange(0.1, 3e3);
+	h_he_ave->Fit(fsp_he_ave, "NQ");
+	h_he_ave->Fit(fsp_he_ave, "NI");
+	HistTools::SetStyle(h_he_ave, kBlue, kFullCircle, 1.5, 1, 1); 
+	TH1 *h_fitres_he_ave = HistTools::GetResiduals(h_he_ave, fsp_he_ave, "_fitratio", false, true, true, 4, 1); 
+	HistTools::CopyStyle(h_he_ave, h_fitres_he_ave);
+	TH1 *h_fiterr_he_ave = HistTools::GetFitError(h_he_ave, fsp_he_ave, "_fiterr", true, false, true, 11, 1.); 
+	HistTools::SetFillStyle(h_fiterr_he_ave, kRed-7, 1001); 
 
-	fin1.Close(); 
+	cp->cd(2);
+	gPad->SetLogx();
+	gPad->SetLogy();
+	gPad->SetGrid(); 
 
-	// Open TFile
-	TFile file_fitresult(Form("data/amsfit/fit_result_node%d.root", nnodes), "RECREATE");
+	TH1D *h_resaxis3 = HistTools::CreateAxis("h_resaxis3", "Average Helium Flux BR2426-2493", 0.3, 50., 7, 0.1, 3e3, false); 
+	h_resaxis3->SetXTitle(Unit::GetEnergyLabel("GV"));
+  	h_resaxis3->SetYTitle(Unit::GetDifferentialFluxLabel("GV m")); 
+	
+	h_resaxis3->Draw("E1X0");
+	h_he_ave->GetXaxis()->SetRangeUser(0.1, 10e2); 
+	h_he_ave->Draw("E1X0 SAME");  
+	fsp_he_ave->Draw("SAME");
+
+	cp->cd(4);
+	gPad->SetLogx();
+   	gPad->SetGrid(); 
+
+	TH1D *h_resaxis4 = HistTools::CreateAxis("h_resaxis4", ";Rigidity [GV];Data / Fit", 0.3, 50, 7, 0.94, 1.06, false); 
+
+	h_resaxis4->Draw("E1X0");
+   	h_fiterr_he_ave->Draw("E3 SAME");
+   	//h_fiterr_he_ave->GetXaxis()->SetRangeUser(0.1, 10e2);
+	h_fitres_he_ave->Draw("E1X0 SAME"); 
+
+	cp->Print("data/amsfit/nodes7/average_proton_helium_flux.png");  
+
+	//fin1.Close(); 
 
 	// Fit Li, Be, B, C, O
 
@@ -392,7 +429,26 @@ void amsfit(int nnodes){
 
 			c0->Print(Form("./data/amsfit/nodes%d/node%d_rest.png", nnodes, nnodes));
 
-			// Store fit results
+		// Store fit results
+
+			// Open TFile
+			TFile file_fitresult(Form("data/amsfit/fit_result_node%d.root", nnodes), "RECREATE");
+
+			//PRINT_HIST(h_p_ave) 
+			//PRINT_FUNCTION(fsp_p_ave)	
+			//PRINT_HIST(h_fitres_p_ave)
+			//PRINT_HIST(h_fiterr_p_ave)
+
+			h_p_ave->Write("h_p");
+			fsp_p_ave->Write("fsp_p");
+			h_fitres_p_ave->Write("h_fitres_p");
+			h_fiterr_p_ave->Write("h_fiterr_p");
+
+			h_he_ave->Write("h_he");
+			fsp_he_ave->Write("fsp_he");
+			h_fitres_he_ave->Write("h_fitres_he");
+			h_fiterr_he_ave->Write("h_fiterr_he");
+
 			h_li->Write("h_li");
 			fsp_li->Write();
 			h_fitres_li->Write("h_li_fitres");
@@ -423,10 +479,11 @@ void amsfit(int nnodes){
 			h_fitres_n->Write("h_n_fitres");
 			h_fiterr_n->Write("h_n_fiterr");
 
-	// Fit p, He
+/*
+		// Fit p, He
 
-	for (iBR = 0; iBR < nBRs; iBR++)
-	{
+		for (iBR = 0; iBR < nBRs; iBR++)
+		{
 			break; 
 			
 			gSystem->mkdir(Form("data/amsfit/nodes%d", nnodes), true);
@@ -517,8 +574,7 @@ void amsfit(int nnodes){
 
 		// Plot chi-2 sigma vs. iBR 
 
-		//h_BR_p_all[0]->Print("range");
-		//h_BR_he_all[0]->Print("range");
+*/
 
 		// Write in Results
 		file_fitresult.Write();
