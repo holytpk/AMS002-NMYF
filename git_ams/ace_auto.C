@@ -1827,6 +1827,9 @@ void ace_contribute(){
 
 	int data_value[n_ele] = {0, 18, 23, 27, 31, 20, 43, 22}; 
 
+	const char *AMS_Element2[4] = { "p", "he", "li", "be" }; 
+	const char *AMS_Element2_Cap[4] = { "Proton", "He", "Li", "Be" }; 
+
 	const UInt_t FirstACEBR = 2240;
    	vector<UInt_t> BRs;
   	// we stop at BR 2493, which ends on 2016/05/23, just 3 days before the end of the data taking period for AMS nuclei
@@ -1850,6 +1853,57 @@ void ace_contribute(){
 	TF1 *f_fit[n_ele]; 
 
 	// i begins wirh 0 
+
+	for (int i=0;i<4;i++){
+		
+		f_fit[i] = new TF1(); 
+
+		TH1 *ha = HistTools::CreateAxis("ha", "haxis1", 0.1, 2500., 7, 1e-10, 1e3, false); 
+		ha->SetXTitle(Unit::GetEnergyLabel("GV"));
+  		ha->SetYTitle(Unit::GetDifferentialFluxLabel("GV m")); 
+		ha->SetTitle(Form("Integrated AMS %s Flux vs. Rigidity", AMS_Element2_Cap[i]));
+
+		TH1 *h_ams = Experiments::GetMeasurementHistogram(Experiments::AMS02, data_value[5], 0); // AMS Carbon
+		HistTools::SetStyle(h_ams, kBlue, kFullCircle, 1.5, 1, 1); 
+
+		int nnodes = 6; 
+
+		TFile file1(Form("data/amsfit/fit_result_node%d.root", nnodes));  
+
+		TH1 *h_ams_i = (TH1 *) file1.Get(Form("h_%s", AMS_Element2[i])); // AMS p, He, Li, Be
+		HistTools::SetStyle(h_ams_i, HistTools::GetColorPalette(i, 4), kFullCircle, 1.5, 1, 1);  
+
+		Spline *sp_ams = new Spline("sp_ams", nnodes, Spline::LogLog | Spline::PowerLaw);
+		TF1 *fsp_ams = sp_ams->GetTF1Pointer(); 
+		TF1 *fit_ams = (TF1*) file1.Get(Form("fsp_%s", AMS_Element2[i])); // the fsp in the root file is actually fit 
+
+		HistTools::CopyParameters(fit_ams, fsp_ams);
+		double x1, x2;
+		fit_ams->GetRange(x1,x2);
+		fsp_ams->SetRange(x1,x2); 
+
+		f_fit[i] = (TF1 *) fit_ams->Clone("f_fit"); 
+
+		TLegend *legend = new TLegend(0.1,0.8,0.28,0.9); // left, down, right, top
+		legend->AddEntry(h_ams_i, Form("AMS Integrated %s Flux", AMS_Element2_Cap[i]), "p");
+		legend->AddEntry(h_ams, Form("AMS Integrated %s Flux", ACE_Element[1]), "p"); 
+		legend->AddEntry(f_fit[i], Form("AMS Integrated %s Flux Fit", AMS_Element2_Cap[i]), "l"); 
+		
+		c1->cd(1);
+		gPad->SetLogx();
+		gPad->SetLogy();
+		gPad->SetGrid();
+
+		ha->Draw("E1X0"); 
+		h_ams_i->Draw("E1X0 SAME"); 
+		h_ams->Draw("E1X0 SAME"); 
+		f_fit[i]->Draw("LSAME");
+		legend->Draw("SAME");
+
+		c1->Print(Form("./data/ACE/contribute/extend_%s.png", AMS_Element2_Cap[i]));  
+
+	} 
+
 	for (int i=4;i<24;i++){ 
 
 		f_fit[i] = new TF1(); 
@@ -1857,7 +1911,7 @@ void ace_contribute(){
 		TH1 *ha = HistTools::CreateAxis("ha", "haxis1", 0.1, 2500., 7, 1e-10, 1e3, false);
 		ha->SetXTitle(Unit::GetEnergyLabel("GV"));
   		ha->SetYTitle(Unit::GetDifferentialFluxLabel("GV m")); 
-		ha->SetTitle(Form("Averaged ACE and Integrated %s AMS Flux vs. Rigidity", ACE_Element[i]));
+		ha->SetTitle(Form("Averaged ACE and Integrated AMS %s Flux vs. Rigidity", ACE_Element[i]));
 
 		int nnodes = 7;
 
@@ -1881,7 +1935,7 @@ void ace_contribute(){
 		
 		TH1 *h_ratio = (TH1 *) h_ace->Clone("h_ratio");
 
-		h_ratio->Divide(fsp_comb_C); // WARNING! Doing this will change the resolution (or # of bins) of the histogram. 
+		h_ratio->Divide(fsp_comb_C); // WARNING! Doing this will change the # of entires of the histogram. 
 		HistTools::SetStyle(h_ratio, kRed, kFullCircle, 0.9, 1, 1);
 
 		double ratio_sum=0; // compute average of h_ratio manually  
@@ -1890,7 +1944,7 @@ void ace_contribute(){
 		}
 		double ratio_ave = ratio_sum/7; 
 
-		f_fit[i] = HistTools::CombineTF1Const(fsp_comb_C, ratio_ave, HistTools::MultiplyConst, "f_fit_C", R1, R2); 
+		f_fit[i] = HistTools::CombineTF1Const(fsp_comb_C, ratio_ave, HistTools::MultiplyConst, "f_fit", R1, R2); 
 
 		TLegend *legend = new TLegend(0.1,0.8,0.28,0.9); // left, down, right, top
 		legend->AddEntry(h_ace, Form("ACE %s Flux", ACE_Element[i]), "p");
@@ -1915,10 +1969,10 @@ void ace_contribute(){
 	Int_t nbins = 200;
 
 	Double_t *bins = HistTools::BuildLogBins(R1, R2, nbins); // Rmin is the minimum rigidity of the ACE fluxes, Rmax the maximum rigidity of the AMS fluxes
-	TH1D *h_tot_cr_flux = new TH1D("h_tot_cr_flux", "Total cosmic ray flux;Rigidity [GV];Flux [1/(m^{2} sr s GV)]", nbins, bins);
+	TH1D *h_tot_cr_flux = new TH1D("h_tot_cr_flux", "Total Cosmic Ray Flux;Rigidity [GV];Flux [1/(m^{2} sr s GV)]", nbins, bins);
 	HistTools::SetStyle(h_tot_cr_flux, kRed, kFullCircle, 0.9, 1, 1);
 	
-	for (int i = 4; i < n_ele; ++i) 
+	for (int i = 0; i < n_ele; ++i) 
 	{
 	
    		for (int bin = 1; bin <= nbins; ++bin)
@@ -1934,14 +1988,46 @@ void ace_contribute(){
 		//break; 
 	}
 
-	TCanvas *c2 = new TCanvas();
+	TCanvas *c2 = new TCanvas("c2", "Total Cosmic Ray Flux", 1800, 900);
 	c2->cd(1); 
 	gPad->SetLogx();
 	gPad->SetLogy();
 	gPad->SetGrid();
 
 	h_tot_cr_flux->Draw("E1X0"); 
-	PRINT_HIST(h_tot_cr_flux) 
+	//PRINT_HIST(h_tot_cr_flux) 
+
+	c2->Print("./data/ACE/contribute/total_cr_flux.png"); 
+	
+	TCanvas *c3 = new TCanvas(); 
+
+	// Now compute the ratio of h_element vs. h_tot_cr_flux 
+	for (int i=0;i<4;i++){
+
+		int nnodes = 6; 
+
+		TFile file1(Form("data/amsfit/fit_result_node%d.root", nnodes));
+
+		TH1 *h_ams_i = (TH1 *) file1.Get(Form("h_%s", AMS_Element2[i])); // AMS p, He, Li, Be
+		HistTools::SetStyle(h_ams_i, HistTools::GetColorPalette(i, 4), kFullCircle, 1.5, 1, 1);  
+
+		TH1 *h_ratio = (TH1 *) h_ams_i->Clone("h_ratio"); 
+
+		PRINT_HIST(h_ratio)
+
+		h_ratio->Divide(h_tot_cr_flux); 
+
+		PRINT_HIST(h_ratio)
+		
+		c3->cd(1); 
+
+		h_ratio->SetTitle(Form("%s Contribution to Total Comic Ray Flux;Rigidity(GV);Ratio", AMS_Element2_Cap[i])); 	
+		h_ratio->Draw("E1X0"); 
+
+		c3->Print(Form("./data/ACE/contribute/contribution_%s.png", AMS_Element2_Cap[i]));  
+
+	} 
+	
 
 }
 
