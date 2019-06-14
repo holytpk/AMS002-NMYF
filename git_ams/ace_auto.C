@@ -1827,8 +1827,8 @@ void ace_contribute(){
 
 	int data_value[n_ele] = {0, 18, 23, 27, 31, 20, 43, 22}; 
 
-	const char *AMS_Element2[4] = { "p", "he", "li", "be" }; 
-	const char *AMS_Element2_Cap[4] = { "Proton", "He", "Li", "Be" }; 
+	const char *AMS_Element2[8] = { "p", "he", "li", "be", "b", "c", "n", "o" }; 
+	const char *AMS_Element2_Cap[8] = { "Proton", "He", "Li", "Be", "B", "C", "N", "O" }; 
 
 	const UInt_t FirstACEBR = 2240;
    	vector<UInt_t> BRs;
@@ -1882,7 +1882,7 @@ void ace_contribute(){
 		fit_ams->GetRange(x1,x2);
 		fsp_ams->SetRange(x1,x2); 
 
-		f_fit[i] = (TF1 *) fit_ams->Clone("f_fit"); 
+		f_fit[i] = (TF1 *) fsp_ams->Clone("f_fit"); 
 
 		TLegend *legend = new TLegend(0.1,0.8,0.28,0.9); // left, down, right, top
 		legend->AddEntry(h_ams_i, Form("AMS Integrated %s Flux", AMS_Element2_Cap[i]), "p");
@@ -1904,7 +1904,7 @@ void ace_contribute(){
 
 	} 
 
-	for (int i=4;i<24;i++){ 
+	for (int i=0;i<24;i++){ 
 
 		f_fit[i] = new TF1(); 
 
@@ -2015,11 +2015,14 @@ void ace_contribute(){
 
 		PRINT_HIST(h_ratio)
 
-		h_ratio->Divide(h_tot_cr_flux); 
+		// h_ratio->Divide(h_tot_cr_flux); 
 
-		PRINT_HIST(h_ratio)
+		// PRINT_HIST(h_ratio)
 		
 		c3->cd(1); 
+		gPad->SetLogx();
+		gPad->SetLogy();
+		gPad->SetGrid();
 
 		h_ratio->SetTitle(Form("%s Contribution to Total Comic Ray Flux;Rigidity(GV);Ratio", AMS_Element2_Cap[i])); 	
 		h_ratio->Draw("E1X0"); 

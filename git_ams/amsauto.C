@@ -110,58 +110,45 @@ void amsfit(int nnodes){
 
     			}
 
+			PRINT_HIST(h_BR_p_all[iBR])  
 
 	} // acquiring the data
 
 	//TFile fin1("./data/ams02-monthly/ams02_phe_monthly_BR2426_BR2506.root"); 
-	TH1D *h_p_ave = new TH1D("h_p_ave", "Average Proton Flux BR2426-2493", 45, 0, 45); 
+
+	int nbins = h_BR_p_all[0]->GetNbinsX(); // total number of energy bins
+
+	printf("total number of bins = %d \n", nbins); 
+
+	//TH1 *h_p_ave = (TH1 *)h_BR_p_all[0]->Clone("h_p_ave"); 
+
+	TH1 *h_p_ave = (TH1 *) h_BR_p_all[0]->Clone("h_p_ave"); // get right binning
 	h_p_ave->SetXTitle(Unit::GetEnergyLabel("GV"));
    	h_p_ave->SetYTitle(Unit::GetDifferentialFluxLabel("GV m"));
 
-	TH1D *h_he_ave = new TH1D("h_he_ave", "Average Helium Flux BR2426-2493", 45, 0, 45); 
-	h_he_ave->SetXTitle(Unit::GetEnergyLabel("GV"));
-   	h_he_ave->SetYTitle(Unit::GetDifferentialFluxLabel("GV m")); 
+	for (int bin = 1; bin <= nbins; ++bin)
+	{
+   		double flux = h_p_ave->GetBinContent(bin);
+   		double err  = h_p_ave->GetBinError(bin);
+   		int effBR = 0;
+   		for (int iBR = 1; iBR < nBRs; ++iBR) // start from second BR
+   		{
+     			int BR = 2426 + iBR;
+      			if (BR == 2472 || BR == 2473) continue; // skip missing BRs
+      			if (BR > 2493) break; // stop at the same time as the other AMS nuclei fluxes
 
-	int i_total = 45; // total number of energy bins 
+      			++effBR;
+      			flux += h_BR_p_all[iBR]->GetBinContent(bin);
+      			err  += h_BR_p_all[iBR]->GetBinError(bin);
+  		 }
 
-	for (int iBin = 0; iBin < i_total; iBin++){ 
+   		h_p_ave->SetBinContent(bin, flux/effBR);
+   		h_p_ave->SetBinError(bin, err/effBR);
 
-		double p_sum = 0, p_sum_error = 0; 
-		double he_sum = 0, he_sum_error = 0; 
-
-		int effBR = 0; 
-
-		for (int iBR = 0; iBR < nBRs; iBR++) 
-		{
-
-		   if (iBR != 2472-2426 && iBR != 2473-2426){ 
-			
-			p_sum += h_BR_p_all[iBR]->GetBinContent(iBin+1);  
-			p_sum_error += h_BR_p_all[iBR]->GetBinError(iBin+1); 
-
-			he_sum += h_BR_he_all[iBR]->GetBinContent(iBin+1);  
-			he_sum_error += h_BR_he_all[iBR]->GetBinError(iBin+1); 
-
-			//printf("i=%d, iBR/effBR=%d/%d, %f, %f \n", i, iBR, effBR, h_p_BR->GetBinContent(i+1), h_p_BR->GetBinError(i+1));  
-
-			// break; 
-
-			effBR++;  
-		   } 
-		} 
-
-		h_p_ave->SetBinContent(iBin+1, p_sum/effBR);
-		h_p_ave->SetBinError(iBin+1, p_sum_error/effBR); 
-
-		h_he_ave->SetBinContent(iBin+1, he_sum/effBR);
-		h_he_ave->SetBinError(iBin+1, he_sum_error/effBR); 
-
-		// break;     
-
-	} 
+	}
 
 	TCanvas *cp = new TCanvas("cp", "Average Proton Flux BR2426-2493", 2400, 1800);  
-	cp->Divide(2, 2); 
+	cp->Divide(1, 2); 
 
 	// Fit p monthly average
 	Spline *sp_p_ave = Spline::BuildFromHistogram(h_p_ave, "fsp_p_ave", nnodes, Spline::LogLog | Spline::PowerLaw);
@@ -189,7 +176,7 @@ void amsfit(int nnodes){
 	h_p_ave->Draw("E1X0 SAME");  
 	fsp_p_ave->Draw("SAME");
 
-	cp->cd(3);
+	cp->cd(2);
 	gPad->SetLogx();
    	gPad->SetGrid(); 
 
@@ -200,53 +187,28 @@ void amsfit(int nnodes){
    	//h_fiterr_p_ave->GetXaxis()->SetRangeUser(0.1, 10e2);
 	h_fitres_p_ave->Draw("E1X0 SAME"); 
 
-	// Fit He monthly average
-	Spline *sp_he_ave = Spline::BuildFromHistogram(h_he_ave, "fsp_he_ave", nnodes, Spline::LogLog | Spline::PowerLaw);
-	TF1 *fsp_he_ave = sp_he_ave->GetTF1Pointer();
-        fsp_he_ave->SetRange(0.1, 3e3);
-	h_he_ave->Fit(fsp_he_ave, "NQ");
-	h_he_ave->Fit(fsp_he_ave, "NI");
-	HistTools::SetStyle(h_he_ave, kBlue, kFullCircle, 1.5, 1, 1); 
-	TH1 *h_fitres_he_ave = HistTools::GetResiduals(h_he_ave, fsp_he_ave, "_fitratio", false, true, true, 4, 1); 
-	HistTools::CopyStyle(h_he_ave, h_fitres_he_ave);
-	TH1 *h_fiterr_he_ave = HistTools::GetFitError(h_he_ave, fsp_he_ave, "_fiterr", true, false, true, 11, 1.); 
-	HistTools::SetFillStyle(h_fiterr_he_ave, kRed-7, 1001); 
-
-	cp->cd(2);
-	gPad->SetLogx();
-	gPad->SetLogy();
-	gPad->SetGrid(); 
-
-	TH1D *h_resaxis3 = HistTools::CreateAxis("h_resaxis3", "Average Helium Flux BR2426-2493", 0.3, 50., 7, 0.1, 3e3, false); 
-	h_resaxis3->SetXTitle(Unit::GetEnergyLabel("GV"));
-  	h_resaxis3->SetYTitle(Unit::GetDifferentialFluxLabel("GV m")); 
-	
-	h_resaxis3->Draw("E1X0");
-	h_he_ave->GetXaxis()->SetRangeUser(0.1, 10e2); 
-	h_he_ave->Draw("E1X0 SAME");  
-	fsp_he_ave->Draw("SAME");
-
-	cp->cd(4);
-	gPad->SetLogx();
-   	gPad->SetGrid(); 
-
-	TH1D *h_resaxis4 = HistTools::CreateAxis("h_resaxis4", ";Rigidity [GV];Data / Fit", 0.3, 50, 7, 0.94, 1.06, false); 
-
-	h_resaxis4->Draw("E1X0");
-   	h_fiterr_he_ave->Draw("E3 SAME");
-   	//h_fiterr_he_ave->GetXaxis()->SetRangeUser(0.1, 10e2);
-	h_fitres_he_ave->Draw("E1X0 SAME"); 
-
-	cp->Print("data/amsfit/nodes7/average_proton_helium_flux.png");  
+	cp->Print(Form("data/amsfit/nodes%d/average_proton_flux.png", nnodes));  
 
 	//fin1.Close(); 
 
-	// Fit Li, Be, B, C, O
+	// Fit He, Li, Be, B, C, O
+
+			Spline *sp_he = Spline::BuildFromHistogram(h_he, "fsp_he", nnodes, Spline::LogLog | Spline::PowerLaw);
+			TF1 *fsp_he = sp_he->GetTF1Pointer(); 
+			h_he->Fit(fsp_he, "N"); // do not draw and print the fit
+			//h_he->Fit(fsp_he, "NIQ"); // do not draw the fit, print the fit results, minimize the integral of the function 
+			h_he->SetMarkerStyle(20);
+   			h_he->SetMarkerColor(kBlue);
+   			h_he->SetMarkerSize(1.1);
+			TH1 *h_fitres_he = HistTools::GetResiduals(h_he, fsp_he, "_fitratio", false, true, true, 4, 1); // this will compute data/fit
+			HistTools::CopyStyle(h_he, h_fitres_he);
+			TH1 *h_fiterr_he = HistTools::GetFitError(h_he, fsp_he, "_fiterr", true, false, true, 11, 1.); // this will compute the relative error of the fit, centered in 1 (so 1.01 = 1% upward error; 0.98 = 2% downward error, etc)
+			HistTools::SetFillStyle(h_fiterr_he, kRed-7, 1001); 
 
 			Spline *sp_li = Spline::BuildFromHistogram(h_li, "fsp_li", nnodes, Spline::LogLog | Spline::PowerLaw);
 			TF1 *fsp_li = sp_li->GetTF1Pointer(); 
-			h_li->Fit(fsp_li, "NQ"); // do not draw and print the fit
-			h_li->Fit(fsp_li, "NIQ"); // do not draw the fit, print the fit results, minimize the integral of the function 
+			h_li->Fit(fsp_li, "N"); // do not draw and print the fit
+			//h_li->Fit(fsp_li, "NIQ"); // do not draw the fit, print the fit results, minimize the integral of the function 
 			h_li->SetMarkerStyle(20);
    			h_li->SetMarkerColor(kBlue);
    			h_li->SetMarkerSize(1.1);
@@ -257,8 +219,8 @@ void amsfit(int nnodes){
 
 			Spline *sp_be = Spline::BuildFromHistogram(h_be, "fsp_be", nnodes, Spline::LogLog | Spline::PowerLaw);
 			TF1 *fsp_be = sp_be->GetTF1Pointer(); 
-			h_be->Fit(fsp_be, "NQ"); // do not draw and print the fit
-			h_be->Fit(fsp_be, "NIQ"); // do not draw the fit, print the fit results, minimize the integral of the function 
+			h_be->Fit(fsp_be, "N"); // do not draw and print the fit
+			//h_be->Fit(fsp_be, "NIQ"); // do not draw the fit, print the fit results, minimize the integral of the function 
 			h_be->SetMarkerStyle(20);
    			h_be->SetMarkerColor(kBlue);
    			h_be->SetMarkerSize(1.1);
@@ -269,8 +231,8 @@ void amsfit(int nnodes){
 
 			Spline *sp_b = Spline::BuildFromHistogram(h_b, "fsp_b", nnodes, Spline::LogLog | Spline::PowerLaw);
 			TF1 *fsp_b = sp_b->GetTF1Pointer(); 
-			h_b->Fit(fsp_b, "NQ"); // do not draw and print the fit
-			h_b->Fit(fsp_b, "NIQ"); // do not draw the fit, print the fit results, minimize the integral of the function 
+			h_b->Fit(fsp_b, "N"); // do not draw and print the fit
+			//h_b->Fit(fsp_b, "NIQ"); // do not draw the fit, print the fit results, minimize the integral of the function 
 			h_b->SetMarkerStyle(20);
    			h_b->SetMarkerColor(kBlue);
    			h_b->SetMarkerSize(1.1);
@@ -281,8 +243,8 @@ void amsfit(int nnodes){
 
 			Spline *sp_c = Spline::BuildFromHistogram(h_c, "fsp_c", nnodes, Spline::LogLog | Spline::PowerLaw);
 			TF1 *fsp_c = sp_c->GetTF1Pointer(); 
-			h_c->Fit(fsp_c, "NQ"); // do not draw and print the fit
-			h_c->Fit(fsp_c, "NIQ"); // do not draw the fit, print the fit results, minimize the integral of the function 
+			h_c->Fit(fsp_c, "N"); // do not draw and print the fit
+			//h_c->Fit(fsp_c, "NIQ"); // do not draw the fit, print the fit results, minimize the integral of the function 
 			h_c->SetMarkerStyle(20);
    			h_c->SetMarkerColor(kBlue);
    			h_c->SetMarkerSize(1.1);
@@ -293,8 +255,8 @@ void amsfit(int nnodes){
 
 			Spline *sp_o = Spline::BuildFromHistogram(h_o, "fsp_o", nnodes, Spline::LogLog | Spline::PowerLaw);
 			TF1 *fsp_o = sp_o->GetTF1Pointer(); 
-			h_o->Fit(fsp_o, "NQ"); // do not draw and print the fit
-			h_o->Fit(fsp_o, "NIQ"); // do not draw the fit, print the fit results, minimize the integral of the function 
+			h_o->Fit(fsp_o, "N"); // do not draw and print the fit
+			//h_o->Fit(fsp_o, "NIQ"); // do not draw the fit, print the fit results, minimize the integral of the function 
 			h_o->SetMarkerStyle(20);
    			h_o->SetMarkerColor(kBlue);
    			h_o->SetMarkerSize(1.1);
@@ -305,8 +267,8 @@ void amsfit(int nnodes){
 
 			Spline *sp_n = Spline::BuildFromHistogram(h_n, "fsp_n", nnodes, Spline::LogLog | Spline::PowerLaw);
 			TF1 *fsp_n = sp_n->GetTF1Pointer(); 
-			h_n->Fit(fsp_n, "NQ"); // do not draw and print the fit
-			h_n->Fit(fsp_n, "NIQ"); // do not draw the fit, print the fit results, minimize the integral of the function 
+			h_n->Fit(fsp_n, "N"); // do not draw and print the fit
+			//h_n->Fit(fsp_n, "NIQ"); // do not draw the fit, print the fit results, minimize the integral of the function 
 			h_n->SetMarkerStyle(20);
    			h_n->SetMarkerColor(kBlue);
    			h_n->SetMarkerSize(1.1);
@@ -434,20 +396,15 @@ void amsfit(int nnodes){
 			// Open TFile
 			TFile file_fitresult(Form("data/amsfit/fit_result_node%d.root", nnodes), "RECREATE");
 
-			//PRINT_HIST(h_p_ave) 
-			//PRINT_FUNCTION(fsp_p_ave)	
-			//PRINT_HIST(h_fitres_p_ave)
-			//PRINT_HIST(h_fiterr_p_ave)
-
 			h_p_ave->Write("h_p");
 			fsp_p_ave->Write("fsp_p");
-			h_fitres_p_ave->Write("h_fitres_p");
-			h_fiterr_p_ave->Write("h_fiterr_p");
+			h_fitres_p_ave->Write("h_fitres_p"); 
+			h_fiterr_p_ave->Write("h_fiterr_p"); 
 
-			h_he_ave->Write("h_he");
-			fsp_he_ave->Write("fsp_he");
-			h_fitres_he_ave->Write("h_fitres_he");
-			h_fiterr_he_ave->Write("h_fiterr_he");
+			h_he->Write("h_he");
+			fsp_he->Write();
+			h_fitres_he->Write("h_fitres_he");
+			h_fiterr_he->Write("h_fiterr_he");
 
 			h_li->Write("h_li");
 			fsp_li->Write();
@@ -483,7 +440,7 @@ void amsfit(int nnodes){
 		// Fit p, He
 
 		for (iBR = 0; iBR < nBRs; iBR++)
-		{
+		{ 
 			break; 
 			
 			gSystem->mkdir(Form("data/amsfit/nodes%d", nnodes), true);
@@ -527,7 +484,6 @@ void amsfit(int nnodes){
 			// nnodes = nnodes1;
 			Spline *sp_he = Spline::BuildFromHistogram(h_BR_he_all[iBR], Form("fsp_BR_he_%02d", iBR), nnodes, Spline::LogLog | Spline::PowerLaw);
 			TF1 *fsp_he = sp_he->GetTF1Pointer();
-			h_BR_he_all[iBR]->Fit(fsp_he, "NQ"); // do not draw and print the fit
 			h_BR_he_all[iBR]->Fit(fsp_he, "NIQ"); // do not draw the fit, print the fit results, minimize the integral of the function
 
 			// Compute the Helium fluxes fit error and residuals:
@@ -579,7 +535,6 @@ void amsfit(int nnodes){
 		// Write in Results
 		file_fitresult.Write();
 		file_fitresult.Close();
-
 
 	// return 0;
 }
