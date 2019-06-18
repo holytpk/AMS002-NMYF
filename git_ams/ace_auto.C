@@ -20,7 +20,8 @@
 
 using namespace std;
 
-const int n_ele = 24; // number of elements  
+const int n_ele = 24; // number of ACE elements 
+const int n_total = 28; // number of total elements 
 
 const char *ACE_Element[n_ele] = { "B", "C", "N", "O", "F", "Ne", "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar", "K", "Ca", "Sc", "Ti", "Va", "Cr", "Mn", "Fe", "Co", "Ni" };
 Particle::Type ACE_Isotope[n_ele] = { Particle::BORON11, Particle::CARBON12, Particle::NITROGEN15, Particle::OXYGEN16, Particle::FLUORINE19, Particle::NEON20, Particle::SODIUM23, Particle::MAGNESIUM24, Particle::ALUMINUM27, Particle::SILICON28, Particle::PHOSPHORUS31, Particle::SULFUR32, Particle::CHLORINE35, Particle::ARGON36, Particle::POTASSIUM41, Particle::CALCIUM40, Particle::SCANDIUM45, Particle::TITANIUM46, Particle::VANADIUM51, Particle::CHROMIUM52, Particle::MANGANESE55, Particle::IRON56, Particle::COBALT59, Particle::NICKEL60 };
@@ -1850,7 +1851,7 @@ void ace_contribute(){
 
 	TCanvas *c1 = new TCanvas("c1", "Extend Fit", 1800, 900); 
 
-	TF1 *f_fit[n_ele]; 
+	TF1 *f_fit[n_ele+4]; 
 
 	// Sum up the Total Cosmic Ray Flux 
 	// p, He, Li, Be
@@ -1874,17 +1875,15 @@ void ace_contribute(){
 		HistTools::SetStyle(h_ams_i, HistTools::GetColorPalette(i, 4), kFullCircle, 1.5, 1, 1);  
 
 		Spline *sp_ams = new Spline("sp_ams", nnodes, Spline::LogLog | Spline::PowerLaw);
-		TF1 *fsp_ams = sp_ams->GetTF1Pointer(); 
+		f_fit[i] = sp_ams->GetTF1Pointer(); 
 		TF1 *fit_ams = (TF1*) file1.Get(Form("fsp_%s", AMS_Element2[i])); // the fsp in the root file is actually fit 
 
-		HistTools::CopyParameters(fit_ams, fsp_ams);
+		HistTools::CopyParameters(fit_ams, f_fit[i]);
 		double x1, x2;
 		fit_ams->GetRange(x1,x2);
-		fsp_ams->SetRange(x1,x2); 
+		f_fit[i]->SetRange(x1,x2); 
 
-		f_fit[i] = (TF1 *) fit_ams->Clone("f_fit"); 
-
-		TLegend *legend = new TLegend(0.1,0.8,0.28,0.9); // left, down, right, top
+		TLegend *legend = new TLegend(0.62,0.8,0.9,0.9); // left, down, right, top
 		legend->AddEntry(h_ams_i, Form("AMS Integrated %s Flux", AMS_Element2_Cap[i]), "p");
 		//legend->AddEntry(h_ams, Form("AMS Integrated %s Flux", ACE_Element[1]), "p"); 
 		legend->AddEntry(f_fit[i], Form("AMS Integrated %s Flux Fit", AMS_Element2_Cap[i]), "l"); 
@@ -1904,8 +1903,8 @@ void ace_contribute(){
 
 	} 
 
-	// B, C, N, O, F, Ne, Na ... Va, Ni +4
-	for (int i=0;i<24;i++){ 
+	// B, C, N, O 
+	for (int i=0;i<4;i++){ 
 
 		int j = i+4; 		
 
@@ -1920,93 +1919,107 @@ void ace_contribute(){
   		ha->SetYTitle(Unit::GetDifferentialFluxLabel("GV m")); 
 		ha->SetTitle(Form("Averaged ACE and Integrated AMS %s Flux vs. Rigidity", ACE_Element[i]));
 
-		if (i<4){
+		h_ams_i[i] = Experiments::GetMeasurementHistogram(Experiments::AMS02, data_value[j], 0); 
+		HistTools::SetStyle(h_ams_i[i], kBlue , kFullCircle, 1.5, 1, 1);  
 
-			h_ams_i[i] = Experiments::GetMeasurementHistogram(Experiments::AMS02, data_value[j], 0); 
-			HistTools::SetStyle(h_ams_i[i], kBlue , kFullCircle, 1.5, 1, 1);  
+		TH1 *h_ene = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[i] , &BRs[0], BRs.size() ), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
+		TH1 *h_ace = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, ACE_Isotope[i], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity 
+		HistTools::SetStyle(h_ace, HistTools::GetColorPalette(i, n_total) , kFullCircle, 1.5, 1, 1); 
 
-			TH1 *h_ene = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[i] , &BRs[0], BRs.size() ), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
-			TH1 *h_ace = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, ACE_Isotope[i], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity 
-			HistTools::SetStyle(h_ace, HistTools::GetColorPalette(i, n_ele) , kFullCircle, 1.5, 1, 1); 
+		TFile file2(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[i], nnodes)); // load ACE combined fit 
 
-			TFile file2(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[i], nnodes)); // load ACE combined fit 
+		Spline *sp_comb = new Spline("sp_comb", nnodes, Spline::LogLog | Spline::PowerLaw); 
+		f_fit[j] = sp_comb->GetTF1Pointer();  // real function 
+		TF1 *fit_comb = (TF1*) file2.Get("fit_both"); 
 
-			Spline *sp_comb = new Spline("sp_comb", nnodes, Spline::LogLog | Spline::PowerLaw); 
-			TF1 *fsp_comb = sp_comb->GetTF1Pointer();  // real function 
-			TF1 *fit_comb = (TF1*) file2.Get("fit_both"); 
+		HistTools::CopyParameters(fit_comb, f_fit[j]); 
+		double x1, x2; 
+		fit_comb->GetRange(x1,x2); 
+		f_fit[j]->SetRange(x1,x2); 
 
-			HistTools::CopyParameters(fit_comb, fsp_comb); 
-			double x1, x2; 
-			fit_comb->GetRange(x1,x2); 
-			fsp_comb->SetRange(x1,x2); 
+		TLegend *legend = new TLegend(0.1,0.8,0.28,0.9); // left, down, right, top
+		legend->AddEntry(h_ace, Form("ACE %s Flux", ACE_Element[i]), "p");
+		legend->AddEntry(h_ams_i[i], Form("AMS Integrated %s Flux", AMS_Element2_Cap[j]), "p");
+		legend->AddEntry(f_fit[j], Form("ACE %s Flux Reconstruction", ACE_Element[i]), "l"); 
 
-			f_fit[j] = (TF1 *) fit_comb->Clone("f_fit"); 
-
-			TLegend *legend = new TLegend(0.1,0.8,0.28,0.9); // left, down, right, top
-			legend->AddEntry(h_ace, Form("ACE %s Flux", ACE_Element[i]), "p");
-			legend->AddEntry(h_ams_i[i], Form("AMS Integrated %s Flux", AMS_Element2_Cap[j]), "p");
-			legend->AddEntry(f_fit[j], Form("ACE %s Flux Reconstruction", ACE_Element[i]), "l"); 
-
-			c1->cd(1);
-			gPad->SetLogx();
-			gPad->SetLogy();
-			gPad->SetGrid();
+		c1->cd(1);
+		gPad->SetLogx();
+		gPad->SetLogy();
+		gPad->SetGrid();
 	
-			ha->Draw("E1X0");
-			h_ace->Draw("E1X0 SAME");  
-			h_ams_i[i]->Draw("E1X0 SAME"); 
-			f_fit[j]->Draw("LSAME");
-			legend->Draw("SAME");
+		ha->Draw("E1X0");
+		h_ace->Draw("E1X0 SAME");  
+		h_ams_i[i]->Draw("E1X0 SAME"); 
+		f_fit[j]->Draw("LSAME");
+		legend->Draw("SAME");
 
-		} else if (i>=4){ 
+		c1->Print(Form("./data/ACE/contribute/extend_%d_%s.png", j, ACE_Element[i])); 
+	}
+
+	// F, Ne, Na ... Va, Ni
+	for (int i=4;i<24;i++){ 
+
+		int j = i+4; 		
+
+		int nnodes = 7;
+	
+		f_fit[j] = new TF1(); 
+
+		TH1 *h_ams_i[4];
+
+		TH1 *ha = HistTools::CreateAxis("ha", "haxis1", 0.1, 2500., 7, 1e-10, 1e3, false);
+		ha->SetXTitle(Unit::GetEnergyLabel("GV"));
+  		ha->SetYTitle(Unit::GetDifferentialFluxLabel("GV m")); 
+		ha->SetTitle(Form("Averaged ACE and Integrated AMS %s Flux vs. Rigidity", ACE_Element[i]));
 		 
-			TH1 *h_ams_C = Experiments::GetMeasurementHistogram(Experiments::AMS02, data_value[5], 0); 
-			HistTools::SetStyle(h_ams_C, kBlue, kFullCircle, 1.5, 1, 1); 
+		TH1 *h_ams_C = Experiments::GetMeasurementHistogram(Experiments::AMS02, data_value[5], 0); 
+		HistTools::SetStyle(h_ams_C, kBlue, kFullCircle, 1.5, 1, 1); 
 
-			TH1 *h_ene = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[i] , &BRs[0], BRs.size() ), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
-			TH1 *h_ace = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, ACE_Isotope[i], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity 
-			HistTools::SetStyle(h_ace, HistTools::GetColorPalette(i, n_ele) , kFullCircle, 1.5, 1, 1); 
+		TH1 *h_ene = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[i] , &BRs[0], BRs.size() ), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
+		TH1 *h_ace = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, ACE_Isotope[i], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity 
+		HistTools::SetStyle(h_ace, HistTools::GetColorPalette(i, n_total) , kFullCircle, 1.5, 1, 1); 
 
-			TFile file2(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[1], nnodes)); // load C combined fit 
+		TFile file2(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[1], nnodes)); // load C combined fit 
 
-			Spline *sp_comb_C = new Spline("sp_comb_C", nnodes, Spline::LogLog | Spline::PowerLaw); 
-			TF1 *fsp_comb_C = sp_comb_C->GetTF1Pointer();  // real function 
-			TF1 *fit_comb_C = (TF1*) file2.Get("fit_both");
+		Spline *sp_comb_C = new Spline("sp_comb_C", nnodes, Spline::LogLog | Spline::PowerLaw); 
+		f_fit[j] = sp_comb_C->GetTF1Pointer();  // real function 
+		TF1 *fit_comb_C = (TF1*) file2.Get("fit_both");
 	
-			HistTools::CopyParameters(fit_comb_C, fsp_comb_C); 
-			double x1_C, x2_C;
-			fit_comb_C->GetRange(x1_C,x2_C);
-			fsp_comb_C->SetRange(x1_C,x2_C);
-			
-			TH1 *h_ratio = (TH1 *) h_ace->Clone("h_ratio");
+		HistTools::CopyParameters(fit_comb_C, f_fit[j]); 
+		double x1_C, x2_C;
+		fit_comb_C->GetRange(x1_C,x2_C);
+		f_fit[j]->SetRange(x1_C,x2_C);
+		
+		TH1 *h_ratio = (TH1 *) h_ace->Clone("h_ratio");
 	
-			h_ratio->Divide(fsp_comb_C); // WARNING! Doing this will change the # of entires of the histogram. 
-			HistTools::SetStyle(h_ratio, kRed, kFullCircle, 0.9, 1, 1);
+		h_ratio->Divide(f_fit[j]); // WARNING! Doing this will change the # of entires of the histogram. 
+		HistTools::SetStyle(h_ratio, kRed, kFullCircle, 0.9, 1, 1);
 	
-			double ratio_sum=0; // compute average of h_ratio manually  
-			for(int k=0;k<14;k++){
-				ratio_sum += h_ratio->GetBinContent(k); 
-			}
-			double ratio_ave = ratio_sum/7; 
-	
-			f_fit[j] = HistTools::CombineTF1Const(fsp_comb_C, ratio_ave, HistTools::MultiplyConst, "f_fit", R1, R2); 
-	
-			TLegend *legend = new TLegend(0.1,0.8,0.28,0.9); // left, down, right, top
-			legend->AddEntry(h_ace, Form("ACE %s Flux", ACE_Element[i]), "p");
-			//legend->AddEntry(h_ams_C, Form("AMS Integrated %s Flux", ACE_Element[1]), "p");
-			legend->AddEntry(f_fit[j], Form("ACE %s Flux Reconstruction", ACE_Element[i]), "l"); 
-			
-			c1->cd(1);
-			gPad->SetLogx();
-			gPad->SetLogy();
-			gPad->SetGrid();
-	
-			ha->Draw("E1X0");
-			h_ace->Draw("E1X0 SAME");  
-			//h_ams_C->Draw("E1X0 SAME"); 
-			f_fit[j]->Draw("LSAME");
-			legend->Draw("SAME");
+		double ratio_sum=0; // compute average of h_ratio manually  
+		for(int k=0;k<14;k++){
+			ratio_sum += h_ratio->GetBinContent(k); 
 		}
+		double ratio_ave = ratio_sum/7; 
+	
+		f_fit[j] = HistTools::CombineTF1Const(f_fit[j], ratio_ave, HistTools::MultiplyConst, "f_fit", R1, R2); 
+	
+		TLegend *legend = new TLegend(0.1,0.8,0.28,0.9); // left, down, right, top
+		legend->AddEntry(h_ace, Form("ACE %s Flux", ACE_Element[i]), "p");
+		//legend->AddEntry(h_ams_C, Form("AMS Integrated %s Flux", ACE_Element[1]), "p");
+		legend->AddEntry(f_fit[j], Form("ACE %s Flux Reconstruction", ACE_Element[i]), "l"); 
+			
+		c1->cd(1);
+		gPad->SetLogx();
+		gPad->SetLogy();
+		gPad->SetGrid();
+	
+		PRINT_HIST(ha) 
+
+		ha->Draw("E1X0");
+		h_ace->Draw("E1X0 SAME");  
+		//h_ams_C->Draw("E1X0 SAME"); 
+		f_fit[j]->Draw("LSAME");
+		legend->Draw("SAME");
 
 		c1->Print(Form("./data/ACE/contribute/extend_%d_%s.png", j, ACE_Element[i])); 
 	}
@@ -2017,7 +2030,7 @@ void ace_contribute(){
 	TH1D *h_tot_cr_flux = new TH1D("h_tot_cr_flux", "Total Cosmic Ray Flux;Rigidity [GV];Flux [1/(m^{2} sr s GV)]", nbins, bins);
 	HistTools::SetStyle(h_tot_cr_flux, kRed, kFullCircle, 0.9, 1, 1);
 	
-	for (int i = 0; i < n_ele; ++i) 
+	for (int i = 0; i < n_total; ++i) 
 	{
 	
    		for (int bin = 1; bin <= nbins; ++bin)
@@ -2049,32 +2062,28 @@ void ace_contribute(){
 	// Now compute the ratio of h_element vs. h_tot_cr_flux 
 
 	// p, He, Li, Be 
+
+	TH1D *h_contribute[n_total]; 
+
 	for (int i=0;i<4;i++){
 
 		int nnodes = 6; 
+	
+		h_contribute[i] = new TH1D("h_contribute", "Element Contribution to the Total Cosmic Ray Flux;Rigidity [GV]; Ratio", nbins, bins); 
 
 		TFile file1(Form("data/amsfit/fit_result_node%d.root", nnodes));
 
 		TH1 *h_ams_i = (TH1 *) file1.Get(Form("h_%s", AMS_Element2[i])); // AMS p, He, Li, Be
-		HistTools::SetStyle(h_ams_i, HistTools::GetColorPalette(i, 4), kFullCircle, 1.5, 1, 1);  
-
-		TH1 *h_ratio = (TH1 *) h_ams_i->Clone("h_ratio"); 
-
-		PRINT_HIST(h_ratio)
-
-		// h_ratio->Divide(h_tot_cr_flux); 
-
-		// PRINT_HIST(h_ratio)
+		HistTools::SetStyle(h_ams_i, HistTools::GetColorPalette(i, n_total), kFullCircle, 1.5, 1, 1);  
 		
 		c3->cd(1); 
 		gPad->SetLogx();
 		gPad->SetLogy();
 		gPad->SetGrid();
+	
+		// h_contribute->Draw("E1X0"); 
 
-		h_ratio->SetTitle(Form("%s Contribution to Total Comic Ray Flux;Rigidity(GV);Ratio", AMS_Element2_Cap[i])); 	
-		h_ratio->Draw("E1X0"); 
-
-		c3->Print(Form("./data/ACE/contribute/contribution_%s.png", AMS_Element2_Cap[i]));  
+		// c3->Print(Form("./data/ACE/contribute/contribution_%s.png", AMS_Element2_Cap[i]));  
 
 	} 
 	
