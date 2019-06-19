@@ -100,7 +100,8 @@ void ace_extend(); // divide remaining ACE data that is not measured by AMS by c
 		   // divide elements with Z>8 ACE data by combinced C cit 
 void ace_extend2(); // fit_comb of BNO / C
 void ace_extend3(); // group ratios from extend() part II and check isotope assumptions 
-void ace_extend4(); // plot average relative absolute difference, chi-2, max variation of residuals vs. element Z, element Z/A, difference (Z/A)_element - (Z/A)_C 
+void ace_extend4(); // plot average relative absolute difference, chi-2, max variation of residuals vs. element Z, element Z/A, difference (Z/A)_element - (Z/A)_C
+void ace_extend5(); // extend low energy profile of p, He, Li, Be AMS data by rescaling ACE C  
 void ace_contribute(); // reconstructe ACE fit for all elements through C combined fit template, check the contribution of each element by plotting the ratio of CR Flux/total CR Flux 
 
 TGraphAsymmErrors *get_ace_graph(const char *element, UInt_t iBin, UInt_t nBRs); // flux in Kinetic Energy over time 
@@ -1817,6 +1818,96 @@ void ace_extend4(){
 	} 	
 	
 	c1->Print(Form("./data/ACE/extend/ACE_extend_last_ratio_test.pdf"));
+
+}
+
+// extend AMS p, He, Li, Be at low energy 
+void ace_extend5(){
+
+	Debug::Enable(Debug::ALL); 
+
+	Experiments::DataPath = "data";
+
+	int data_value[n_ele] = {0, 18, 23, 27, 31, 20, 43, 22}; 
+
+	const char *AMS_Element2[8] = { "p", "he", "li", "be", "b", "c", "n", "o" }; 
+	const char *AMS_Element2_Cap[8] = { "Proton", "He", "Li", "Be", "B", "C", "N", "O" }; 
+
+	const UInt_t FirstACEBR = 2240;
+   	vector<UInt_t> BRs;
+  	// we stop at BR 2493, which ends on 2016/05/23, just 3 days before the end of the data taking period for AMS nuclei
+   	for (UInt_t br=2426; br<=2493; ++br) { 
+	   	if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
+	}
+
+	TH1 *h_ams_C = Experiments::GetMeasurementHistogram(Experiments::AMS02, data_value[5], 0); // load AMS Carbon data in order to determine Rmax
+
+	TH1 *h_ene_C = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[1] , &BRs[0], BRs.size() ), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
+	TH1 *h_ace_C = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene_C, ACE_Isotope[1], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity
+
+	UShort_t namsbins = h_ams_C->GetNbinsX(); 
+	UShort_t nacebins = h_ace_C->GetNbinsX();
+	
+	double R1 = h_ace_C->GetBinLowEdge(1);
+	double R2 = h_ams_C->GetBinLowEdge(namsbins+1);
+
+	TCanvas *c1 = new TCanvas("c1", "Extend Fit", 1800, 900); 
+
+	for (int i=0; i<4; i++){
+
+		int nnodes_ams = 6; 
+		int nnodes_ace = 7; 
+
+		TH1 *ha = HistTools::CreateAxis("ha", "haxis1", 0.1, 2500., 7, 1e-10, 1e3, false); 
+		ha->SetXTitle(Unit::GetEnergyLabel("GV"));
+  		ha->SetYTitle(Unit::GetDifferentialFluxLabel("GV m")); 
+		ha->SetTitle(Form("Hypothetical AMS %s Flux vs. Rigidity", AMS_Element2_Cap[i]));
+
+		TFile file1(Form("data/amsfit/fit_result_node%d.root", nnodes_ams)); // load AMS fit  
+
+		TH1 *h_ams_i = (TH1 *) file1.Get(Form("h_%s", AMS_Element2[i])); // AMS p, He, Li, Be
+		HistTools::SetStyle(h_ams_i, HistTools::GetColorPalette(i, 4), kFullCircle, 1.5, 1, 1);  
+
+		Spline *sp_ams = new Spline("sp_ams", nnodes_ams, Spline::LogLog | Spline::PowerLaw);
+		TF1 *fsp_ams = sp_ams->GetTF1Pointer(); 
+		TF1 *fit_ams = (TF1*) file1.Get(Form("fsp_%s", AMS_Element2[i])); // the fsp in the root file is actually fit 
+
+		HistTools::CopyParameters(fit_ams, fsp_ams); 
+		double x1, x2;
+		fit_ams->GetRange(x1,x2);
+		fsp_ams->SetRange(x1,x2); 
+
+		TFile file2(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[1], nnodes_ace)); // load ACE combined C fit
+	
+		Spline *sp_comb_C = new Spline("sp_comb_C", nnodes_ace, Spline::LogLog | Spline::PowerLaw); 
+		TF1 *fsp_comb_C = sp_comb_C->GetTF1Pointer();  // real function 
+		TF1 *fit_comb_C = (TF1*) file2.Get("fit_both");
+	
+		HistTools::CopyParameters(fit_comb_C, fsp_comb_C); 
+		double x1_C, x2_C;
+		fit_comb_C->GetRange(x1_C,x2_C);
+		fsp_comb_C->SetRange(x1_C,x2_C);
+		
+		double s_ratio = fsp_ams->Eval(2.0)/fsp_comb_C->Eval(2.0); // ratio of f_ams(2GV)/f_ace(2GV) 
+		printf("%s s_ratio = %0.4f \n", AMS_Element2_Cap[i], s_ratio); 
+
+		TH1 *h_scale = (TH1 *) h_ace_C->Clone("h_scale"); 
+		HistTools::SetStyle(h_scale, kBlue, kFullCircle, 1.5, 1, 1); 
+		h_scale->Scale(s_ratio);
+
+		PRINT_HIST(h_scale); 		
+
+		c1->cd(1); 
+		gPad->SetLogx();
+		gPad->SetLogy();
+		gPad->SetGrid();
+
+		ha->Draw("E1X0");
+		h_scale->Draw("E1X0 SAME");
+
+		// break;  	
+
+	} 
 
 }
 
