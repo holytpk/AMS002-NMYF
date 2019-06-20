@@ -1855,6 +1855,8 @@ void ace_extend5(){
 
 	for (int i=0; i<4; i++){
 
+		int nnodes = 7; 
+
 		int nnodes_ams = 6; 
 		int nnodes_ace = 7; 
 
@@ -1863,10 +1865,12 @@ void ace_extend5(){
   		ha->SetYTitle(Unit::GetDifferentialFluxLabel("GV m")); 
 		ha->SetTitle(Form("Hypothetical AMS %s Flux vs. Rigidity", AMS_Element2_Cap[i]));
 
+		TH1 *h_ams = Experiments::GetMeasurementHistogram(Experiments::AMS02, data_value[i], 0); // load AMS data
+		HistTools::SetStyle(h_ams, kBlue, kFullCircle, 1.5, 1, 1); 
 		TFile file1(Form("data/amsfit/fit_result_node%d.root", nnodes_ams)); // load AMS fit  
 
 		TH1 *h_ams_i = (TH1 *) file1.Get(Form("h_%s", AMS_Element2[i])); // AMS p, He, Li, Be
-		HistTools::SetStyle(h_ams_i, HistTools::GetColorPalette(i, 4), kFullCircle, 1.5, 1, 1);  
+		HistTools::SetStyle(h_ams_i, HistTools::GetColorPalette(i+1, 4), kFullCircle, 1.5, 1, 1);  
 
 		Spline *sp_ams = new Spline("sp_ams", nnodes_ams, Spline::LogLog | Spline::PowerLaw);
 		TF1 *fsp_ams = sp_ams->GetTF1Pointer(); 
@@ -1892,20 +1896,62 @@ void ace_extend5(){
 		printf("%s s_ratio = %0.4f \n", AMS_Element2_Cap[i], s_ratio); 
 
 		TH1 *h_scale = (TH1 *) h_ace_C->Clone("h_scale"); 
-		HistTools::SetStyle(h_scale, kBlue, kFullCircle, 1.5, 1, 1); 
-		h_scale->Scale(s_ratio);
-
-		PRINT_HIST(h_scale); 		
+		HistTools::SetStyle(h_scale, HistTools::GetColorPalette(i, 4), kFullCircle, 1.5, 1, 1); 
 
 		c1->cd(1); 
 		gPad->SetLogx();
 		gPad->SetLogy();
 		gPad->SetGrid();
 
+		h_scale->Scale(s_ratio);
+
+		// initializes the X and Y position of the spline nodes
+		double *xnodes = HistTools::BuildLogBins(R1, R2, nnodes); // xnodes will be an array of nnodes+1 items
+		double *ynodes = new double[nnodes+1];
+		UShort_t inode;
+		for (inode = 0; inode < nnodes+1; ++inode)
+		{
+   			if (xnodes[inode] > h_scale->GetBinLowEdge(nacebins+1)) break;
+   			ynodes[inode] = h_scale->GetBinContent(h_scale->FindBin(xnodes[inode]));
+		}
+		for (; inode < nnodes+1; ++inode)
+		{
+	   		double x = xnodes[inode] < h_ams->GetBinLowEdge(1) ? h_ams->GetBinLowEdge(1) : xnodes[inode];
+	   		ynodes[inode] = h_ams->GetBinContent(h_ams->FindBin(x));
+		}
+
+		// create spline
+		Spline *sp = new Spline("sp", nnodes, Spline::LogLog | Spline::PowerLaw, xnodes, ynodes);
+		sp->SetSpectralIndices(3, -2.8, 0, 4, -3.5, -1); // set initial values and limits for the spectral index at first and last node
+		TF1 *fit = sp->GetTF1Pointer();	
+	
+		// create array of data to be fitted together
+		TObjArray data; 
+		data.Add(h_scale);
+		data.Add(h_ams);
+
+		// fit AMS and ACE data at the same time
+		vector<double> rigmin, rigmax, chi2norm(2);
+		ROOT::Fit::Fitter fitter;
+		//HistTools::PrintFunction(fit);
+		FitTools::SetCommonFitterOptions(fitter);
+		FitTools::FitCombinedData(data, fit, "I", rigmin, rigmax, chi2norm, fitter, 3); 
+
+		TLegend *legend = new TLegend(0.62,0.8,0.9,0.9); // left, down, right, top
+		legend->AddEntry(h_scale, Form("Hypothetical AMS %s Low Energy Flux", AMS_Element2_Cap[i]), "p");
+		legend->AddEntry(h_ams, Form("AMS Integrated %s Flux", AMS_Element2_Cap[i]), "p");
+		legend->AddEntry(fit, Form("Hypothetical+Actual AMS Combined %s Flux Reconstruction", AMS_Element2_Cap[i]), "l"); 
+
+		// PRINT_HIST(h_scale); 		
+
 		ha->Draw("E1X0");
+		fit->Draw("SAME"); 
+		h_ams->Draw("E1X0 SAME"); 
 		h_scale->Draw("E1X0 SAME");
+		legend->Draw("SAME"); 
 
 		// break;  	
+		c1->Print(Form("./data/ACE/extend2/extend_low_%d_%s.png", i, AMS_Element2_Cap[i]));  
 
 	} 
 
@@ -2028,7 +2074,7 @@ void ace_contribute(){
 		fit_comb->GetRange(x1,x2); 
 		f_fit[j]->SetRange(x1,x2); 
 
-		TLegend *legend = new TLegend(0.1,0.8,0.28,0.9); // left, down, right, top
+		TLegend *legend = new TLegend(0.1,0.8,0.28,0.9); // xlow, ylow, xhigh, yhigh
 		legend->AddEntry(h_ace, Form("ACE %s Flux", ACE_Element[i]), "p");
 		legend->AddEntry(h_ams_i[i], Form("AMS Integrated %s Flux", AMS_Element2_Cap[j]), "p");
 		legend->AddEntry(f_fit[j], Form("ACE %s Flux Reconstruction", ACE_Element[i]), "l"); 
