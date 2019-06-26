@@ -1897,10 +1897,18 @@ void ace_extend5(){
 		fsp_comb_C->SetRange(x1_C,x2_C);
 		
 		double s_ratio = fsp_ams->Eval(1.0)/fsp_comb_C->Eval(1.0); // ratio of f_ams(1GV)/f_ace(1GV) 
-		printf("%s s_ratio = %0.4f \n", AMS_Element2_Cap[i], s_ratio); 
+		//printf("%s s_ratio = %0.4f \n", AMS_Element2_Cap[i], s_ratio); 
 
 		TH1 *h_scale = (TH1 *) h_ace_C->Clone("h_scale"); 
 		HistTools::SetStyle(h_scale, HistTools::GetColorPalette(i, 4), kFullCircle, 1.5, 1, 1); 
+
+		// use first 3 bins only for p 	
+		for (int k=6;k<14;k++){
+			if (k%2==0){
+				h_scale->SetBinContent(k+1, 0);
+				h_scale->SetBinError(k+1, 0); 
+			} 
+		} 
 
 		h_scale->Scale(s_ratio);
 
@@ -1986,9 +1994,9 @@ void ace_extend5(){
   	
 		c1->Print(Form("./data/ACE/extend2/extend_low_%d_%s.png", i, AMS_Element2_Cap[i]));
   
-	   } else if (i>0){ 
+	   } else if (i==1 || i==2){ 
 
-		// He, Li, Be
+		// He, Li 
 		int nnodes = 7; 
 
 		int nnodes_ams = 6; 
@@ -2027,7 +2035,178 @@ void ace_extend5(){
 		fsp_comb_C->SetRange(x1_C,x2_C);
 		
 		double s_ratio = fsp_ams->Eval(2.0)/fsp_comb_C->Eval(2.0); // ratio of f_ams(2GV)/f_ace(2GV) 
-		printf("%s s_ratio = %0.4f \n", AMS_Element2_Cap[i], s_ratio); 
+		//printf("%s s_ratio = %0.4f \n", AMS_Element2_Cap[i], s_ratio); 
+
+		TH1 *h_scale = (TH1 *) h_ace_C->Clone("h_scale"); 
+		HistTools::SetStyle(h_scale, HistTools::GetColorPalette(i, 4), kFullCircle, 1.5, 1, 1); 
+
+		h_scale->Scale(s_ratio);
+
+		// initializes the X and Y position of the spline nodes
+		double *xnodes = HistTools::BuildLogBins(R1, R2, nnodes); // xnodes will be an array of nnodes+1 items
+		double *ynodes = new double[nnodes+1];
+		UShort_t inode;
+		for (inode = 0; inode < nnodes+1; ++inode)
+		{
+   			if (xnodes[inode] > h_scale->GetBinLowEdge(nacebins+1)) break;
+   			ynodes[inode] = h_scale->GetBinContent(h_scale->FindBin(xnodes[inode]));
+		}
+		for (; inode < nnodes+1; ++inode)
+		{
+	   		double x = xnodes[inode] < h_ams->GetBinLowEdge(1) ? h_ams->GetBinLowEdge(1) : xnodes[inode];
+	   		ynodes[inode] = h_ams->GetBinContent(h_ams->FindBin(x));
+		}
+
+		// create spline
+		Spline *sp = new Spline("sp", nnodes, Spline::LogLog | Spline::PowerLaw, xnodes, ynodes);
+		sp->SetSpectralIndices(3, -2.8, 0, 4, -3.5, -1); // set initial values and limits for the spectral index at first and last node
+		TF1 *fit = sp->GetTF1Pointer();	
+	
+		// create array of data to be fitted together
+		TObjArray data; 
+		data.Add(h_scale);
+		data.Add(h_ams);
+
+		// fit AMS and ACE data at the same time
+		vector<double> rigmin, rigmax, chi2norm(2);
+		ROOT::Fit::Fitter fitter;
+		//HistTools::PrintFunction(fit);
+		FitTools::SetCommonFitterOptions(fitter);
+		FitTools::FitCombinedData(data, fit, "I", rigmin, rigmax, chi2norm, fitter, 3); 
+
+		// data/fit
+		TH1D *h_fitres[2];
+ 		
+		for (UShort_t i = 0; i < 2; ++i)
+		{
+  			TH1 *hist = HistTools::ToHist(data[i]);
+   			h_fitres[i] = (TH1D *)HistTools::GetResiduals(hist, fit, "_fitres", false, true, true, 5, 1, 0.68, &fitter);
+			HistTools::CopyStyle(hist, h_fitres[i]);
+
+   			UShort_t ndf  = hist->GetNbinsX();
+   			Double_t chi2 = chi2norm[i]*ndf;
+   			printf("old %d nodes ### %-34s   chi2/ndf=%6.2f/%-2u   chi2norm=%5.2f   prob.=%5.2f%%\n", nnodes, hist->GetTitle(), chi2, ndf, chi2norm[i], TMath::Prob(chi2, ndf)*1e2);
+		
+		}
+
+		TH1 *h_scale2 = (TH1 *) h_scale->Clone("h_scale2"); // rescale the fit again to correct the overfitting issue 
+		HistTools::SetStyle(h_scale2, HistTools::GetColorPalette(i, 4), kFullCircle, 1.5, 1, 1); 
+		
+		h_scale2->Scale(1.0+h_fitres[1]->GetBinContent(1));  
+
+		HistTools::SetMarkerStyle(h_fitres[0], kBlue, kFullCircle, 0.9);
+		HistTools::SetMarkerStyle(h_fitres[1], kBlue, kFullCircle, 0.9);
+
+		// Fit again !! 
+
+		// create spline
+		Spline *sp2 = new Spline("sp2", nnodes, Spline::LogLog | Spline::PowerLaw, xnodes, ynodes);
+		sp2->SetSpectralIndices(3, -2.8, 0, 4, -3.5, -1); // set initial values and limits for the spectral index at first and last node
+		TF1 *fit2 = sp2->GetTF1Pointer(); 
+
+		// create array of data to be fitted together
+		TObjArray data2; 
+		data2.Add(h_scale2);
+		data2.Add(h_ams);
+
+		// fit AMS and ACE data at the same time
+		FitTools::FitCombinedData(data2, fit2, "I", rigmin, rigmax, chi2norm, fitter, 3); 
+
+		// data/fit
+		TH1D *h_fitres2[2];
+ 		
+		for (UShort_t i = 0; i < 2; ++i)
+		{
+  			TH1 *hist = HistTools::ToHist(data2[i]);
+   			h_fitres2[i] = (TH1D *)HistTools::GetResiduals(hist, fit2, "_fitres", false, true, true, 5, 1, 0.68, &fitter);
+			HistTools::CopyStyle(hist, h_fitres2[i]);
+
+   			UShort_t ndf  = hist->GetNbinsX();
+   			Double_t chi2 = chi2norm[i]*ndf;
+   			printf("new %d nodes ### %-34s   chi2/ndf=%6.2f/%-2u   chi2norm=%5.2f   prob.=%5.2f%%\n", nnodes, hist->GetTitle(), chi2, ndf, chi2norm[i], TMath::Prob(chi2, ndf)*1e2);
+		
+		}
+
+		HistTools::SetMarkerStyle(h_fitres2[0], kBlue, kFullCircle, 0.9);
+		HistTools::SetMarkerStyle(h_fitres2[1], kBlue, kFullCircle, 0.9);
+	
+		TLegend *legend = new TLegend(0.62,0.8,0.9,0.9); // left, down, right, top
+		legend->AddEntry(h_scale2, Form("Hypothetical AMS %s Low Energy Flux", AMS_Element2_Cap[i]), "p");
+		legend->AddEntry(h_ams, Form("AMS Integrated %s Flux", AMS_Element2_Cap[i]), "p");
+		legend->AddEntry(fit2, Form("Hypothetical+Actual AMS Combined %s Flux Reconstruction", AMS_Element2_Cap[i]), "l"); 
+
+		// PRINT_HIST(h_scale); 
+
+		c1->cd(1); 
+		gPad->SetLogx();
+		gPad->SetLogy();
+		gPad->SetGrid();		
+
+		ha->Draw("E1X0");
+		fit2->Draw("SAME"); 
+		h_ams->Draw("E1X0 SAME"); 
+		h_scale2->Draw("E1X0 SAME");
+		legend->Draw("SAME"); 
+
+		c1->cd(2); 
+		gPad->SetLogx();
+		gPad->SetGrid();
+
+		TH1 *h_resaxis = HistTools::CreateAxis("h_resaxis", " ; ; Data / Fit", 0.1, 2500., 7, -1, 1, false);
+		HistTools::CopyStyle(ha, h_resaxis);
+		h_resaxis->SetXTitle(Unit::GetEnergyLabel("GV")); 
+
+		h_resaxis->Draw("E1X0 SAME"); 
+		h_fitres2[0]->Draw("E1X0 SAME");
+		h_fitres2[1]->Draw("E1X0 SAME"); 
+
+		PRINT_HIST(h_fitres[1])
+		PRINT_HIST(h_fitres2[1])
+  	
+		c1->Print(Form("./data/ACE/extend2/extend_low_%d_%s.png", i, AMS_Element2_Cap[i]));
+
+	   } else if (i==3){ 
+
+		// Be 
+		int nnodes = 7; 
+
+		int nnodes_ams = 6; 
+		int nnodes_ace = 7; 
+
+		TH1 *ha = HistTools::CreateAxis("ha", "haxis1", 0.1, 2500., 7, 1e-10, 1e3, false); 
+		ha->SetXTitle(Unit::GetEnergyLabel("GV"));
+  		ha->SetYTitle(Unit::GetDifferentialFluxLabel("GV m")); 
+		ha->SetTitle(Form("Hypothetical AMS %s Flux vs. Rigidity", AMS_Element2_Cap[i]));
+
+		TH1 *h_ams = Experiments::GetMeasurementHistogram(Experiments::AMS02, data_value[i], 0); // load AMS data
+		HistTools::SetStyle(h_ams, kBlue, kFullCircle, 1.5, 1, 1); 
+		TFile file1(Form("data/amsfit/fit_result_node%d.root", nnodes_ams)); // load AMS fit  
+
+		TH1 *h_ams_i = (TH1 *) file1.Get(Form("h_%s", AMS_Element2[i])); // AMS p, He, Li, Be
+		HistTools::SetStyle(h_ams_i, HistTools::GetColorPalette(i+1, 4), kFullCircle, 1.5, 1, 1);  
+
+		Spline *sp_ams = new Spline("sp_ams", nnodes_ams, Spline::LogLog | Spline::PowerLaw);
+		TF1 *fsp_ams = sp_ams->GetTF1Pointer(); 
+		TF1 *fit_ams = (TF1*) file1.Get(Form("fsp_%s", AMS_Element2[i])); // the fsp in the root file is actually fit 
+
+		HistTools::CopyParameters(fit_ams, fsp_ams); 
+		double x1, x2;
+		fit_ams->GetRange(x1,x2);
+		fsp_ams->SetRange(x1,x2); 
+
+		TFile file2(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[1], nnodes_ace)); // load ACE combined C fit
+	
+		Spline *sp_comb_C = new Spline("sp_comb_C", nnodes_ace, Spline::LogLog | Spline::PowerLaw); 
+		TF1 *fsp_comb_C = sp_comb_C->GetTF1Pointer();  // real function 
+		TF1 *fit_comb_C = (TF1*) file2.Get("fit_both");
+	
+		HistTools::CopyParameters(fit_comb_C, fsp_comb_C); 
+		double x1_C, x2_C;
+		fit_comb_C->GetRange(x1_C,x2_C);
+		fsp_comb_C->SetRange(x1_C,x2_C);
+		
+		double s_ratio = fsp_ams->Eval(2.0)/fsp_comb_C->Eval(2.0); // ratio of f_ams(2GV)/f_ace(2GV) 
+		//printf("%s s_ratio = %0.4f \n", AMS_Element2_Cap[i], s_ratio); 
 
 		TH1 *h_scale = (TH1 *) h_ace_C->Clone("h_scale"); 
 		HistTools::SetStyle(h_scale, HistTools::GetColorPalette(i, 4), kFullCircle, 1.5, 1, 1); 
