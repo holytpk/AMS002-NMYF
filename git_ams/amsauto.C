@@ -398,13 +398,13 @@ void amsfit(int nnodes){
 
 			h_p_ave->Write("h_p");
 			fsp_p_ave->Write("fsp_p");
-			h_fitres_p_ave->Write("h_fitres_p"); 
-			h_fiterr_p_ave->Write("h_fiterr_p"); 
+			h_fitres_p_ave->Write("h_p_fitres"); 
+			h_fiterr_p_ave->Write("h_p_fiterr"); 
 
 			h_he->Write("h_he");
 			fsp_he->Write();
-			h_fitres_he->Write("h_fitres_he");
-			h_fiterr_he->Write("h_fiterr_he");
+			h_fitres_he->Write("h_he_fitres");
+			h_fiterr_he->Write("h_he_fiterr");
 
 			h_li->Write("h_li");
 			fsp_li->Write();
