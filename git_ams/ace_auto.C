@@ -2759,7 +2759,7 @@ void ace_contribute(){
 	
 		f_fit[j] = HistTools::CombineTF1Const(f_fit[j], ratio_ave, HistTools::MultiplyConst, "f_fit", R1, R2); 
 
-		TH1 *h_fitres = HistTools::GetResiduals(h_ratio, f_fit[j], "_fitratio", false, true, true, 4, 1); 
+		TH1 *h_fitres = HistTools::GetResiduals(h_ace, f_fit[j], "_fitratio", false, true, true, 4, 1); 
 		HistTools::CopyStyle(h_ace, h_fitres);
 	
 		TLegend *legend = new TLegend(0.1,0.8,0.28,0.9); // left, down, right, top 
@@ -2785,10 +2785,11 @@ void ace_contribute(){
 		TH1 *h_resaxis = HistTools::CreateAxis("h_resaxis", " ; ; Data / Fit", 0.1, 2500., 7, 0.2, 1.6, false);
 		h_resaxis->SetXTitle(Unit::GetEnergyLabel("GV")); 
 
-		PRINT_HIST(h_fitres)
-		
 		h_resaxis->Draw("E1X0");
 		//h_fiterr->Draw("E3 SAME");
+		
+		PRINT_HIST(h_fitres)
+
 		h_fitres->Draw("E1X0 SAME"); 
 
 		c1->Print(Form("./data/ACE/contribute/extend_%d_%s.png", j, ACE_Element[i])); 
