@@ -1,4 +1,4 @@
-// Manipulate ACE/CRIS data by Lingqiang He, updated on 04/17/2019
+// Manipulate ACE/CRIS data by Lingqiang He, updated on 07/10/2019
 // for i in {5..28}; do sed -r -e'1,5d' -e's/^ +//' -e's/ +/ /g' cris_energy_bands.txt | egrep "^$((i))" | cut -d' ' -f3,4 | paste -sd' ' | sed -r 's/ /, /g' >> ace_energy_band.dat; done
 
 //CRIS: BR 2240-2529
@@ -2312,7 +2312,6 @@ void ace_extend5(){
 
 void ace_extend6(){
 
-/*
 	Debug::Enable(Debug::ALL); 
 
 	Experiments::DataPath = "data";
@@ -2390,7 +2389,7 @@ void ace_extend6(){
 
 		TH1 *h_scale[6];  
 
-		h_Scale[0] = h_ace_C->Clone("h_scale");
+		h_scale[0] = (TH1 *) h_ace_C->Clone("h_scale");
 
 		h_scale[0]->Scale(s_ratio); 			
 
@@ -2446,20 +2445,12 @@ void ace_extend6(){
 		HistTools::SetMarkerStyle(h_fitres[0], kBlue, kFullCircle, 0.9);
 		HistTools::SetMarkerStyle(h_fitres[1], kBlue, kFullCircle, 0.9); 
 
-		for (int j=1; j<6; j++){ 
+		for (int j=1; j<8; j++){ 
 
-			h_scale[j] = h_scale[j-1]->Clone("h_scale");			
+			h_scale[j] = (TH1 *) h_scale[j-1]->Clone("h_scale");			
 			HistTools::SetStyle(h_scale[j], HistTools::GetColorPalette(i, 4), kFullCircle, 1.5, 1, 1); 
 
-			h_scale[j]->Scale(1.0 + h_fitres[0]->GetBinContent(1)); 
-
-			TH1 *h_scale2 = (TH1 *) h_scale[j]->Clone("h_scale2"); // rescale the fit again to correct the overfitting issue 
-			HistTools::SetStyle(h_scale2, HistTools::GetColorPalette(i, 4), kFullCircle, 1.5, 1, 1); 
-		
-			h_scale2->Scale(1.0+h_fitres[1]->GetBinContent(1));  
-
-			HistTools::SetMarkerStyle(h_fitres[0], kBlue, kFullCircle, 0.9);
-			HistTools::SetMarkerStyle(h_fitres[1], kBlue, kFullCircle, 0.9);
+			h_scale[j]->Scale(1.0 + h_fitres[1]->GetBinContent(1)); 
 
 			// Fit again !! 
 
@@ -2470,7 +2461,7 @@ void ace_extend6(){
 
 			// create array of data to be fitted together
 			TObjArray data2; 
-			data2.Add(h_scale2);
+			data2.Add(h_scale[j]);
 			data2.Add(h_ams);
 
 			// fit AMS and ACE data at the same time
@@ -2494,42 +2485,45 @@ void ace_extend6(){
 			HistTools::SetMarkerStyle(h_fitres2[0], kBlue, kFullCircle, 0.9);
 			HistTools::SetMarkerStyle(h_fitres2[1], kBlue, kFullCircle, 0.9);
 
-		}
+			TLegend *legend = new TLegend(0.62,0.8,0.9,0.9); // left, down, right, top
+			legend->AddEntry(h_scale[j], Form("Estimated AMS %s Low Energy Flux", AMS_Element2_Cap[i]), "p");
+			legend->AddEntry(h_ams, Form("AMS Integrated %s Flux", AMS_Element2_Cap[i]), "p");
+			legend->AddEntry(fit2, Form("Estimated+Actual AMS Combined %s Flux Reconstruction", AMS_Element2_Cap[i]), "l"); 
+
+			// PRINT_HIST(h_scale); 
+
+			c1->cd(1); 
+			gPad->SetLogx();
+			gPad->SetLogy();
+			gPad->SetGrid();		
+
+			ha->Draw("E1X0");
+			fit2->Draw("SAME"); 
+			h_ams->Draw("E1X0 SAME"); 
+			h_scale[j]->Draw("E1X0 SAME");
+			legend->Draw("SAME"); 
+
+			c1->cd(2); 
+			gPad->SetLogx();
+			gPad->SetGrid();
 	
-		TLegend *legend = new TLegend(0.62,0.8,0.9,0.9); // left, down, right, top
-		legend->AddEntry(h_scale2, Form("Estimated AMS %s Low Energy Flux", AMS_Element2_Cap[i]), "p");
-		legend->AddEntry(h_ams, Form("AMS Integrated %s Flux", AMS_Element2_Cap[i]), "p");
-		legend->AddEntry(fit2, Form("Estimated+Actual AMS Combined %s Flux Reconstruction", AMS_Element2_Cap[i]), "l"); 
+			TH1 *h_resaxis = HistTools::CreateAxis("h_resaxis", " ; ; Data / Fit", 0.1, 2500., 7, -1, 1, false);
+			HistTools::CopyStyle(ha, h_resaxis);
+			h_resaxis->SetXTitle(Unit::GetEnergyLabel("GV")); 
 
-		// PRINT_HIST(h_scale); 
+			h_resaxis->Draw("E1X0"); 
+			h_fitres2[0]->Draw("E1X0 SAME");
+			h_fitres2[1]->Draw("E1X0 SAME"); 
 
-		c1->cd(1); 
-		gPad->SetLogx();
-		gPad->SetLogy();
-		gPad->SetGrid();		
+			// PRINT_HIST(h_fitres[1]) 
+			// PRINT_HIST(h_fitres2[1]) 
 
-		ha->Draw("E1X0");
-		fit2->Draw("SAME"); 
-		h_ams->Draw("E1X0 SAME"); 
-		h_scale2->Draw("E1X0 SAME");
-		legend->Draw("SAME"); 
+			printf(" %s rescaled by %d times fit residual = %10.4f \n", AMS_Element2_Cap[i], j, h_fitres2[1]->GetBinContent(1));  
+			printf(" %s rescaled by %d times global fit chi2/ndf = %10.4f/%d \n", AMS_Element2_Cap[i], j, fit2->GetChisquare(), fit2->GetNDF());  	
 
-		c1->cd(2); 
-		gPad->SetLogx();
-		gPad->SetGrid();
+			c1->Print(Form("./data/ACE/extend2/extend_low_rescale_%d_%s.png", i, AMS_Element2_Cap[i]));
 
-		TH1 *h_resaxis = HistTools::CreateAxis("h_resaxis", " ; ; Data / Fit", 0.1, 2500., 7, -1, 1, false);
-		HistTools::CopyStyle(ha, h_resaxis);
-		h_resaxis->SetXTitle(Unit::GetEnergyLabel("GV")); 
-
-		h_resaxis->Draw("E1X0 SAME"); 
-		h_fitres2[0]->Draw("E1X0 SAME");
-		h_fitres2[1]->Draw("E1X0 SAME"); 
-
-		PRINT_HIST(h_fitres[1])
-		PRINT_HIST(h_fitres2[1])
-  	
-		c1->Print(Form("./data/ACE/extend2/extend_low_rescale_%d_%s.png", i, AMS_Element2_Cap[i]));
+		}
 
 	   } else {
 
@@ -2538,8 +2532,7 @@ void ace_extend6(){
 	   }
 
 	}
-
-*/ 
+ 
 
 }
 
