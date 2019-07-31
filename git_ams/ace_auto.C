@@ -53,6 +53,39 @@ Particle::Type compare_isotope[24][10] = {
       { Particle::NICKEL56, Particle::NICKEL58, Particle::NICKEL59, Particle::NICKEL60, Particle::NICKEL61, Particle::NICKEL62, Particle::NICKEL63, Particle::NICKEL64 } // abs, pri, sec, pri, pri, pri, abs, pri
 };
 
+const Double_t A[n_total] = {
+
+      1.01961, // H
+      3.85, // He
+      6.52381, // Li
+      7.93, // Be
+      10.6897, // B
+      12.0654, // C
+      14.55, // N
+      16.36, // O
+      19, // F
+      20.7, // Ne
+      23, //Na
+      24.58, // Mg
+      26.95, // Al
+      28.25, // Si
+      31., // P
+      32.45, // S
+      35.75, // Cl
+      37.3, // Ar
+      40.3, // K
+      41.46, // Ca
+      45., // Sc
+      47.07, // Ti
+      50.2, // V
+      52.22, // Cr
+      54.22, // Mn
+      55.89, // Fe
+      58.34, // Co
+      59.02, // Ni
+
+   };  
+
 string name_isotope[24][10] = {
 
       { "B10", "B11" },
@@ -101,9 +134,10 @@ void ace_extend(); // divide remaining ACE data that is not measured by AMS by c
 void ace_extend2(); // fit_comb of BNO / C
 void ace_extend3(); // group ratios from extend() part II and check isotope assumptions 
 void ace_extend4(); // plot average relative absolute difference, chi-2, max variation of residuals vs. element Z, element Z/A, difference (Z/A)_element - (Z/A)_C
-void ace_extend5(); // extend low energy profile of p, He, Li, Be AMS data by rescaling ACE C few times 
-void ace_extend6(); // extend5() for He & Li but with B template 
-void ace_contribute(); // reconstructe ACE fit for all elements through C combined fit template, check the contribution of each element by plotting the ratio of CR Flux/total CR Flux 
+void ace_extend5(int temp); // extend low energy profile of p, He, Li, Be AMS data through BCNO templates and rescaled few times 
+// please input template, B = 0, C = 1, N = 2, o = 3
+void ace_extend6(); // extend5() for He & Li but with B template, now discarded  
+void ace_contribute(int temp); // reconstructe ACE fit for all elements through C combined fit template, check the contribution of each element by plotting the ratio of CR Flux/total CR Flux 
 
 TGraphAsymmErrors *get_ace_graph(const char *element, UInt_t iBin, UInt_t nBRs); // flux in Kinetic Energy over time 
 TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_t nBRs); // flux in Kinetic over energy bins 
@@ -221,8 +255,6 @@ void ace_auto(const char *operation){
 		ace_extend3();
 	} else if (strcmp(operation, "extend4") == 0){
 		ace_extend4();
-	} else if (strcmp(operation, "contribute") == 0){
-		ace_contribute();
 	}
 
 } 
@@ -1827,13 +1859,13 @@ void ace_extend4(){
 }
 
 // extend AMS p, He, Li, Be at low energy 
-void ace_extend5(){
+void ace_extend5(int temp){
 
 	Debug::Enable(Debug::ALL); 
 
 	Experiments::DataPath = "data";
 
-	gSystem->mkdir("data/ACE/extend2/C_temp", true);
+	gSystem->mkdir(Form("data/ACE/extend2/%s_temp", ACE_Element[temp]), true);
 
 	int data_value[n_ele] = {0, 18, 23, 27, 31, 20, 43, 22}; 
 
@@ -1847,10 +1879,10 @@ void ace_extend5(){
 	   	if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
 	}
 
-	TH1 *h_ams_C = Experiments::GetMeasurementHistogram(Experiments::AMS02, data_value[5], 0); // load AMS Carbon data in order to determine Rmax
+	TH1 *h_ams_C = Experiments::GetMeasurementHistogram(Experiments::AMS02, data_value[temp+4], 0); // load AMS Template data in order to determine Rmax
 
-	TH1 *h_ene_C = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[1] , &BRs[0], BRs.size() ), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
-	TH1 *h_ace_C = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene_C, ACE_Isotope[1], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity
+	TH1 *h_ene_C = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[temp] , &BRs[0], BRs.size() ), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
+	TH1 *h_ace_C = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene_C, ACE_Isotope[temp], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity
 
 	UShort_t namsbins = h_ams_C->GetNbinsX(); 
 	UShort_t nacebins = h_ace_C->GetNbinsX();
@@ -1899,7 +1931,7 @@ void ace_extend5(){
 		fit_ams->GetRange(x1,x2);
 		fsp_ams->SetRange(x1,x2); 
 
-		TFile file2(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[1], nnodes_ace)); // load ACE combined C fit
+		TFile file2(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[temp], nnodes_ace)); // load ACE Combined Template fit
 	
 		Spline *sp_comb_temp = new Spline("sp_comb_temp", nnodes_ace, Spline::LogLog | Spline::PowerLaw); 
 		TF1 *fsp_comb_temp = sp_comb_temp->GetTF1Pointer();  // real function 
@@ -1956,7 +1988,7 @@ void ace_extend5(){
 		ROOT::Fit::Fitter fitter;
 		//HistTools::PrintFunction(fit);
 		FitTools::SetCommonFitterOptions(fitter);
-		FitTools::FitCombinedData(data, fit, "I", rigmin, rigmax, chi2norm, fitter, 3); 
+		FitTools::FitCombinedData(data, fit, "I", rigmin, rigmax, chi2norm, fitter, 3);  
 
 		// data/fit
 		TH1D *h_fitres[2];
@@ -2008,7 +2040,7 @@ void ace_extend5(){
 		h_fitres[0]->Draw("E1X0 SAME");
 		h_fitres[1]->Draw("E1X0 SAME"); 
 
-		TFile file0(Form("data/ACE/extend2/fit_%s_%dnodes.root", AMS_Element2[i], nnodes), "RECREATE"); 
+		TFile file0(Form("data/ACE/extend2/fit_%s_temp_%s_%dnodes.root", ACE_Element[temp], AMS_Element2[i], nnodes), "RECREATE"); 
 		
 		fit->Write("fsp_p");
 		h_fitres[0]->Write("h_fitres_ace");
@@ -2017,7 +2049,7 @@ void ace_extend5(){
 		file0.Write();
 		file0.Close();
   	
-		c1->Print(Form("./data/ACE/extend2/C_temp/extend_low_%d_%s.png", i, AMS_Element2_Cap[i])); 
+		c1->Print(Form("./data/ACE/extend2/%s_temp/extend_low_%d_%s.png", ACE_Element[temp], i, AMS_Element2_Cap[i])); 
   
 	   } else if (i==1) { 
 
@@ -2048,7 +2080,7 @@ void ace_extend5(){
 		fit_ams->GetRange(x1,x2);
 		fsp_ams->SetRange(x1,x2); 
 
-		TFile file2(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[1], nnodes_ace)); // load ACE combined C fit
+		TFile file2(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[temp], nnodes_ace)); // load ACE Combined Template fit
 	
 		Spline *sp_comb_temp = new Spline("sp_comb_temp", nnodes_ace, Spline::LogLog | Spline::PowerLaw); 
 		TF1 *fsp_comb_temp = sp_comb_temp->GetTF1Pointer();  // real function 
@@ -2097,12 +2129,18 @@ void ace_extend5(){
 		data.Add(h_scale[0]);
 		data.Add(h_ams);
 
+		PRINT_HIST(h_scale[0])
+		PRINT_HIST(h_ams); 
+
 		// fit AMS and ACE data at the same time
 		vector<double> rigmin, rigmax, chi2norm(2);
 		ROOT::Fit::Fitter fitter;
-		//HistTools::PrintFunction(fit);
+		HistTools::PrintFunction(fit);
 		FitTools::SetCommonFitterOptions(fitter);
+
 		FitTools::FitCombinedData(data, fit, "I", rigmin, rigmax, chi2norm, fitter, 3); 
+
+		// break;
 
 		// data/fit
 		TH1D *h_fitres[2];
@@ -2210,7 +2248,7 @@ void ace_extend5(){
 			printf(" %s rescaled by %d times fit residual = %10.4f \n", AMS_Element2_Cap[i], j, h_fitres2[1]->GetBinContent(1));  
 			printf(" %s rescaled by %d times global fit chi2/ndf = %10.4f/%d \n", AMS_Element2_Cap[i], j, fit2->GetChisquare(), fit2->GetNDF());  	
 
-			TFile file0(Form("data/ACE/extend2/fit_%s_%dnodes.root", AMS_Element2[i], nnodes), "RECREATE"); 
+			TFile file0(Form("data/ACE/extend2/fit_%s_temp_%s_%dnodes.root", ACE_Element[temp], AMS_Element2[i], nnodes), "RECREATE"); 
 		
 			fit2->Write("fsp_he");
 			h_fitres2[0]->Write("h_fitres_ace");
@@ -2219,7 +2257,7 @@ void ace_extend5(){
 			file0.Write();
 			file0.Close();
 
-			c1->Print(Form("./data/ACE/extend2/C_temp/extend_low_%s_rescale_%dtimes.png", AMS_Element2_Cap[i], j));			
+			c1->Print(Form("./data/ACE/extend2/%s_temp/extend_low_%s_rescale_%dtimes.png", ACE_Element[temp], AMS_Element2_Cap[i], j));			
 
 		}
 
@@ -2239,7 +2277,7 @@ void ace_extend5(){
 		g_residual_rescale->SetTitle(Form("%s Fitting Residual of 1st Bin of AMS Range vs. Rescaling Factor; Rescaling Factor; Residual", AMS_Element2_Cap[i]));
 		g_residual_rescale->Draw("AP");  
 
-		c2->Print(Form("./data/ACE/extend2/C_temp/extend_chi2_residual_vs_rescaling_factor_%s.png", AMS_Element2_Cap[i])); 
+		c2->Print(Form("./data/ACE/extend2/%s_temp/extend_chi2_residual_vs_rescaling_factor_%s.png", ACE_Element[temp], AMS_Element2_Cap[i])); 
 
 	   } else if (i==2) { 
 
@@ -2270,7 +2308,7 @@ void ace_extend5(){
 		fit_ams->GetRange(x1,x2);
 		fsp_ams->SetRange(x1,x2); 
 
-		TFile file2(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[1], nnodes_ace)); // load ACE combined C fit
+		TFile file2(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[temp], nnodes_ace)); // load ACE Combined Template fit
 	
 		Spline *sp_comb_temp = new Spline("sp_comb_temp", nnodes_ace, Spline::LogLog | Spline::PowerLaw); 
 		TF1 *fsp_comb_temp = sp_comb_temp->GetTF1Pointer();  // real function 
@@ -2432,7 +2470,7 @@ void ace_extend5(){
 			printf(" %s rescaled by %d times fit residual = %10.4f \n", AMS_Element2_Cap[i], j, h_fitres2[1]->GetBinContent(1));  
 			printf(" %s rescaled by %d times global fit chi2/ndf = %10.4f/%d \n", AMS_Element2_Cap[i], j, fit2->GetChisquare(), fit2->GetNDF());
 
-			TFile file0(Form("data/ACE/extend2/fit_%s_%dnodes.root", AMS_Element2[i], nnodes), "RECREATE"); 
+			TFile file0(Form("data/ACE/extend2/fit_%s_temp_%s_%dnodes.root", ACE_Element[temp], AMS_Element2[i], nnodes), "RECREATE"); 
 		
 			fit2->Write("fsp_li");
 			h_fitres2[0]->Write("h_fitres_ace");
@@ -2441,7 +2479,7 @@ void ace_extend5(){
 			file0.Write();
 			file0.Close();  	
 
-			c1->Print(Form("./data/ACE/extend2/C_temp/extend_low_%s_rescale_%dtimes.png", AMS_Element2_Cap[i], j));			
+			c1->Print(Form("./data/ACE/extend2/%s_temp/extend_low_%s_rescale_%dtimes.png", ACE_Element[temp], AMS_Element2_Cap[i], j));			
 
 		}
 
@@ -2461,7 +2499,7 @@ void ace_extend5(){
 		g_residual_rescale->SetTitle(Form("%s Fitting Residual of 1st Bin of AMS Range vs. Rescaling Factor; Rescaling Factor; Residual", AMS_Element2_Cap[i]));
 		g_residual_rescale->Draw("AP");  
 
-		c2->Print(Form("./data/ACE/extend2/C_temp/extend_chi2_residual_vs_rescaling_factor_%s.png", AMS_Element2_Cap[i])); 
+		c2->Print(Form("./data/ACE/extend2/%s_temp/extend_chi2_residual_vs_rescaling_factor_%s.png", ACE_Element[temp], AMS_Element2_Cap[i])); 
 
 	   } else if (i==3){ 
 
@@ -2492,7 +2530,7 @@ void ace_extend5(){
 		fit_ams->GetRange(x1,x2);
 		fsp_ams->SetRange(x1,x2); 
 
-		TFile file2(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[1], nnodes_ace)); // load ACE combined C fit
+		TFile file2(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[temp], nnodes_ace)); // load ACE Combined Template fit
 	
 		Spline *sp_comb_temp = new Spline("sp_comb_temp", nnodes_ace, Spline::LogLog | Spline::PowerLaw); 
 		TF1 *fsp_comb_temp = sp_comb_temp->GetTF1Pointer();  // real function 
@@ -2654,7 +2692,7 @@ void ace_extend5(){
 			printf(" %s rescaled by %d times fit residual = %10.4f \n", AMS_Element2_Cap[i], j, h_fitres2[1]->GetBinContent(1));  
 			printf(" %s rescaled by %d times global fit chi2/ndf = %10.4f/%d \n", AMS_Element2_Cap[i], j, fit2->GetChisquare(), fit2->GetNDF());  
 
-			TFile file0(Form("data/ACE/extend2/fit_%s_%dnodes.root", AMS_Element2[i], nnodes), "RECREATE"); 
+			TFile file0(Form("data/ACE/extend2/fit_%s_temp_%s_%dnodes.root", ACE_Element[temp], AMS_Element2[i], nnodes), "RECREATE"); 
 		
 			fit2->Write("fsp_be");
 			h_fitres2[0]->Write("h_fitres_ace");
@@ -2663,7 +2701,7 @@ void ace_extend5(){
 			file0.Write();
 			file0.Close();	
 
-			c1->Print(Form("./data/ACE/extend2/C_temp/extend_low_%s_rescale_%dtimes.png", AMS_Element2_Cap[i], j));			
+			c1->Print(Form("./data/ACE/extend2/%s_temp/extend_low_%s_rescale_%dtimes.png", ACE_Element[temp], AMS_Element2_Cap[i], j));			
 
 		}
 
@@ -2683,7 +2721,7 @@ void ace_extend5(){
 		g_residual_rescale->SetTitle(Form("%s Fitting Residual of 1st Bin of AMS Range vs. Rescaling Factor; Rescaling Factor; Residual", AMS_Element2_Cap[i]));
 		g_residual_rescale->Draw("AP");  
 
-		c2->Print(Form("./data/ACE/extend2/C_temp/extend_chi2_residual_vs_rescaling_factor_%s.png", AMS_Element2_Cap[i])); 
+		c2->Print(Form("./data/ACE/extend2/%s_temp/extend_chi2_residual_vs_rescaling_factor_%s.png", ACE_Element[temp], AMS_Element2_Cap[i])); 
 
 	   } else {
 
@@ -3425,7 +3463,7 @@ void ace_extend6(){
 			// create spline
 			Spline *sp2 = new Spline("sp2", nnodes, Spline::LogLog | Spline::PowerLaw, xnodes, ynodes);
 			sp2->SetSpectralIndices(3, -2.8, 0, 4, -3.5, -1); // set initial values and limits for the spectral index at first and last node
-			TF1 *fit2 = sp2->GetTF1Pointer();
+			TF1 *fit2 = sp2->GetTF1Pointer(); 
 
 			// sp2->Print();  
 
@@ -3527,11 +3565,13 @@ void ace_extend6(){
 }
 
 // compute the contribution to the total cosmic ray flux with real AMS data + extended ACE data 
-void ace_contribute(){
+void ace_contribute(int temp){
 
 	Debug::Enable(Debug::ALL); 
 
 	Experiments::DataPath = "data";
+
+	gSystem->mkdir(Form("data/ACE/contribute/%s_temp", ACE_Element[temp]), true);
 
 	int data_value[n_ele] = {0, 18, 23, 27, 31, 20, 43, 22}; 
 
@@ -3545,10 +3585,10 @@ void ace_contribute(){
 	   	if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
 	}
 
-	TH1 *h_ams_C = Experiments::GetMeasurementHistogram(Experiments::AMS02, data_value[5], 0); // load AMS Carbon data in order to determine Rmax
+	TH1 *h_ams_C = Experiments::GetMeasurementHistogram(Experiments::AMS02, data_value[temp+4], 0); // load AMS Template data in order to determine Rmax
 
-	TH1 *h_ene_C = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[1] , &BRs[0], BRs.size() ), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
-	TH1 *h_ace_C = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene_C, ACE_Isotope[1], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity
+	TH1 *h_ene_C = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[temp] , &BRs[0], BRs.size() ), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
+	TH1 *h_ace_C = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene_C, ACE_Isotope[temp], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity
 
 	UShort_t namsbins = h_ams_C->GetNbinsX(); 
 	UShort_t nacebins = h_ace_C->GetNbinsX();
@@ -3558,6 +3598,8 @@ void ace_contribute(){
 
 	TCanvas *c1 = new TCanvas("c1", "Extend Fit", 1800, 900); 
 	c1->Divide(1, 2); 
+
+	gStyle->SetOptStat(0); 
 
 	TF1 *f_fit[n_ele+4]; 
 
@@ -3572,13 +3614,13 @@ void ace_contribute(){
   		ha->SetYTitle(Unit::GetDifferentialFluxLabel("GV m")); 
 		ha->SetTitle(Form("Integrated AMS %s Flux vs. Rigidity", AMS_Element2_Cap[i]));
 
-		TH1 *h_ams = Experiments::GetMeasurementHistogram(Experiments::AMS02, data_value[5], 0); // AMS Carbon
+		TH1 *h_ams = Experiments::GetMeasurementHistogram(Experiments::AMS02, data_value[temp+4], 0); // AMS Template
 		HistTools::SetStyle(h_ams, kBlue, kFullCircle, 1.5, 1, 1); 
 
 		int nnodes = 9;  
 		int nnodes_ams = 6; 
 		
-		TFile file0(Form("data/ACE/extend2/fit_%s_%dnodes.root", AMS_Element2[i], nnodes)); 
+		TFile file0(Form("data/ACE/extend2/fit_%s_temp_%s_%dnodes.root", ACE_Element[temp], AMS_Element2[i], nnodes)); 
 
 		TFile file1(Form("data/amsfit/fit_result_node%d.root", nnodes_ams));  
 
@@ -3624,7 +3666,7 @@ void ace_contribute(){
 		h_fiterr->Draw("E3 SAME");
 		h_fitres->Draw("E1X0 SAME"); 		 
 
-		c1->Print(Form("./data/ACE/contribute/extend_%d_%s.png", i, AMS_Element2_Cap[i]));  
+		c1->Print(Form("./data/ACE/contribute/%s_temp/extend_%d_%s.png", ACE_Element[temp], i, AMS_Element2_Cap[i]));  
 
 	} 
 
@@ -3696,7 +3738,7 @@ void ace_contribute(){
 		h_fitres[0]->Draw("E1X0 SAME"); 
 		h_fitres[1]->Draw("E1X0 SAME");
 
-		c1->Print(Form("./data/ACE/contribute/extend_%d_%s.png", j, ACE_Element[i])); 
+		c1->Print(Form("./data/ACE/contribute/%s_tempp/extend_%d_%s.png", ACE_Element[temp], j, ACE_Element[i])); 
 	}
 
 	// F, Ne, Na ... Va, Ni
@@ -3715,14 +3757,14 @@ void ace_contribute(){
   		ha->SetYTitle(Unit::GetDifferentialFluxLabel("GV m")); 
 		ha->SetTitle(Form("Averaged ACE and Integrated AMS %s Flux vs. Rigidity", ACE_Element[i]));
 		 
-		TH1 *h_ams_C = Experiments::GetMeasurementHistogram(Experiments::AMS02, data_value[5], 0); 
+		TH1 *h_ams_C = Experiments::GetMeasurementHistogram(Experiments::AMS02, data_value[temp+4], 0); 
 		HistTools::SetStyle(h_ams_C, kBlue, kFullCircle, 1.5, 1, 1); 
 
 		TH1 *h_ene = HistTools::GraphToHist(get_ace_average_graph( ACE_Element[i] , &BRs[0], BRs.size() ), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
 		TH1 *h_ace = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, ACE_Isotope[i], "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element in rigidity 
 		HistTools::SetStyle(h_ace, HistTools::GetColorPalette(i, n_total) , kFullCircle, 1.5, 1, 1); 
 
-		TFile file2(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[1], nnodes)); // load C combined fit 
+		TFile file2(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[temp], nnodes)); // load ACE Template combined fit 
 
 		Spline *sp_comb_C = new Spline("sp_comb_C", nnodes, Spline::LogLog | Spline::PowerLaw); 
 		f_fit[j] = sp_comb_C->GetTF1Pointer();  // real function 
@@ -3779,14 +3821,16 @@ void ace_contribute(){
 
 		h_fitres->Draw("E1X0 SAME"); 
 
-		c1->Print(Form("./data/ACE/contribute/extend_%d_%s.png", j, ACE_Element[i])); 
+		c1->Print(Form("./data/ACE/contribute/%s_temp/extend_%d_%s.png", ACE_Element[temp], j, ACE_Element[i])); 
 	}
 
 	Int_t nbins = 200;
 
 	Double_t *bins = HistTools::BuildLogBins(R1, R2, nbins); // Rmin is the minimum rigidity of the ACE fluxes, Rmax the maximum rigidity of the AMS fluxes
 	TH1D *h_tot_cr_flux = new TH1D("h_tot_cr_flux", "Total Cosmic Ray Flux;Rigidity [GV];Flux [1/(m^{2} sr s GV)]", nbins, bins);
+	TH1D *h_tot_cr_flux_alt = new TH1D("h_tot_cr_flux_alt", "Mass-weighted Total Cosmic Ray Flux;Rigidity [GV];Flux [1/(m^{2} sr s GV)]", nbins, bins); // Contributed by each flux multiplied by their mass number 
 	HistTools::SetStyle(h_tot_cr_flux, kRed, kFullCircle, 0.9, 1, 1);
+	HistTools::SetStyle(h_tot_cr_flux_alt, kBlue, kFullCircle, 0.9, 1, 1);
 	
 	for (int i = 0; i < n_total; ++i) 
 	{
@@ -3797,6 +3841,7 @@ void ace_contribute(){
      			Double_t w = h_tot_cr_flux->GetBinWidth(bin);
       			Double_t flux = f_fit[i]->Integral(R, R+w)/w; 
       			h_tot_cr_flux->AddBinContent(bin, flux);
+			h_tot_cr_flux_alt->AddBinContent(bin, flux*A[i]); 
 
 			// printf("i=%d, bin=%d, flux=%f \n", i, bin, flux); 
    		}
@@ -3805,43 +3850,167 @@ void ace_contribute(){
 	}
 
 	TCanvas *c2 = new TCanvas("c2", "Total Cosmic Ray Flux", 1800, 900);
+	c2->Divide(1, 2); 
 	c2->cd(1); 
 	gPad->SetLogx();
 	gPad->SetLogy();
 	gPad->SetGrid();
 
-	h_tot_cr_flux->Draw("E1X0"); 
-	//PRINT_HIST(h_tot_cr_flux) 
+	h_tot_cr_flux->Draw("HIST"); 
 
-	c2->Print("./data/ACE/contribute/total_cr_flux.png"); 
+	PRINT_HIST(h_tot_cr_flux) 
+
+	c2->cd(2); 
+	gPad->SetLogx();
+	gPad->SetLogy();
+	gPad->SetGrid();
+
+	h_tot_cr_flux_alt->Draw("HIST");
+
+	PRINT_HIST(h_tot_cr_flux_alt) 
+
+	c2->Print(Form("./data/ACE/contribute/%s_temp/total_cr_flux.png", ACE_Element[temp])); 
 	
 	TCanvas *c3 = new TCanvas(); 
 
 	// Now compute the ratio of h_element vs. h_tot_cr_flux 
 
-	// p, He, Li, Be 
+	TH1 *h_contribute[n_total]; 
 
-	TH1D *h_contribute[n_total]; 
-
+	// p, He, Li, Be
 	for (int i=0;i<4;i++){
 
-		int nnodes = 6; 
-	
-		h_contribute[i] = new TH1D("h_contribute", "Element Contribution to the Total Cosmic Ray Flux;Rigidity [GV]; Ratio", nbins, bins); 
+		int nnodes = 6;  
 
-		TFile file1(Form("data/amsfit/fit_result_node%d.root", nnodes));
+		h_contribute[i] = (TH1 *) h_tot_cr_flux->Clone("h_contribute");  
 
-		TH1 *h_ams_i = (TH1 *) file1.Get(Form("h_%s", AMS_Element2[i])); // AMS p, He, Li, Be
-		HistTools::SetStyle(h_ams_i, HistTools::GetColorPalette(i, n_total), kFullCircle, 1.5, 1, 1);  
-		
-		c3->cd(1); 
+		for (int k=1;k<=nbins;k++){ 
+
+			Double_t x = h_tot_cr_flux->GetBinCenter(k), y = h_tot_cr_flux->GetBinContent(k);  
+
+			// printf("k=%d, x=%f, y=%f \n", k, x, y); 
+
+			h_contribute[i]->SetBinContent(k, f_fit[i]->Eval(x));
+			h_contribute[i]->SetBinError(k, 0); 
+
+		} 
+
+		h_contribute[i]->Divide(h_tot_cr_flux); 
+
+		double contribute_sum=0; // compute average of h_contribute manually  
+		for(int k=1;k<=nbins;k++){
+			contribute_sum += h_contribute[i]->GetBinContent(k); 
+		}
+		double contribute_ave = contribute_sum/nbins;
+
+		printf("%s contribution = %f \n", AMS_Element2_Cap[i], contribute_ave);
+
+		// PRINT_HIST(h_contribute[i])
+
+		c3->cd(1);
 		gPad->SetLogx();
 		gPad->SetLogy();
 		gPad->SetGrid();
-	
-		// h_contribute->Draw("E1X0"); 
 
-		// c3->Print(Form("./data/ACE/contribute/contribution_%s.png", AMS_Element2_Cap[i]));  
+		h_contribute[i]->SetStats(0);
+		h_contribute[i]->SetTitle(Form("%s Contribution = %f", AMS_Element2_Cap[i], contribute_ave));
+		h_contribute[i]->SetXTitle(Unit::GetEnergyLabel("GV"));
+   		h_contribute[i]->SetYTitle("Flux / Total Flux");
+		h_contribute[i]->Draw("HIST"); 
+
+		c3->Print(Form("./data/ACE/contribute/%s_temp/contribution_%d_%s.png", ACE_Element[temp], i, AMS_Element2_Cap[i])); 
+
+	}
+
+	// B, C, N, O
+	for (int i=0;i<4;i++){ 
+
+		int j = i+4; 		
+
+		int nnodes = 6; 
+
+		h_contribute[j] = (TH1 *) h_tot_cr_flux->Clone("h_contribute");  
+
+		for (int k=1;k<=nbins;k++){ 
+
+			Double_t x = h_tot_cr_flux->GetBinCenter(k), y = h_tot_cr_flux->GetBinContent(k);   
+
+			// printf("k=%d, x=%f, y=%f \n", k, x, y); 
+
+			h_contribute[j]->SetBinContent(k, f_fit[j]->Eval(x));
+			h_contribute[j]->SetBinError(k, 0);  
+
+		} 
+		
+		h_contribute[j]->Divide(h_tot_cr_flux);
+
+		double contribute_sum=0; // compute average of h_contribute manually  
+		for(int k=1;k<=nbins;k++){
+			contribute_sum += h_contribute[j]->GetBinContent(k); 
+		}
+		double contribute_ave = contribute_sum/nbins;
+
+		printf("%s contribution = %f \n", ACE_Element[i], contribute_ave);
+
+		// PRINT_HIST(h_contribute[j])
+
+		c3->cd(1);
+		gPad->SetLogx();
+		gPad->SetLogy();
+		gPad->SetGrid();
+
+		h_contribute[j]->SetStats(0);
+		h_contribute[j]->SetTitle(Form("%s Contribution = %f", ACE_Element[i], contribute_ave));
+		h_contribute[j]->SetXTitle(Unit::GetEnergyLabel("GV"));
+   		h_contribute[j]->SetYTitle("Flux / Total Flux");
+		h_contribute[j]->Draw("HIST"); 
+
+		c3->Print(Form("./data/ACE/contribute/%s_temp/contribution_%d_%s.png", ACE_Element[temp], j, ACE_Element[i])); 
+ 
+	}
+
+	// F, Ne, Na ... Va, Ni
+	for (int i=4;i<24;i++){ 
+
+		int j = i+4; 		
+
+		h_contribute[j] = (TH1 *) h_tot_cr_flux->Clone("h_contribute");  
+
+		for (int k=1;k<=nbins;k++){ 
+
+			Double_t x = h_tot_cr_flux->GetBinCenter(k), y = h_tot_cr_flux->GetBinContent(k);   
+
+			// printf("k=%d, x=%f, y=%f \n", k, x, y); 
+
+			h_contribute[j]->SetBinContent(k, f_fit[j]->Eval(x));
+			h_contribute[j]->SetBinError(k, 0); 
+
+		} 
+
+		h_contribute[j]->Divide(h_tot_cr_flux);
+
+		double contribute_sum=0; // compute average of h_contribute manually  
+		for(int k=1;k<=nbins;k++){
+			contribute_sum += h_contribute[j]->GetBinContent(k); 
+		}
+		double contribute_ave = contribute_sum/nbins;
+
+		printf("%s contribution = %f \n", ACE_Element[i], contribute_ave); 
+
+		// PRINT_HIST(h_contribute[j])
+	
+		c3->cd(1);
+		gPad->SetLogx();
+		gPad->SetLogy();
+		gPad->SetGrid();
+
+		h_contribute[j]->SetStats(0);
+		h_contribute[j]->SetTitle(Form("%s Contribution = %f", ACE_Element[i], contribute_ave));
+		h_contribute[j]->SetXTitle(Unit::GetEnergyLabel("GV"));
+   		h_contribute[j]->SetYTitle("Flux / Total Flux");
+		h_contribute[j]->Draw("HIST"); 
+
+		c3->Print(Form("./data/ACE/contribute/%s_temp/contribution_%d_%s.png", ACE_Element[temp], j, ACE_Element[i]));
 
 	} 
 	
