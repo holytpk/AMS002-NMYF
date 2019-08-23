@@ -2835,7 +2835,13 @@ void ace_contribution(){
 	TH1D *h_tot_C_ratio[4];
 	TH1D *h_tot_mw_C_ratio[4];
 
-	TCanvas *c0 = new TCanvas("c0", "Contribution", 1800, 900); 
+	TH1D *h_contribute[4][28]; 
+	TH1D *h_contribute_mw[4][28]; 
+	TH1D *h_contribute_ratio[4][28]; // ratio wrt C template 
+	TH1D *h_contribute_mw_ratio[4][28]; 
+
+	// plot total 
+	TCanvas *c0 = new TCanvas("c0", "Total Contribution", 1800, 900); 
 	c0->Divide(2, 2); 	 
 
 	TLegend *legend1 = new TLegend(0.72,0.8,0.9,0.9); 
@@ -2892,8 +2898,8 @@ void ace_contribution(){
 		h_tot_C_ratio[i] = (TH1D *) h_tot_flux[i]->Clone(Form("h_tot_C_ratio_%s_temp", ACE_Element[i])); 
 		h_tot_C_ratio[i]->SetTitle("Total Flux Templates wrt C");
 		h_tot_C_ratio[i]->SetYTitle("Ratio");
-		h_tot_C_ratio[i]->Print("range"); 
-		h_tot_flux[1]->Print("range"); 
+		//h_tot_C_ratio[i]->Print("range"); 
+		//h_tot_flux[1]->Print("range"); 
 
 		h_tot_C_ratio[i]->Divide(h_tot_flux[1]); 
 	
@@ -2901,7 +2907,7 @@ void ace_contribution(){
 
 		if (i==0) {
 
-			h_tot_C_ratio[i]->GetYaxis()->SetRangeUser(0.975, 1.02); 
+			h_tot_C_ratio[i]->GetYaxis()->SetRangeUser(0.975, 1.2); 
 			h_tot_C_ratio[i]->Draw("HIST"); 
 
 		} else if (i>1) h_tot_C_ratio[i]->Draw("HIST SAME");  
@@ -2940,7 +2946,122 @@ void ace_contribution(){
 	c0->cd(4); 
 	legend4->Draw("SAME"); 
 
-	c0->Print("./data/ACE/contribute/contribution_analysis_BCNO.png");
+	c0->Print("./data/ACE/contribute/contribution_analysis_BCNO.png");  
+
+
+	for(int i=0; i<4; i++){
+	
+		TFile *file = new TFile(Form("data/ACE/contribute/%s_temp/h_contribute.root", ACE_Element[i])); 
+
+		for (int j=0; j<n_total; j++){
+
+			h_contribute[i][j] = (TH1D *) file->Get(Form("h_contribute_ratio_%s", Element[j]))->Clone(Form("h_contribute_%s_temp_%s", ACE_Element[i], Element[j])); 
+			h_contribute[i][j]->SetTitle(Form("%s Contribution", Element[j])); 
+			h_contribute_mw[i][j] = (TH1D *) file->Get(Form("h_contribute_mw_ratio_%s", Element[j]))->Clone(Form("h_contribute_mw_%s_temp_%s", ACE_Element[i], Element[j]));
+			h_contribute_mw[i][j]->SetTitle(Form("%s MW Contribution", Element[j]));  
+			HistTools::SetStyle(h_contribute[i][j], HistTools::GetColorPalette(i, 8) , kFullCircle, 1.1, 1, 1); 
+			h_contribute[i][j]->SetFillStyle(4050);
+			HistTools::SetStyle(h_contribute_mw[i][j], HistTools::GetColorPalette(i, 8) , kFullCircle, 1.1, 1, 1);
+			h_contribute_mw[i][j]->SetFillStyle(4050);
+
+		}
+
+	}
+
+	for(int i=0; i<4; i++){
+	
+		TFile *file = new TFile(Form("data/ACE/contribute/%s_temp/h_contribute.root", ACE_Element[i])); 
+
+		for (int j=0; j<n_total; j++){
+
+			if (i!=1){
+				h_contribute_ratio[i][j] = (TH1D*) h_contribute[i][j]->Clone(Form("h_contribute_raio_%s_temp_%s", ACE_Element[i], Element[j])); 
+				h_contribute_ratio[i][j]->SetTitle(Form("Ratio of %s Contribution wrt C Template; Rigidity [GV]; Ratio", Element[j]));  
+				h_contribute_ratio[i][j]->Divide(h_contribute[1][j]); 
+				h_contribute_mw_ratio[i][j] = (TH1D*) h_contribute_mw[i][j]->Clone(Form("h_contribute_mw_raio_%s_temp_%s", ACE_Element[i], Element[j]));
+				h_contribute_mw_ratio[i][j]->SetTitle(Form("Ratio of %s MW Contribution wrt C Template; Rigidity [GV]; Ratio", Element[j]));
+				h_contribute_mw_ratio[i][j]->Divide(h_contribute_mw[1][j]);  
+				HistTools::SetStyle(h_contribute_ratio[i][j], HistTools::GetColorPalette(i, 8) , kFullCircle, 1.1, 1, 1); 
+				h_contribute_ratio[i][j]->SetFillStyle(4050);
+				HistTools::SetStyle(h_contribute_mw_ratio[i][j], HistTools::GetColorPalette(i, 8) , kFullCircle, 1.1, 1, 1); 
+				h_contribute_mw_ratio[i][j]->SetFillStyle(4050);
+			}
+
+		}
+
+	}
+
+	for (int j=0; j<n_total; j++){ 
+
+		TCanvas *c1 = new TCanvas("c1", "Individual Contribution", 1800, 900); 
+		c1->Divide(2, 2);
+
+		TLegend *legend1 = new TLegend(0.72,0.8,0.9,0.9); 
+		TLegend *legend2 = new TLegend(0.72,0.8,0.9,0.9);  
+		TLegend *legend3 = new TLegend(0.72,0.8,0.9,0.9); 
+		TLegend *legend4 = new TLegend(0.72,0.8,0.9,0.9); 
+
+		c1->cd(1);
+		gPad->SetLogx();
+		gPad->SetLogy();
+		gPad->SetGrid(); 
+
+		for(int i=0; i<4; i++){
+		
+			if (i==0) h_contribute[i][j]->Draw("HIST"); 
+			else h_contribute[i][j]->Draw("HIST SAME"); 
+			legend1->AddEntry(h_contribute[i][j], Form("%s template", ACE_Element[i]));
+
+		}
+		legend1->Draw("SAME");
+
+		c1->cd(2);
+		gPad->SetLogx();
+		gPad->SetLogy();
+		gPad->SetGrid(); 
+
+		for(int i=0; i<4; i++){
+		
+			if (i==0) h_contribute_mw[i][j]->Draw("HIST");
+			else h_contribute_mw[i][j]->Draw("HIST SAME"); 
+			legend2->AddEntry(h_contribute[i][j], Form("%s template", ACE_Element[i]));
+		
+		}
+		legend2->Draw("SAME");
+
+		c1->cd(3);
+		gPad->SetLogx();
+		gPad->SetLogy();
+		gPad->SetGrid();
+
+		for(int i=0; i<4; i++){
+		
+			if (i==0) h_contribute_ratio[i][j]->Draw("HIST"); 
+			if (i!=1) {
+				h_contribute_ratio[i][j]->Draw("HIST SAME"); 
+				legend3->AddEntry(h_contribute_ratio[i][j], Form("%s template", ACE_Element[i]));
+			}
+		}
+		legend3->Draw("SAME");
+
+		c1->cd(4);
+		gPad->SetLogx();
+		gPad->SetLogy();
+		gPad->SetGrid();
+
+		for(int i=0; i<4; i++){
+		
+			if (i==0) h_contribute_mw_ratio[i][j]->Draw("HIST"); 
+			if (i!=1) {
+				h_contribute_mw_ratio[i][j]->Draw("HIST SAME"); 
+				legend4->AddEntry(h_contribute_mw_ratio[i][j], Form("%s template", ACE_Element[i]));
+			}
+		}
+		legend4->Draw("SAME");
+
+		c1->Print(Form("./data/ACE/contribute/contribution_analysis_BCNO_%s.png", Element[j]));  
+
+	}
 
 }
 
@@ -3293,12 +3414,12 @@ TH1 *ace_contribute(int temp, const char *option){
 
 		for (int k=1;k<=nbins;k++){ 
 
-			Double_t x = h_tot_cr_flux->GetBinCenter(k), y = h_tot_cr_flux->GetBinContent(k);  
+			Double_t R = h_tot_cr_flux->GetBinLowEdge(k);
+     			Double_t w = h_tot_cr_flux->GetBinWidth(k);
+      			Double_t flux = f_fit[i]->Integral(R, R+w)/w;  
 
-			printf("k=%d, x=%f, y=%f \n", k, x, y); 
-
-			h_contribute[i]->SetBinContent(k, f_fit[i]->Eval(x));
-			h_contribute_mw[i]->SetBinContent(k, A[i]*f_fit[i]->Eval(x));
+			h_contribute[i]->SetBinContent(k, flux);
+			h_contribute_mw[i]->SetBinContent(k, A[i]*flux);
 			h_contribute[i]->SetBinError(k, 0); 
 			h_contribute_mw[i]->SetBinError(k, 0); 
 
@@ -3314,6 +3435,8 @@ TH1 *ace_contribute(int temp, const char *option){
 		// average regular ratio 
 
 		h_contribute_ratio[i] = (TH1 *) h_contribute[i]->Clone("h_contribute_ratio"); 
+		h_contribute_ratio[i]->SetXTitle(Unit::GetEnergyLabel("GV")); 
+   		h_contribute_ratio[i]->SetYTitle("Flux / Total Flux");
 		h_contribute_ratio[i]->Divide(h_tot_cr_flux); 
 
 		double contribute_sum=0; // compute average of h_contribute manually  
@@ -3343,7 +3466,8 @@ TH1 *ace_contribute(int temp, const char *option){
 		legend2->AddEntry(h_contribute_mw_ratio[i], "mass-weighted contribution");
 
 		h_contribute_mw_ratio[i]->SetStats(0);
-		h_contribute_mw_ratio[i]->SetTitle(Form("%s Contribution = %10.6f", AMS_Element2_Cap[i], contribute_ave));
+		h_contribute_ratio[i]->SetTitle(Form("%s Contribution = %10.6f", AMS_Element2_Cap[i], contribute_ave));
+		h_contribute_mw_ratio[i]->SetTitle(Form("%s MW Contribution = %10.6f", AMS_Element2_Cap[i], contribute_ave_mw));
 		h_contribute_mw_ratio[i]->SetXTitle(Unit::GetEnergyLabel("GV")); 
    		h_contribute_mw_ratio[i]->SetYTitle("Flux / Total Flux");
 		h_contribute_mw_ratio[i]->Draw("HIST");
@@ -3406,7 +3530,9 @@ TH1 *ace_contribute(int temp, const char *option){
 
 		// average regular ratio 
 
-		h_contribute_ratio[j] = (TH1 *) h_contribute[j]->Clone("h_contribute_ratio"); 
+		h_contribute_ratio[j] = (TH1 *) h_contribute[j]->Clone("h_contribute_ratio");
+		h_contribute_ratio[j]->SetXTitle(Unit::GetEnergyLabel("GV")); 
+   		h_contribute_ratio[j]->SetYTitle("Flux / Total Flux"); 
 		h_contribute_ratio[j]->Divide(h_tot_cr_flux); 
 
 		double contribute_sum=0; // compute average of h_contribute manually  
@@ -3436,7 +3562,8 @@ TH1 *ace_contribute(int temp, const char *option){
 		legend2->AddEntry(h_contribute_mw_ratio[j], "mass-weighted contribution");
 
 		h_contribute_mw_ratio[j]->SetStats(0);
-		h_contribute_mw_ratio[j]->SetTitle(Form("%s Contribution = %10.6f", ACE_Element[i], contribute_ave));
+		h_contribute_ratio[j]->SetTitle(Form("%s Contribution = %10.6f", ACE_Element[i], contribute_ave));
+		h_contribute_mw_ratio[j]->SetTitle(Form("%s MW Contribution = %10.6f", ACE_Element[i], contribute_ave_mw));
 		h_contribute_mw_ratio[j]->SetXTitle(Unit::GetEnergyLabel("GV")); 
    		h_contribute_mw_ratio[j]->SetYTitle("Flux / Total Flux");
 		// h_contribute_mw_ratio[j]->GetYaxis()->SetRangeUser(10e-4, 10e-2);
@@ -3499,6 +3626,8 @@ TH1 *ace_contribute(int temp, const char *option){
 		// average regular ratio 
 
 		h_contribute_ratio[j] = (TH1 *) h_contribute[j]->Clone("h_contribute_ratio"); 
+		h_contribute_ratio[j]->SetXTitle(Unit::GetEnergyLabel("GV")); 
+   		h_contribute_ratio[j]->SetYTitle("Flux / Total Flux");
 		h_contribute_ratio[j]->Divide(h_tot_cr_flux); 
 
 		double contribute_sum=0; // compute average of h_contribute manually  
@@ -3528,7 +3657,8 @@ TH1 *ace_contribute(int temp, const char *option){
 		legend2->AddEntry(h_contribute_mw_ratio[j], "mass-weighted contribution");
 
 		h_contribute_mw_ratio[j]->SetStats(0);
-		h_contribute_mw_ratio[j]->SetTitle(Form("%s Contribution = %10.6f", ACE_Element[i], contribute_ave));
+		h_contribute_ratio[j]->SetTitle(Form("%s Contribution = %10.6f", ACE_Element[i], contribute_ave));
+		h_contribute_mw_ratio[j]->SetTitle(Form("%s MW Contribution = %10.6f", ACE_Element[i], contribute_ave_mw));
 		h_contribute_mw_ratio[j]->SetXTitle(Unit::GetEnergyLabel("GV")); 
    		h_contribute_mw_ratio[j]->SetYTitle("Flux / Total Flux");
 		// h_contribute_mw_ratio[j]->GetYaxis()->SetRangeUser(10e-4, 10e-2);
