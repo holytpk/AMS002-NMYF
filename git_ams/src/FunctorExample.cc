@@ -14,13 +14,13 @@ FunctorExample::FunctorExample() :
 }
 
 // explicit constructor
-FunctorExample::FunctorExample(const Char_t *Name, Double_t XMin, Double_t XMax, TF1 *fyp, TF1 *fyHe) :
-   _func(NULL), _fyp(fyp), _fyHe(fyHe),
+FunctorExample::FunctorExample(const Char_t *Name, Double_t XMin, Double_t XMax, TF1 *fyp, TF1 *fyHe, TH1 *J_sum) :
+   _func(NULL), _fyp(fyp), _fyHe(fyHe), _J_sum(J_sum),  
    _flux_p(NULL)
 {
    _nparsp = fyp->GetNpar();
    _nparsHe = fyHe->GetNpar();
-   _npars = _nparsp + _nparsHe;
+   _npars = _nparsp + _nparsHe; 
 
    _func = new TF1(Name, this, XMin, XMax, _npars);
    _func->SetNpx(1000);
@@ -47,11 +47,12 @@ FunctorExample::~FunctorExample()
    if (_func != NULL) delete _func;
 }
 
+/*
 
-// needed by TF1
+// needed by TF, for us 
 Double_t FunctorExample::operator()(Double_t *x, Double_t *par)
 {
-   Double_t xx = x[0];
+   Double_t xx = x[0]; 
 
    _fyp->SetParameters(par);
    _fyHe->SetParameters(par+_nparsp);
@@ -59,8 +60,27 @@ Double_t FunctorExample::operator()(Double_t *x, Double_t *par)
    Double_t f = _flux_p->Eval(xx)*_fyp->Eval(xx);
    for (int i = 0; i < _A.size(); ++i)
    {
-      f += _A[i]/4.*_flux_elem[i]->Eval(xx)*_fyHe->Eval(xx);
+      f += _A[i]/4.*_flux_elem[i]->Eval(xx)*_fyHe->Eval(xx); 
    }
+
+   return f;
+} 
+
+*/
+
+// needed by TF, for reproduction 
+Double_t FunctorExample::operator()(Double_t *x, Double_t *par) 
+{
+   Double_t xx = x[0]; 
+
+   _fyp->SetParameters(par);
+   _fyHe->SetParameters(par+_nparsp); 
+
+   Double_t f = _flux_p->Eval(xx)*_fyp->Eval(xx); 
+   for (int i = 0; i < _A.size(); ++i)
+   {
+      f += _A[i]/4.*_flux_elem[i]->Eval(xx)*_fyHe->Eval(xx)*(1.+_J_sum->GetBinContent(_J_sum->FindBin(x[0]))); 
+   } 
 
    return f;
 }
@@ -76,7 +96,7 @@ void FunctorExample::Print()
    printf(" _npars = %u\n", _npars);
 
    if (_flux_p == NULL) // error
-   printf(" Elements = %d\n", _A.size());
+   printf(" Elements = %d\n", (int) _A.size());
    
 
    HistTools::PrintFunction(_fyp);

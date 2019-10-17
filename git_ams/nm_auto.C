@@ -19,9 +19,12 @@
 
 using namespace std;
 
+const int n_ams = 8; 
 const int n_ele = 24; // number of ACE elements 
 const int n_total = 28; // number of total elements 
+const int nBRs = 79; 
 
+const char *AMS_Element[n_ele] = { "p", "he", "li", "be", "b", "c", "n", "o", "f" };
 const char *ACE_Element[n_ele] = { "B", "C", "N", "O", "F", "Ne", "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar", "K", "Ca", "Sc", "Ti", "Va", "Cr", "Mn", "Fe", "Co", "Ni" };
 const char *Element[n_total] = { "p", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne", "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar", "K", "Ca", "Sc", "Ti", "Va", "Cr", "Mn", "Fe", "Co", "Ni" };
 Particle::Type ACE_Isotope[n_ele] = { Particle::BORON11, Particle::CARBON12, Particle::NITROGEN15, Particle::OXYGEN16, Particle::FLUORINE19, Particle::NEON20, Particle::SODIUM23, Particle::MAGNESIUM24, Particle::ALUMINUM27, Particle::SILICON28, Particle::PHOSPHORUS31, Particle::SULFUR32, Particle::CHLORINE35, Particle::ARGON36, Particle::POTASSIUM41, Particle::CALCIUM40, Particle::SCANDIUM45, Particle::TITANIUM46, Particle::VANADIUM51, Particle::CHROMIUM52, Particle::MANGANESE55, Particle::IRON56, Particle::COBALT59, Particle::NICKEL60 };
@@ -195,9 +198,13 @@ TGraphAsymmErrors *get_ace_graph(const char *element, UInt_t iBin, UInt_t nBRs);
 TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_t nBRs); // flux in Kinetic over energy bins 
 
 void nm_auto(); 
+void nm_reproduce(); // reproduce the results from Koldobisky
+TH1 *heavier_he(); // return ratio heavier/helium
 
 // #### main function ####
 void nm_auto(){
+
+	// fmul = f_fit[i] X fyf_pHE 
 
 	gSystem->mkdir("data/nm/NMYF", true); 
 
@@ -282,6 +289,236 @@ void nm_auto(){
 
 } 
 
+// Reconstruct the NM count with a simple cosmic ray contribution model from Koldobisky's assumption 
+void nm_reproduce(){
+
+	int nnodes_ams = 6; 	
+
+	TGraph *N_t = new TGraph(); 
+
+	Experiments::DataPath = "data"; 
+
+	TH1 *J_sum = heavier_he(); 
+
+	J_sum->Print("range");  
+
+	const int nBRs = Experiments::Info[Experiments::AMS02].Dataset[1].nMeasurements; 
+
+	TF1 *fyfp = NeutronMonitors::YieldFunctions::CreateFunction("fyfp", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mishev13H1, Particle::PROTON, Energy::RIGIDITY);
+	TF1 *fyfhe = NeutronMonitors::YieldFunctions::CreateFunction("fyfhe", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mishev13He4, Particle::HELIUM4, Energy::RIGIDITY); 
+
+	//TF1 *fyfp = NeutronMonitors::YieldFunctions::CreateFunction("fyfp", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mangeard16H1, Particle::PROTON, Energy::RIGIDITY);
+	//TF1 *fyfhe = NeutronMonitors::YieldFunctions::CreateFunction("fyfhe", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mangeard16He4, Particle::HELIUM4, Energy::RIGIDITY); 
+
+	HistTools::PrintFunction(fyfp);
+	HistTools::PrintFunction(fyfhe); 
+
+	TCanvas *c1 = new TCanvas("c1", "Estimated NM Count Rate", 2700, 900); 
+
+	TF1 *f_BR_p[nBRs];   
+	TF1 *f_BR_he[nBRs];  
+
+	TFile *fit_result = new TFile(Form("data/amsfit/fit_result_node%d.root", nnodes_ams));
+
+	for (int i=0; i<nBRs; i++){
+
+		Spline *sp_p = new Spline(Form("f_BR_p_%d", i), nnodes_ams, Spline::LogLog | Spline::PowerLaw); 
+		f_BR_p[i] = sp_p->GetTF1Pointer();  // real function 
+		TF1 *fit_p = (TF1*) fit_result->Get(Form("fsp_BR_p_%02d", i))->Clone(Form("f_BR_p_%d", i)); 
+	
+		HistTools::CopyParameters(fit_p, f_BR_p[i]); 
+		double x1, x2;
+		fit_p->GetRange(x1,x2); 
+		f_BR_p[i]->SetRange(x1,x2); 
+
+		Spline *sp_he = new Spline(Form("f_BR_he_%d", i), nnodes_ams, Spline::LogLog | Spline::PowerLaw); 
+		f_BR_he[i] = sp_he->GetTF1Pointer();  // real function 
+		TF1 *fit_he = (TF1*) fit_result->Get(Form("fsp_BR_he_%02d", i))->Clone(Form("f_BR_he_%d", i)); 
+	
+		HistTools::CopyParameters(fit_he, f_BR_he[i]); 
+		double xx1, xx2; 
+		fit_he->GetRange(xx1,xx2); 
+		f_BR_he[i]->SetRange(xx1, xx2); 	
+
+		FunctorExample *fe = new FunctorExample("fe", 0.1, 3e3, fyfp, fyfhe, J_sum); 
+
+		fe->SetProtonFlux(f_BR_p[i]); 
+		fe->AddElementFlux(f_BR_he[i], A[1]); 
+
+		TF1 *f = fe->GetTF1Pointer(); 
+
+		// fe->Print(); 
+
+		double f_check = 0.; 
+		double *bl = HistTools::BuildLogBins(0.1, 3e3, 10); // check the integral by separation into few integrals 
+			
+		for (int k=0; k<10; k++){ 
+		
+			f_check += f->Integral(bl[k], bl[k+1]);  
+			if (i==0) printf("k = %d, lower limit = %4.1f, upper limit = %4.1f, f = %10.4f \n", k, bl[k], bl[k+1], f->Integral(0.1, bl[k]));  
+				 
+		}		
+
+		printf("Time = %d, N_t = %10.4f,  f-f_check = %10.4f (good if =0) \n", UBRToTime(i+2426), f->Integral(0.1, 3e3), f->Integral(0.1, 3e3)-f_check); 
+
+		N_t->SetPoint(i, UBRToTime(i+2426), f->Integral(0.1, 3e3)); // this internally makes a loop in the range Rmin to Rmax, and calls FunctorExample::operator() at every step, computing the integral as the sum of all the steps  
+
+		// break; 
+
+	} 
+
+	c1->cd(1); 
+	HistTools::SetStyle(N_t, kBlue, kFullCircle, 0.9, 1, 1); 
+
+	N_t->GetXaxis()->SetTimeDisplay(1);
+  	N_t->GetXaxis()->SetTimeFormat("%m-%y");
+	N_t->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+	N_t->SetTitle("; ; Estimated NM Count Rate"); 
+	N_t->Draw("APL"); 
+
+	double sum_N = 0., average_N = 0.;  
+	for (int i=0; i<nBRs; i++){
+		double x_N, y_N; 
+		N_t->GetPoint(i, x_N, y_N); 
+		sum_N += y_N; 
+	}
+	average_N = sum_N/nBRs; 
+	TGraph *N_norm_t = new TGraph(); 
+	for (int i=0; i<nBRs; i++){
+		double x_N, y_N; 
+		N_t->GetPoint(i, x_N, y_N); 
+		N_norm_t->SetPoint(i, UBRToTime(i+2426), y_N/average_N);  
+	}
+	// PRINT_GRAPH(N_t); 
+
+	TCanvas *c2 = new TCanvas("c2", "Estimated NM Count Rate (Normalized)", 2700, 900); 
+	c2->cd(1); 
+
+	TLegend *legend2 = new TLegend(0.1,0.8,0.28,0.9); // left, down, right, top 
+	legend2->AddEntry(N_norm_t, "Mi13", "l"); 
+
+	HistTools::SetStyle(N_norm_t, kBlue, kFullCircle, 0.9, 1, 1); 
+
+	N_norm_t->GetXaxis()->SetTimeDisplay(1);
+  	N_norm_t->GetXaxis()->SetTimeFormat("%m-%y");
+	N_norm_t->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+	N_norm_t->SetTitle("; ; Normalized Estimated NM Count Rate"); 
+
+	N_norm_t->Draw("APL"); 
+	legend2->Draw("SAME"); 
+
+	c2->Print("data/nm/reproduce/estimated_nm_count.png"); 
+
+}
+
+// Return ratio heavier/helium
+TH1 *heavier_he(){
+
+	int nnodes_ams = 6; 
+
+	gSystem->mkdir("data/nm/reproduce", true); 
+
+	TF1 *f_fit[n_total]; 
+
+	TFile *fin = new TFile("data/ACE/contribute2/h_contribute.root");  
+
+	TF1 *fyfp = NeutronMonitors::YieldFunctions::CreateFunction("fyfp", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mishev13H1, Particle::PROTON, Energy::RIGIDITY);
+	TF1 *fyfHe = NeutronMonitors::YieldFunctions::CreateFunction("fyfHe", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mishev13He4, Particle::HELIUM4, Energy::RIGIDITY);
+
+	TFile *file0 = new TFile(Form("data/amsfit/fit_result_node%d.root", nnodes_ams)); 
+
+	TH1 *J_int[n_ams]; // integrated ams flux 
+	TH1 *J_ratio[n_ams]; // A[i] * J_i / J_He / 4.  
+	TH1 *J_sum; // R(P), summed ratio as function of rigidity   
+
+	// 0,  1,  2,  3, 4, 5, 6, 7 
+	// p, he, li, be, b, c, n, o
+	for (int i=0; i<n_ams; i++){
+		
+		J_int[i] = (TH1*) file0->Get(Form("h_%s", AMS_Element[1]))->Clone(Form("h_%s", AMS_Element[1]));
+		
+		Spline *sp_ams = new Spline("sp_ams", nnodes_ams, Spline::LogLog | Spline::PowerLaw); 
+		f_fit[i] = sp_ams->GetTF1Pointer();  // real function 
+		TF1 *fit_ams = (TF1*) file0->Get(Form("fsp_%s", AMS_Element[i]))->Clone(Form("f_%s", AMS_Element[i])); 
+	
+		HistTools::CopyParameters(fit_ams, f_fit[i]); 
+		double x1, x2;
+		fit_ams->GetRange(x1,x2); 
+		f_fit[i]->SetRange(x1,x2); 
+ 
+		for (int j=1; j<=J_int[i]->GetNbinsX(); j++){ 
+
+      			Double_t R = J_int[i]->GetBinLowEdge(j);
+     			Double_t w = J_int[i]->GetBinWidth(j);
+      			Double_t flux = f_fit[i]->Integral(R, R+w)/w; 
+			J_int[i]->SetBinContent(j, flux);
+			J_int[i]->SetBinError(j, 0.); 
+ 
+		} 
+		if (i==1) {
+			J_sum = (TH1*) file0->Get(Form("h_%s", AMS_Element[i]))->Clone(Form("h_%s", AMS_Element[i])); 
+			// J_sum->Print("range"); 
+			for (int j=1; j<=J_int[1]->GetNbinsX(); j++){
+				J_sum->SetBinContent(j, 0.);
+				J_sum->SetBinError(j, 0.);  
+			}
+		} 
+		//J_int[i]->Print("range");  
+	}
+
+	// printf("Helium Bins = %d \n", J_int[1]->GetNbinsX()); 
+
+	for (int i=2; i<n_ams; i++){
+		
+		J_ratio[i] = (TH1*) J_int[1]->Clone(Form("h_%s", AMS_Element[i])); 
+
+		// J_ratio[i]->Print("range"); 
+
+		for (int j=1; j<=J_int[1]->GetNbinsX(); j++){
+			Double_t dM = J_int[i]->GetBinError(j), M = J_int[i]->GetBinContent(j); 
+			Double_t dN = J_int[1]->GetBinError(j), N = J_int[1]->GetBinContent(j); 
+			J_ratio[i]->SetBinContent(j, (A[i]/4.)*(M/N));			 
+			J_ratio[i]->SetBinError(j, (A[i]/4.)*(M/N)*sqrt((dM/M)*(dM/M)+(dN/N)*(dN/N))); 
+		}	 
+
+		for (int j=1; j<=J_int[1]->GetNbinsX(); j++){ 
+			J_sum->AddBinContent(j, J_ratio[i]->GetBinContent(j)); 
+			// printf("J_ratio Element %s = %10.4f \n", Element[i], J_ratio[i]->GetBinContent(j)); 
+		}
+	} 
+
+	// Z>8 Elements  
+	for (int j=1; j<=J_int[1]->GetNbinsX(); j++){ 
+
+			Double_t R = J_int[1]->GetBinLowEdge(j);
+     			Double_t w = J_int[1]->GetBinWidth(j);
+      			Double_t flux = f_fit[7]->Integral(R, R+w)/w; 
+
+			J_sum->AddBinContent(j, (1.746*A[7]/4.)*(flux/J_int[1]->GetBinContent(j))); 
+		}
+
+	J_sum->Print("range"); 
+
+	TCanvas *c1 = new TCanvas("c1", "NM", 2700, 900); 
+	// c1->Divide(1, 3);
+	c1->cd(1);
+
+	gPad->SetLogx(); 
+	//gPad->SetLogy();
+	gPad->SetGrid();
+
+	HistTools::SetStyle(J_sum, kBlue, kFullCircle, 0.9, 1, 1);
+
+	J_sum->GetYaxis()->SetRangeUser(0.3, 0.6);
+	J_sum->GetXaxis()->SetRangeUser(0.01, 1210);
+	J_sum->SetTitle("summed ratio as function of rigidity"); 
+	J_sum->SetYTitle("ratio heavier/helium"); 
+	J_sum->Draw("P"); 
+
+	c1->Print("data/nm/reproduce/ratio_heavier_helium.png"); 
+
+	return J_sum; 
+}
 
 UInt_t UTimeToBR(Long64_t utime){
 	Long64_t first_BR = -4351622400; // Unix time corresponding to the first Bartels rotation: Feb. 8th, 1832
@@ -289,7 +526,7 @@ UInt_t UTimeToBR(Long64_t utime){
 }
 
 UInt_t UBRToTime(int BR){
-	Long64_t first_BR = -4351622400; // Unix time corresponding to the first Bartels rotation: Feb. 8th, 1832
+	Long64_t first_BR = -4351622400; // Unix time corresponding to the first Bartels rotation: Feb. 8th, 1832 
 	return (BR - 1) * (27*86400) + first_BR;
 }
 
