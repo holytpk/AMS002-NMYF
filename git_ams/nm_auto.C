@@ -22,10 +22,13 @@ using namespace std;
 const int n_ams = 8; 
 const int n_ele = 24; // number of ACE elements 
 const int n_total = 28; // number of total elements 
-const int nBRs = 79; 
+const int nBRs = Experiments::Info[Experiments::AMS02].Dataset[1].nMeasurements;  
 
 const int nNMs_useful = 15;
 const char *NM_useful[nNMs_useful+1] = { "OULU", "PSNM", "MXCO", "HRMS", "JUNG", "JUNG1", "NEWK", "KIEL2", "APTY", "FSMT", "NAIN", "PWNK", "THUL", "SOPB", "SOPO" };
+
+const int nNMs_Koldob = 6;
+const char *NM_Koldob[nNMs_Koldob] = { "OULU", "HRMS", "MOSC", "APTY", "NEWK", "INVK" }; 
 
 const double Rcut[nNMs_useful+1] = { 0.81, 16.80, 8.28, 4.58, 4.49, 4.49, 2.40, 2.36, 0.65, 0.30, 0.30, 0.30, 0.30, 0.10, 0.10 }; // Rigidity Cutoff in GV
 const double alt[nNMs_useful+1] = { 15.0, 2565.0, 2274.0, 26.0, 3570.0, 3475.0, 50.0, 54.0, 181.0, 180.0, 46.0, 53.0, 26.0, 2820.0, 2820.0 }; // NM altitude
@@ -204,11 +207,60 @@ TGraphAsymmErrors *get_ace_graph(const char *element, UInt_t iBin, UInt_t nBRs);
 TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_t nBRs); // flux in Kinetic over energy bins 
 
 void nm_auto(); 
+void nm_FY(); 
 TGraph *nm_reproduce(const char *NM); // reproduce the results from Koldobisky
 TH1 *heavier_he(); // return ratio heavier/helium
 
-// compute F(R,t)*Y(R)
 void nm_auto(){
+
+	Debug::Enable(Debug::ALL);
+
+	// gSystem->mkdir("data/nm/reproduce", true); 
+ 
+	TLegend *legend = new TLegend(0.62,0.8,0.9,0.9); // left, down, right, top 
+	legend->SetNColumns(3); 
+	
+	TCanvas *c = new TCanvas("c", "Estimated Scaling Factor", 1200, 1800); 
+	c->Divide(1, 3); 
+
+	TGraph *k_sf[nNMs_Koldob];
+
+	gStyle->SetPalette(109); 
+
+	for (int i=0; i<nNMs_Koldob; i++){ 
+
+		k_sf[i] = (TGraph *) nm_reproduce(Form("%s", NM_Koldob[i])); 
+
+		legend->AddEntry(k_sf[i], Form("%s", NM_Koldob[i], "l")); 
+
+		c->cd(1);
+
+		HistTools::SetStyle(k_sf[i], HistTools::GetColorPalette(i, nNMs_Koldob), kFullCircle, 0.9, 1, 1);
+
+		k_sf[i]->GetXaxis()->SetTimeDisplay(1);
+  		k_sf[i]->GetXaxis()->SetTimeFormat("%m-%y");
+		k_sf[i]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+		k_sf[i]->GetYaxis()->SetRangeUser(0.975, 1.025); 
+		k_sf[i]->SetTitle("Mi13; ; Estimated NM Scaling Factor (Normalized)"); 
+		 
+		PRINT_GRAPH(k_sf[i]); 
+
+		if (i==0) k_sf[i]->Draw("APL"); 
+
+		// break; 
+		if (i>0) k_sf[i]->Draw("PLSAME"); 
+
+	} 
+
+	c->cd(1);
+	legend->Draw("SAME"); 
+
+	c->Print("data/nm/reproduce/estimated_nm_k_all.png"); 
+
+}
+
+// compute F(R,t)*Y(R)
+void nm_FY(){
 
 	// fmul = f_fit[i] X fyf_pHE 
 
@@ -309,9 +361,7 @@ TGraph *nm_reproduce(const char *NM){
 	TF1 *f_fit[n_total]; 
 
 	// TH1 *J_sum = heavier_he(); 
-	// J_sum->Print("range");  
-
-	const int nBRs = Experiments::Info[Experiments::AMS02].Dataset[1].nMeasurements; 
+	// J_sum->Print("range"); 
 
 	TF1 *fyfp = NeutronMonitors::YieldFunctions::CreateFunction("fyfp", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mishev13H1, Particle::PROTON, Energy::RIGIDITY);
 	TF1 *fyfhe = NeutronMonitors::YieldFunctions::CreateFunction("fyfhe", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mishev13He4, Particle::HELIUM4, Energy::RIGIDITY); 
@@ -401,12 +451,14 @@ TGraph *nm_reproduce(const char *NM){
 
 	} 
 
+	c3->Print("data/nm/reproduce/ratio_heavier_helium.png"); 
+
 	// PRINT_GRAPH(N_t); 
 
 	TCanvas *c1 = new TCanvas("c1", "Estimated NM Count Rate", 2700, 900); 
 	c1->cd(1); 
 
-	TLegend *legend2 = new TLegend(0.1,0.8,0.28,0.9); // left, down, right, top 
+	TLegend *legend2 = new TLegend(0.1,0.7,0.28,0.9); // left, down, right, top 
 	legend2->AddEntry(N_t, "Mi13", "l"); 
 
 	HistTools::SetStyle(N_t, kBlue, kFullCircle, 0.9, 1, 1); 
@@ -422,6 +474,7 @@ TGraph *nm_reproduce(const char *NM){
 	c1->Print(Form("data/nm/reproduce/estimated_nm_count_%s.png", NM)); 
 
 	for (int i=0; i<nBRs; i++){
+
 		double x1, y1, x2, y2; 
 
 		N_t->GetPoint(i, x1, y1);
@@ -439,7 +492,9 @@ TGraph *nm_reproduce(const char *NM){
 		sum_k += y_k; 
 	}
 	average_k = sum_k/nBRs; 
+
 	TGraph *k_norm = new TGraph(); // normalized k 
+
 	for (int i=0; i<nBRs; i++){
 		double x_k, y_k; 
 		k_sf->GetPoint(i, x_k, y_k); 
@@ -453,13 +508,12 @@ TGraph *nm_reproduce(const char *NM){
 	k_norm->GetXaxis()->SetTimeDisplay(1);
   	k_norm->GetXaxis()->SetTimeFormat("%m-%y");
 	k_norm->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
-	k_norm->GetYaxis()->SetRangeUser(1.025, 0.975); 
 	k_norm->SetTitle("; ; Estimated NM Scaling Factor (Normalized)"); 
 	k_norm->Draw("APL"); 
 
 	c2->Print(Form("data/nm/reproduce/estimated_nm_k_%s.png", NM)); 
 
-	return k_sf; 
+	return k_norm; 
 }
 
 // Return ratio heavier/helium
