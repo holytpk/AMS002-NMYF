@@ -208,7 +208,8 @@ TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_
 
 void nm_auto(); 
 void nm_FY(); 
-TGraph *nm_reproduce(const char *NM); // reproduce the results from Koldobisky
+TGraph *nm_reproduce1(const char *NM); // reproduce the results from Koldobisky, Mi13
+TGraph *nm_reproduce2(const char *NM); // reproduce the results from Koldobisky, Ma16
 TH1 *heavier_he(); // return ratio heavier/helium
 
 void nm_auto(){
@@ -220,43 +221,111 @@ void nm_auto(){
 	TLegend *legend = new TLegend(0.62,0.8,0.9,0.9); // left, down, right, top 
 	legend->SetNColumns(3); 
 	
-	TCanvas *c = new TCanvas("c", "Estimated Scaling Factor", 1200, 1800); 
-	c->Divide(1, 3); 
+	TLegend *legend2 = new TLegend(0.32,0.8,0.68,0.9); // left, down, right, top 
+	legend2->SetNColumns(3); 
+
+	TCanvas *c = new TCanvas("c", "Estimated Scaling Factor", 2400, 1800); 
+	c->Divide(1, 2); 
 
 	TGraph *k_sf[nNMs_Koldob];
+	TGraph *k_sf2[nNMs_Koldob];
 
 	gStyle->SetPalette(109); 
 
 	for (int i=0; i<nNMs_Koldob; i++){ 
 
-		k_sf[i] = (TGraph *) nm_reproduce(Form("%s", NM_Koldob[i])); 
+		// Mi13
+		k_sf[i] = (TGraph *) nm_reproduce1(Form("%s", NM_Koldob[i])); // Mi13
 
-		legend->AddEntry(k_sf[i], Form("%s", NM_Koldob[i], "l")); 
+		legend->AddEntry(k_sf[i], Form("%s", NM_Koldob[i]), "l"); 
 
 		c->cd(1);
 
-		HistTools::SetStyle(k_sf[i], HistTools::GetColorPalette(i, nNMs_Koldob), kFullCircle, 0.9, 1, 1);
+		HistTools::SetStyle(k_sf[i], HistTools::GetColorPalette(i, nNMs_Koldob), kFullCircle, 0.7, 1, 1);
 
 		k_sf[i]->GetXaxis()->SetTimeDisplay(1);
   		k_sf[i]->GetXaxis()->SetTimeFormat("%m-%y");
 		k_sf[i]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
-		k_sf[i]->GetYaxis()->SetRangeUser(0.975, 1.025); 
-		k_sf[i]->SetTitle("Mi13; ; Estimated NM Scaling Factor (Normalized)"); 
+		k_sf[i]->GetYaxis()->SetRangeUser(0.965, 1.050); 
+		k_sf[i]->SetTitle("Yield Function Mi13; ; Estimated NM Scaling Factor (Normalized)"); 
 		 
-		PRINT_GRAPH(k_sf[i]); 
+		// PRINT_GRAPH(k_sf[i]); 
 
 		if (i==0) k_sf[i]->Draw("APL"); 
 
 		// break; 
 		if (i>0) k_sf[i]->Draw("PLSAME"); 
 
+		// Ma16
+		k_sf2[i] = (TGraph *) nm_reproduce2(Form("%s", NM_Koldob[i])); // Ma16
+
+		legend2->AddEntry(k_sf2[i], Form("%s", NM_Koldob[i]), "l"); 
+
+		c->cd(2);
+
+		HistTools::SetStyle(k_sf2[i], HistTools::GetColorPalette(i, nNMs_Koldob), kFullCircle, 0.7, 1, 1);
+
+		k_sf2[i]->GetXaxis()->SetTimeDisplay(1);
+  		k_sf2[i]->GetXaxis()->SetTimeFormat("%m-%y");
+		k_sf2[i]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+		k_sf2[i]->GetYaxis()->SetRangeUser(0.965, 1.050); 
+		k_sf2[i]->SetTitle("Yield Function Ma16; ; Estimated NM Scaling Factor (Normalized)"); 
+		 
+		// PRINT_GRAPH(k_sf2[i]); 
+
+		if (i==0) k_sf2[i]->Draw("APL"); 
+
+		// break; 
+		if (i>0) k_sf2[i]->Draw("PLSAME"); 
+
+	} 
+
+	// compute average NM count rates  
+
+	TGraph *k_ave = new TGraph();
+	TGraph *k_ave2 = new TGraph(); 
+
+	for (int iBR=0; iBR<nBRs; iBR++){
+
+		Double_t x=0, y=0, x2=0, y2=0; 
+
+		double ave=0, sum=0, ave2=0, sum2=0; 
+
+		for (int i=0; i<nNMs_Koldob; i++){
+		
+			k_sf[i]->GetPoint(iBR, x, y); 
+			k_sf2[i]->GetPoint(iBR, x2, y2); 
+
+			sum += y; 
+			sum2 += y2; 
+
+			printf("i = %d, x = %f, y = %f, sum = %f \n", iBR, x, y, sum);  
+
+		}
+		
+		ave = sum/nNMs_Koldob;
+		ave2 = sum2/nNMs_Koldob; 
+
+		k_ave->SetPoint(iBR, x, ave); 
+		k_ave2->SetPoint(iBR, x2, ave2); 
+
 	} 
 
 	c->cd(1);
+
+	HistTools::SetStyle(k_ave, kBlack, kFullCircle, 0.75, 1, 1);  
+	PRINT_GRAPH(k_ave);
+	k_ave->Draw("PLSAME"); 
+	legend->AddEntry(k_ave, "Mean", "l");  
 	legend->Draw("SAME"); 
+	c->cd(2);
+	HistTools::SetStyle(k_ave2, kBlack, kFullCircle, 0.75, 1, 1);
+	PRINT_GRAPH(k_ave2);
+	k_ave2->Draw("PLSAME"); 
+	legend2->AddEntry(k_ave2, "Mean", "l");
+	legend2->Draw("SAME"); 
 
 	c->Print("data/nm/reproduce/estimated_nm_k_all.png"); 
-
 }
 
 // compute F(R,t)*Y(R)
@@ -347,8 +416,8 @@ void nm_FY(){
 
 } 
 
-// Reconstruct the NM count with a simple cosmic ray contribution model from Koldobisky's assumption 
-TGraph *nm_reproduce(const char *NM){
+// Reconstruct the NM count with a simple cosmic ray contribution model from Koldobisky's assumption, using Mi13
+TGraph *nm_reproduce1(const char *NM){
 	
 	Debug::Enable(Debug::ALL); 
 
@@ -368,6 +437,172 @@ TGraph *nm_reproduce(const char *NM){
 
 	//TF1 *fyfp = NeutronMonitors::YieldFunctions::CreateFunction("fyfp", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mangeard16H1, Particle::PROTON, Energy::RIGIDITY);
 	//TF1 *fyfhe = NeutronMonitors::YieldFunctions::CreateFunction("fyfhe", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mangeard16He4, Particle::HELIUM4, Energy::RIGIDITY); 
+
+	HistTools::PrintFunction(fyfp);
+	HistTools::PrintFunction(fyfhe); 
+
+	TF1 *f_BR_p[nBRs];   
+	TF1 *f_BR_he[nBRs];  
+
+	TCanvas *c3 = new TCanvas("c3", "R_sum", 1800, 900); 
+
+	TFile *fit_result = new TFile(Form("data/amsfit/fit_result_node%d.root", nnodes_ams));
+	TFile *nm_data = new TFile(Form("./data/nm/NM-%s.root", NM));
+	TGraph *N_nm = (TGraph*) nm_data->Get("g_ave"); 
+
+	TGraph *k_sf = new TGraph(); // k = N_t/N_nm, scaling factor of NM stations 
+
+	for (int i=0; i<nBRs; i++){
+
+		Spline *sp_p = new Spline(Form("f_BR_p_%d", i), nnodes_ams, Spline::LogLog | Spline::PowerLaw); 
+		f_BR_p[i] = sp_p->GetTF1Pointer();  // real function 
+		TF1 *fit_p = (TF1*) fit_result->Get(Form("fsp_BR_p_%02d", i))->Clone(Form("f_BR_p_%d", i)); 
+	
+		HistTools::CopyParameters(fit_p, f_BR_p[i]); 
+		double x1, x2;
+		fit_p->GetRange(x1,x2); 
+		f_BR_p[i]->SetRange(x1,x2); 
+
+		Spline *sp_he = new Spline(Form("f_BR_he_%d", i), nnodes_ams, Spline::LogLog | Spline::PowerLaw); 
+		f_BR_he[i] = sp_he->GetTF1Pointer();  // real function 
+		TF1 *fit_he = (TF1*) fit_result->Get(Form("fsp_BR_he_%02d", i))->Clone(Form("f_BR_he_%d", i)); 
+	
+		HistTools::CopyParameters(fit_he, f_BR_he[i]); 
+		double xx1, xx2; 
+		fit_he->GetRange(xx1,xx2); 
+		f_BR_he[i]->SetRange(xx1, xx2); 	
+
+		FunctorExample *fe = new FunctorExample("fe", 0.1, 3e3, fyfp, fyfhe); 
+	
+		for(int k=0; k<n_ams; k++){
+
+			Spline *sp_ams = new Spline("sp_ams", nnodes_ams, Spline::LogLog | Spline::PowerLaw); 
+			f_fit[k] = sp_ams->GetTF1Pointer();  // real function 
+			TF1 *fit_ams = (TF1*) fit_result->Get(Form("fsp_%s", AMS_Element[k]))->Clone(Form("f_%s", AMS_Element[k])); 
+	
+			HistTools::CopyParameters(fit_ams, f_fit[k]); 
+			double x1, x2;
+			fit_ams->GetRange(x1,x2); 
+			f_fit[k]->SetRange(x1,x2); 
+
+			fe->AddElementFlux_Ave(f_fit[k], A[k]); 
+			if (i==nBRs-1) HistTools::PrintFunction(fit_ams);   
+		} 
+
+		fe->SetProtonFlux(f_BR_p[i]); 
+		fe->AddElementFlux(f_BR_he[i], A[1]); 
+
+		TF1 *f = fe->GetTF1Pointer(); 
+		if (i==nBRs-1){
+			c3->cd(1);
+			gPad->SetLogx();
+			TF1 *f_RP = fe->GetRSumTF1Pointer(); 
+			f_RP->Draw(); 
+		}
+		// fe->Print(); 
+
+		double l_max = 1e4; 
+		double f_check = 0.; 
+		double *bl = HistTools::BuildLogBins(0.1, l_max, 10); // check the integral by separation into few integrals 
+			
+		for (int k=0; k<10; k++){ 
+		
+			f_check += f->Integral(bl[k], bl[k+1]);  
+			if (i==0) printf("k = %d, lower limit = %4.1f, upper limit = %4.1f, f = %10.4f \n", k, bl[k], bl[k+1], f->Integral(0.1, bl[k]));  
+				 
+		}		
+
+		// printf("Time = %d, N_t = %10.4f,  f/f_check = %10.4f (good if =1) \n", UBRToTime(i+2426), f->Integral(0.1, l_max), f->Integral(0.1, l_max)/f_check); 
+
+		N_t->SetPoint(i, UBRToTime(i+2426), f->Integral(0.1, l_max)); // this internally makes a loop in the range Rmin to Rmax, and calls FunctorExample::operator() at every step, computing the integral as the sum of all the steps  
+
+		// break; 
+
+	} 
+
+	c3->Print("data/nm/reproduce/ratio_heavier_helium.png"); 
+
+	// PRINT_GRAPH(N_t); 
+
+	TCanvas *c1 = new TCanvas("c1", "Estimated NM Count Rate", 2700, 900); 
+	c1->cd(1); 
+
+	TLegend *legend2 = new TLegend(0.1,0.7,0.28,0.9); // left, down, right, top 
+	legend2->AddEntry(N_t, "Mi13", "l"); 
+
+	HistTools::SetStyle(N_t, kBlue, kFullCircle, 0.9, 1, 1); 
+
+	N_t->GetXaxis()->SetTimeDisplay(1);
+  	N_t->GetXaxis()->SetTimeFormat("%m-%y");
+	N_t->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+	N_t->SetTitle("; ; Estimated NM Count Rate"); 
+
+	N_t->Draw("APL"); 
+	legend2->Draw("SAME"); 
+
+	c1->Print(Form("data/nm/reproduce/estimated_nm_count_%s.png", NM)); 
+
+	for (int i=0; i<nBRs; i++){
+
+		double x1, y1, x2, y2; 
+
+		N_t->GetPoint(i, x1, y1);
+		N_nm->GetPoint(i, x2, y2); 
+
+		k_sf->SetPoint(i, UBRToTime(i+2426), y1/y2); 
+
+		printf("iBR = %d, N_nm(t)=%10.4f, N(t)=%10.4f, k_sf=%10.4f \n", i, y2, y1, y1/y2); 
+	}
+
+	double sum_k = 0., average_k = 0.;  
+	for (int i=0; i<nBRs; i++){
+		double x_k, y_k; 
+		k_sf->GetPoint(i, x_k, y_k); 
+		sum_k += y_k; 
+	}
+	average_k = sum_k/nBRs; 
+
+	TGraph *k_norm = new TGraph(); // normalized k 
+
+	for (int i=0; i<nBRs; i++){
+		double x_k, y_k; 
+		k_sf->GetPoint(i, x_k, y_k); 
+		k_norm->SetPoint(i, UBRToTime(i+2426), y_k/average_k);  
+	}
+
+	TCanvas *c2 = new TCanvas("c2", "Estimated NM Scaling Factor (Normalized)", 2700, 900); 
+
+	c2->cd(1); 
+	HistTools::SetStyle(k_norm, kBlue, kFullCircle, 0.9, 1, 1); 
+	k_norm->GetXaxis()->SetTimeDisplay(1);
+  	k_norm->GetXaxis()->SetTimeFormat("%m-%y");
+	k_norm->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+	k_norm->SetTitle("; ; Estimated NM Scaling Factor (Normalized)"); 
+	k_norm->Draw("APL"); 
+
+	c2->Print(Form("data/nm/reproduce/estimated_nm_k_%s.png", NM)); 
+
+	return k_norm; 
+}
+
+// Reconstruct the NM count with a simple cosmic ray contribution model from Koldobisky's assumption, using Ma16
+TGraph *nm_reproduce2(const char *NM){
+	
+	Debug::Enable(Debug::ALL); 
+
+	int nnodes_ams = 6; 	
+
+	TGraph *N_t = new TGraph(); 
+
+	Experiments::DataPath = "data"; 
+
+	TF1 *f_fit[n_total]; 
+
+	// TH1 *J_sum = heavier_he(); 
+	// J_sum->Print("range"); 
+
+	TF1 *fyfp = NeutronMonitors::YieldFunctions::CreateFunction("fyfp", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mangeard16H1, Particle::PROTON, Energy::RIGIDITY);
+	TF1 *fyfhe = NeutronMonitors::YieldFunctions::CreateFunction("fyfhe", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mangeard16He4, Particle::HELIUM4, Energy::RIGIDITY); 
 
 	HistTools::PrintFunction(fyfp);
 	HistTools::PrintFunction(fyfhe); 
