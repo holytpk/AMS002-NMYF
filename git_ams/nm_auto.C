@@ -29,6 +29,7 @@ const char *NM_useful[nNMs_useful+1] = { "OULU", "PSNM", "MXCO", "HRMS", "JUNG",
 
 const int nNMs_Koldob = 6;
 const char *NM_Koldob[nNMs_Koldob] = { "OULU", "HRMS", "MOSC", "APTY", "NEWK", "INVK" }; 
+const double R_cutoff[nNMs_Koldob] = { 0.8, 4.58, 2.43, 0.65, 2.4, 0.3 }; 
 
 const double Rcut[nNMs_useful+1] = { 0.81, 16.80, 8.28, 4.58, 4.49, 4.49, 2.40, 2.36, 0.65, 0.30, 0.30, 0.30, 0.30, 0.10, 0.10 }; // Rigidity Cutoff in GV
 const double alt[nNMs_useful+1] = { 15.0, 2565.0, 2274.0, 26.0, 3570.0, 3475.0, 50.0, 54.0, 181.0, 180.0, 46.0, 53.0, 26.0, 2820.0, 2820.0 }; // NM altitude
@@ -202,6 +203,7 @@ double *get_kin_bins(const char *element);
 double *get_spall_corr(const char *element);
 double *get_spall_corr_unc(const char *element);
 double compare_sig(TF1 *fit1, TF1 *fit2); // obtain sigma value between two fits
+double get_Rcutoff(const char *NM);
 
 TGraphAsymmErrors *get_ace_graph(const char *element, UInt_t iBin, UInt_t nBRs); // flux in Kinetic Energy over time 
 TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_t nBRs); // flux in Kinetic over energy bins 
@@ -218,8 +220,8 @@ void nm_auto(){
 
 	// gSystem->mkdir("data/nm/reproduce", true); 
  
-	TLegend *legend = new TLegend(0.62,0.8,0.9,0.9); // left, down, right, top 
-	legend->SetNColumns(3); 
+	TLegend *legend1 = new TLegend(0.62,0.8,0.9,0.9); // left, down, right, top 
+	legend1->SetNColumns(3); 
 	
 	TLegend *legend2 = new TLegend(0.32,0.8,0.68,0.9); // left, down, right, top 
 	legend2->SetNColumns(3); 
@@ -237,7 +239,7 @@ void nm_auto(){
 		// Mi13
 		k_sf[i] = (TGraph *) nm_reproduce1(Form("%s", NM_Koldob[i])); // Mi13
 
-		legend->AddEntry(k_sf[i], Form("%s", NM_Koldob[i]), "l"); 
+		legend1->AddEntry(k_sf[i], Form("%s", NM_Koldob[i]), "l"); 
 
 		c->cd(1);
 
@@ -281,43 +283,47 @@ void nm_auto(){
 	} 
 
 	// compute average NM count rates  
+	// 1, my Mi13
+	// 2, my Ma16
+	// 3, his Mi13
+	// 4, his Ma16
 
-	TGraph *k_ave = new TGraph();
+	TGraph *k_ave1 = new TGraph();
 	TGraph *k_ave2 = new TGraph(); 
 
 	for (int iBR=0; iBR<nBRs; iBR++){
 
-		Double_t x=0, y=0, x2=0, y2=0; 
+		Double_t x1=0, y1=0, x2=0, y2=0; 
 
-		double ave=0, sum=0, ave2=0, sum2=0; 
+		double ave1=0, sum1=0, ave2=0, sum2=0; 
 
 		for (int i=0; i<nNMs_Koldob; i++){
 		
-			k_sf[i]->GetPoint(iBR, x, y); 
+			k_sf1[i]->GetPoint(iBR, x1, y1); 
 			k_sf2[i]->GetPoint(iBR, x2, y2); 
 
-			sum += y; 
+			sum1 += y1; 
 			sum2 += y2; 
 
-			printf("i = %d, x = %f, y = %f, sum = %f \n", iBR, x, y, sum);  
+			printf("i = %d, x1 = %f, y1 = %f, sum1 = %f \n", iBR, x1, y1, sum1);  
 
 		}
 		
-		ave = sum/nNMs_Koldob;
+		ave1 = sum1/nNMs_Koldob;
 		ave2 = sum2/nNMs_Koldob; 
 
-		k_ave->SetPoint(iBR, x, ave); 
+		k_ave1->SetPoint(iBR, x1, ave1); 
 		k_ave2->SetPoint(iBR, x2, ave2); 
 
 	} 
 
 	c->cd(1);
 
-	HistTools::SetStyle(k_ave, kBlack, kFullCircle, 0.75, 1, 1);  
-	PRINT_GRAPH(k_ave);
-	k_ave->Draw("PLSAME"); 
-	legend->AddEntry(k_ave, "Mean", "l");  
-	legend->Draw("SAME"); 
+	HistTools::SetStyle(k_ave1, kBlack, kFullCircle, 0.75, 1, 1);  
+	PRINT_GRAPH(k_ave1);
+	k_ave1->Draw("PLSAME"); 
+	legend1->AddEntry(k_ave1, "Mean", "l");  
+	legend1->Draw("SAME"); 
 	c->cd(2);
 	HistTools::SetStyle(k_ave2, kBlack, kFullCircle, 0.75, 1, 1);
 	PRINT_GRAPH(k_ave2);
@@ -422,6 +428,8 @@ TGraph *nm_reproduce1(const char *NM){
 	Debug::Enable(Debug::ALL); 
 
 	int nnodes_ams = 6; 	
+	
+	double R_cutoff = get_Rcutoff(NM); 
 
 	TGraph *N_t = new TGraph(); 
 
@@ -497,24 +505,26 @@ TGraph *nm_reproduce1(const char *NM){
 			c3->cd(1);
 			gPad->SetLogx();
 			TF1 *f_RP = fe->GetRSumTF1Pointer(); 
+
+			f_RP->SetTitle("summed ratio as function of rigidity; rigidity (GV); ratio heavier/helium");  
 			f_RP->Draw(); 
 		}
 		// fe->Print(); 
 
 		double l_max = 1e4; 
 		double f_check = 0.; 
-		double *bl = HistTools::BuildLogBins(0.1, l_max, 10); // check the integral by separation into few integrals 
+		double *bl = HistTools::BuildLogBins(R_cutoff, l_max, 10); // check the integral by separation into few integrals 
 			
 		for (int k=0; k<10; k++){ 
 		
 			f_check += f->Integral(bl[k], bl[k+1]);  
-			if (i==0) printf("k = %d, lower limit = %4.1f, upper limit = %4.1f, f = %10.4f \n", k, bl[k], bl[k+1], f->Integral(0.1, bl[k]));  
+			if (i==0) printf("k = %d, lower limit = %4.1f, upper limit = %4.1f, f = %10.4f \n", k, bl[k], bl[k+1], f->Integral(R_cutoff, bl[k]));  
 				 
 		}		
 
 		// printf("Time = %d, N_t = %10.4f,  f/f_check = %10.4f (good if =1) \n", UBRToTime(i+2426), f->Integral(0.1, l_max), f->Integral(0.1, l_max)/f_check); 
 
-		N_t->SetPoint(i, UBRToTime(i+2426), f->Integral(0.1, l_max)); // this internally makes a loop in the range Rmin to Rmax, and calls FunctorExample::operator() at every step, computing the integral as the sum of all the steps  
+		N_t->SetPoint(i, UBRToTime(i+2426), f->Integral(R_cutoff, l_max)); // this internally makes a loop in the range Rmin to Rmax, and calls FunctorExample::operator() at every step, computing the integral as the sum of all the steps  
 
 		// break; 
 
@@ -580,7 +590,7 @@ TGraph *nm_reproduce1(const char *NM){
 	k_norm->SetTitle("; ; Estimated NM Scaling Factor (Normalized)"); 
 	k_norm->Draw("APL"); 
 
-	c2->Print(Form("data/nm/reproduce/estimated_nm_k_%s.png", NM)); 
+	// c2->Print(Form("data/nm/reproduce/estimated_nm_k_%s.png", NM)); 
 
 	return k_norm; 
 }
@@ -590,7 +600,9 @@ TGraph *nm_reproduce2(const char *NM){
 	
 	Debug::Enable(Debug::ALL); 
 
-	int nnodes_ams = 6; 	
+	int nnodes_ams = 6; 
+
+	double R_cutoff = get_Rcutoff(NM); 	
 
 	TGraph *N_t = new TGraph(); 
 
@@ -669,18 +681,18 @@ TGraph *nm_reproduce2(const char *NM){
 
 		double l_max = 1e4; 
 		double f_check = 0.; 
-		double *bl = HistTools::BuildLogBins(0.1, l_max, 10); // check the integral by separation into few integrals 
+		double *bl = HistTools::BuildLogBins(R_cutoff, l_max, 10); // check the integral by separation into few integrals 
 			
 		for (int k=0; k<10; k++){ 
 		
 			f_check += f->Integral(bl[k], bl[k+1]);  
-			if (i==0) printf("k = %d, lower limit = %4.1f, upper limit = %4.1f, f = %10.4f \n", k, bl[k], bl[k+1], f->Integral(0.1, bl[k]));  
+			if (i==0) printf("k = %d, lower limit = %4.1f, upper limit = %4.1f, f = %10.4f \n", k, bl[k], bl[k+1], f->Integral(R_cutoff, bl[k]));  
 				 
 		}		
 
 		// printf("Time = %d, N_t = %10.4f,  f/f_check = %10.4f (good if =1) \n", UBRToTime(i+2426), f->Integral(0.1, l_max), f->Integral(0.1, l_max)/f_check); 
 
-		N_t->SetPoint(i, UBRToTime(i+2426), f->Integral(0.1, l_max)); // this internally makes a loop in the range Rmin to Rmax, and calls FunctorExample::operator() at every step, computing the integral as the sum of all the steps  
+		N_t->SetPoint(i, UBRToTime(i+2426), f->Integral(R_cutoff, l_max)); // this internally makes a loop in the range Rmin to Rmax, and calls FunctorExample::operator() at every step, computing the integral as the sum of all the steps  
 
 		// break; 
 
@@ -746,7 +758,7 @@ TGraph *nm_reproduce2(const char *NM){
 	k_norm->SetTitle("; ; Estimated NM Scaling Factor (Normalized)"); 
 	k_norm->Draw("APL"); 
 
-	c2->Print(Form("data/nm/reproduce/estimated_nm_k_%s.png", NM)); 
+	// c2->Print(Form("data/nm/reproduce/estimated_nm_k_%s.png", NM)); 
 
 	return k_norm; 
 }
@@ -1211,5 +1223,10 @@ double *get_EMed(const char *element)
    else if (!strcmp(element, "Ni")) return EMed_Ni;
 }
 
+double get_Rcutoff(const char *NM){	
+	for (int i=0; i<nNMs_Koldob; i++){
+		if (!strcmp(NM, Form("%s", NM_Koldob[i]))) return R_cutoff[i];
+	}
+}
 
 
