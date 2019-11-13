@@ -229,7 +229,7 @@ void nm_auto(){
 	TCanvas *c = new TCanvas("c", "Estimated Scaling Factor", 2400, 1800); 
 	c->Divide(1, 2); 
 
-	TGraph *k_sf[nNMs_Koldob];
+	TGraph *k_sf1[nNMs_Koldob];
 	TGraph *k_sf2[nNMs_Koldob];
 
 	gStyle->SetPalette(109); 
@@ -237,26 +237,26 @@ void nm_auto(){
 	for (int i=0; i<nNMs_Koldob; i++){ 
 
 		// Mi13
-		k_sf[i] = (TGraph *) nm_reproduce1(Form("%s", NM_Koldob[i])); // Mi13
+		k_sf1[i] = (TGraph *) nm_reproduce1(Form("%s", NM_Koldob[i])); // Mi13
 
-		legend1->AddEntry(k_sf[i], Form("%s", NM_Koldob[i]), "l"); 
+		legend1->AddEntry(k_sf1[i], Form("%s", NM_Koldob[i]), "l"); 
 
 		c->cd(1);
 
-		HistTools::SetStyle(k_sf[i], HistTools::GetColorPalette(i, nNMs_Koldob), kFullCircle, 0.7, 1, 1);
+		HistTools::SetStyle(k_sf1[i], HistTools::GetColorPalette(i, nNMs_Koldob), kFullCircle, 0.7, 1, 1);
 
-		k_sf[i]->GetXaxis()->SetTimeDisplay(1);
-  		k_sf[i]->GetXaxis()->SetTimeFormat("%m-%y");
-		k_sf[i]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
-		k_sf[i]->GetYaxis()->SetRangeUser(0.965, 1.050); 
-		k_sf[i]->SetTitle("Yield Function Mi13; ; Estimated NM Scaling Factor (Normalized)"); 
+		k_sf1[i]->GetXaxis()->SetTimeDisplay(1);
+  		k_sf1[i]->GetXaxis()->SetTimeFormat("%m-%y");
+		k_sf1[i]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+		k_sf1[i]->GetYaxis()->SetRangeUser(0.965, 1.050); 
+		k_sf1[i]->SetTitle("Yield Function Mi13; ; Estimated NM Scaling Factor (Normalized)"); 
 		 
 		// PRINT_GRAPH(k_sf[i]); 
 
-		if (i==0) k_sf[i]->Draw("APL"); 
+		if (i==0) k_sf1[i]->Draw("APL"); 
 
 		// break; 
-		if (i>0) k_sf[i]->Draw("PLSAME"); 
+		if (i>0) k_sf1[i]->Draw("PLSAME"); 
 
 		// Ma16
 		k_sf2[i] = (TGraph *) nm_reproduce2(Form("%s", NM_Koldob[i])); // Ma16
@@ -288,14 +288,14 @@ void nm_auto(){
 	// 3, his Mi13
 	// 4, his Ma16
 
-	TGraph *k_ave1 = new TGraph();
-	TGraph *k_ave2 = new TGraph(); 
+	TGraphErrors *k_ave1 = new TGraphErrors();
+	TGraphErrors *k_ave2 = new TGraphErrors(); 
 
 	for (int iBR=0; iBR<nBRs; iBR++){
 
 		Double_t x1=0, y1=0, x2=0, y2=0; 
 
-		double ave1=0, sum1=0, ave2=0, sum2=0; 
+		Double_t ave1=0, sum1=0, ave2=0, sum2=0; 
 
 		for (int i=0; i<nNMs_Koldob; i++){
 		
@@ -310,28 +310,125 @@ void nm_auto(){
 		}
 		
 		ave1 = sum1/nNMs_Koldob;
-		ave2 = sum2/nNMs_Koldob; 
+		ave2 = sum2/nNMs_Koldob;
+
+		Double_t std1=0, std2=0; 
+
+		for (int i=0; i<nNMs_Koldob; i++){
+
+			Double_t x1_i=0, y1_i=0, x2_i=0, y2_i=0; // for std  
+
+			k_sf1[i]->GetPoint(iBR, x1_i, y1_i); 
+			k_sf2[i]->GetPoint(iBR, x2_i, y2_i);
+
+			std1 += pow(y1_i-ave1, 2);
+			std2 += pow(y2_i-ave2, 2); 
+
+		} 
+
+		std1 = std1/(nNMs_Koldob-1); 
+		std1 = sqrt(std1); 
+	
+		std2 = std2/(nNMs_Koldob-1); 
+		std2 = sqrt(std2); 
 
 		k_ave1->SetPoint(iBR, x1, ave1); 
+		k_ave1->SetPointError(iBR, 0, std1); 
 		k_ave2->SetPoint(iBR, x2, ave2); 
+		k_ave2->SetPointError(iBR, 0, std2); 
 
 	} 
 
 	c->cd(1);
 
-	HistTools::SetStyle(k_ave1, kBlack, kFullCircle, 0.75, 1, 1);  
+	HistTools::SetStyle(k_ave1, kBlack, kFullCircle, 0.9, 1, 3);  
 	PRINT_GRAPH(k_ave1);
 	k_ave1->Draw("PLSAME"); 
 	legend1->AddEntry(k_ave1, "Mean", "l");  
 	legend1->Draw("SAME"); 
 	c->cd(2);
-	HistTools::SetStyle(k_ave2, kBlack, kFullCircle, 0.75, 1, 1);
+	HistTools::SetStyle(k_ave2, kBlack, kFullCircle, 0.9, 1, 3);
 	PRINT_GRAPH(k_ave2);
 	k_ave2->Draw("PLSAME"); 
 	legend2->AddEntry(k_ave2, "Mean", "l");
 	legend2->Draw("SAME"); 
 
 	c->Print("data/nm/reproduce/estimated_nm_k_all.png"); 
+
+	// compare w/ Koldobskiy's NM k_sf Mean
+
+	TGraphErrors *k_ave1_kol = new TGraphErrors("./data/nm/reproduce/k_ave1_kol.dat"); // Mi13
+	TGraphErrors *k_ave2_kol = new TGraphErrors("./data/nm/reproduce/k_ave2_kol.dat"); // Ma16
+
+	TGraphErrors *k_ave1_ratio = new TGraphErrors(); 
+	TGraphErrors *k_ave2_ratio = new TGraphErrors();
+
+	TGraphErrors *k_ave1_kol_err = new TGraphErrors(); 
+	TGraphErrors *k_ave2_kol_err = new TGraphErrors(); 
+
+	TLegend *legend3 = new  TLegend(0.62,0.8,0.9,0.9); // left, down, right, top 
+	TLegend *legend4 = new  TLegend(0.62,0.8,0.9,0.9); // left, down, right, top 	
+
+	for (int iBR=0; iBR<nBRs; iBR++){
+
+		Double_t x1=0, y1=0, x2=0, y2=0; 
+		Double_t xa=0, ya=0, xb=0, yb=0; // Koldob
+		
+		k_ave1->GetPoint(iBR, x1, y1); 
+		k_ave2->GetPoint(iBR, x2, y2); 
+		k_ave1_kol->GetPoint(iBR, xa, ya);
+		k_ave2_kol->GetPoint(iBR, xb, yb); 
+
+		k_ave1_ratio->SetPoint(iBR, x1, y1/ya); // Mi13
+		k_ave2_ratio->SetPoint(iBR, x2, y2/yb); // Ma16 
+
+		// error propogation example 
+		Double_t dy1 = k_ave1->GetErrorY(iBR);  
+		Double_t dya = k_ave1_kol->GetErrorY(iBR); 
+
+		k_ave1_ratio->SetPoint(iBR, x1, y1/ya);			 
+		k_ave1_ratio->SetPointError(iBR, 0, (y1/ya)*sqrt((dy1/y1)*(dy1/y1)+(dya/ya)*(dya/ya))); 
+
+		Double_t dy2 = k_ave2->GetErrorY(iBR);  
+		Double_t dyb = k_ave2_kol->GetErrorY(iBR); 
+
+		k_ave2_ratio->SetPoint(iBR, x2, y2/yb);			 
+		k_ave2_ratio->SetPointError(iBR, 0, (y2/yb)*sqrt((dy2/y2)*(dy2/y2)+(dyb/yb)*(dyb/yb))); 
+
+		// error bars from the paper
+		k_ave1_kol_err->SetPoint(iBR, x1, 1);
+		k_ave1_kol_err->SetPointError(iBR, 0, ya);
+			
+		k_ave2_kol_err->SetPoint(iBR, x2, 1);
+		k_ave2_kol_err->SetPointError(iBR, 0, yb);
+
+	} 
+
+	legend3->AddEntry(k_ave1_ratio, "Mi13", "l"); 
+	legend4->AddEntry(k_ave2_ratio, "Ma16", "l"); 
+
+	TCanvas *c0 = new TCanvas("c0", "Comparison of Two Models", 2400, 1800); 
+	c0->Divide(1, 2); 
+ 
+	HistTools::SetStyle(k_ave1_ratio, kRed, kFullCircle, 0.9, 1, 2);  
+	HistTools::SetStyle(k_ave2_ratio, kBlue, kFullCircle, 0.9, 1, 2);
+	
+	k_ave1_ratio->SetTitle(" ; ; NM Scaling Factor Ratio (Mine/Koldobskiy's)"); 
+	k_ave2_ratio->SetTitle(" ; ; NM Scaling Factor Ratio (Mine/Koldobskiy's)"); 
+	
+	c0->cd(1);
+	k_ave1_ratio->GetXaxis()->SetTimeDisplay(1);
+  	k_ave1_ratio->GetXaxis()->SetTimeFormat("%m-%y");
+	k_ave1_ratio->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+	k_ave1_ratio->Draw("APL");
+	legend3->Draw("SAME"); 
+
+	c0->cd(2); 
+	k_ave2_ratio->GetXaxis()->SetTimeDisplay(1);
+  	k_ave2_ratio->GetXaxis()->SetTimeFormat("%m-%y");
+	k_ave2_ratio->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+	k_ave2_ratio->Draw("APL");
+	legend4->Draw("SAME"); 
 }
 
 // compute F(R,t)*Y(R)
@@ -499,14 +596,16 @@ TGraph *nm_reproduce1(const char *NM){
 
 		fe->SetProtonFlux(f_BR_p[i]); 
 		fe->AddElementFlux(f_BR_he[i], A[1]); 
-
+ 
 		TF1 *f = fe->GetTF1Pointer(); 
 		if (i==nBRs-1){
 			c3->cd(1);
 			gPad->SetLogx();
 			TF1 *f_RP = fe->GetRSumTF1Pointer(); 
 
-			f_RP->SetTitle("summed ratio as function of rigidity; rigidity (GV); ratio heavier/helium");  
+			f_RP->SetTitle("summed ratio as function of rigidity; rigidity (GV); ratio heavier/helium");
+			f_RP->GetXaxis()->SetRangeUser(1.0, 1.15e3);   
+			f_RP->GetYaxis()->SetRangeUser(0.3, 0.625);
 			f_RP->Draw(); 
 		}
 		// fe->Print(); 
@@ -675,6 +774,10 @@ TGraph *nm_reproduce2(const char *NM){
 			c3->cd(1);
 			gPad->SetLogx();
 			TF1 *f_RP = fe->GetRSumTF1Pointer(); 
+
+			f_RP->SetTitle("summed ratio as function of rigidity; rigidity (GV); ratio heavier/helium");  
+			f_RP->GetXaxis()->SetRangeUser(1.0, 1.15e3);  
+			f_RP->GetYaxis()->SetRangeUser(0.3, 0.625); 
 			f_RP->Draw(); 
 		}
 		// fe->Print(); 
