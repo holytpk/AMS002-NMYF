@@ -25,6 +25,7 @@ class FunctorExample
       void Print();
 
       void SetProtonFlux(TF1 *flux_p) { _flux_p = flux_p; }
+      void SetHeliumFluxReplicate(TF1 *flux_He) { _flux_He = flux_He; }
       void AddElementFlux(TF1 *flux_el, Double_t A) { _flux_elem.push_back(flux_el); _A.push_back(A); }
       void AddElementFlux_Ave(TF1 *flux_el, Double_t A) { _flux_elem_ave.push_back(flux_el); _A_ave.push_back(A); }
 
@@ -39,7 +40,7 @@ class FunctorExample
       // TGraph *_R_sum; // R(P), ratio of heavier/helium
       TF1 *_f_R_sum; //!, display R_sum
 
-      TF1 *_flux_p;
+      TF1 *_flux_p, *_flux_He;
       std::vector<TF1 *> _flux_elem;
       std::vector<TF1 *> _flux_elem_ave; // average flux used to compute R(P) 
       std::vector<Double_t> _A;

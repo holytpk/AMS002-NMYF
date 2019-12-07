@@ -30,6 +30,7 @@ const char *NM_useful[nNMs_useful+1] = { "OULU", "PSNM", "MXCO", "HRMS", "JUNG",
 const int nNMs_Koldob = 6;
 const char *NM_Koldob[nNMs_Koldob] = { "OULU", "HRMS", "MOSC", "APTY", "NEWK", "INVK" }; 
 const double R_cutoff[nNMs_Koldob] = { 0.8, 4.58, 2.43, 0.65, 2.4, 0.3 }; 
+const int NM_tubes[nNMs_Koldob] = { 9, 12, 24, 18, 9, 18 }; 
 
 const double Rcut[nNMs_useful+1] = { 0.81, 16.80, 8.28, 4.58, 4.49, 4.49, 2.40, 2.36, 0.65, 0.30, 0.30, 0.30, 0.30, 0.10, 0.10 }; // Rigidity Cutoff in GV
 const double alt[nNMs_useful+1] = { 15.0, 2565.0, 2274.0, 26.0, 3570.0, 3475.0, 50.0, 54.0, 181.0, 180.0, 46.0, 53.0, 26.0, 2820.0, 2820.0 }; // NM altitude
@@ -198,22 +199,26 @@ int isotope_size[24] = { 2, 3, 2, 3, 2, 3, 3, 3, 2, 5, 4, 7, 4, 8, 4, 9, 6, 7, 4
 // list of functions 
 UInt_t UTimeToBR(Long64_t utime);
 UInt_t UBRToTime(int BR);
-double *get_EMed(const char *element);
-double *get_kin_bins(const char *element);
-double *get_spall_corr(const char *element);
-double *get_spall_corr_unc(const char *element);
-double compare_sig(TF1 *fit1, TF1 *fit2); // obtain sigma value between two fits
-double get_Rcutoff(const char *NM);
+double *get_EMed(const char *element); // get energy bin mid point 
+double *get_kin_bins(const char *element); // get kinetic energy bins 
+double *get_spall_corr(const char *element); // get spallation correlation 
+double *get_spall_corr_unc(const char *element); // get spallation correlation uncertainty
+double compare_sig(TF1 *fit1, TF1 *fit2); // get sigma value between two fits
+double get_Rcutoff(const char *NM); // get R_cutoff
+int get_NM_tubes(const char *NM); // get # of NM tubes 
 
+double get_k_BR_mean(TGraph *k_sf, const char *option); 
 TGraphErrors *get_k_sf_ratio( TGraphErrors *k_sf1, TGraphErrors *k_sf2 ); 
 
 TGraphAsymmErrors *get_ace_graph(const char *element, UInt_t iBin, UInt_t nBRs); // flux in Kinetic Energy over time 
 TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_t nBRs); // flux in Kinetic over energy bins 
 
 void nm_auto(); 
+void nm_all_N_t(); 
 void nm_FY(); 
-TGraph *nm_reproduce1(const char *NM); // reproduce the results from Koldobisky, Mi13
-TGraph *nm_reproduce2(const char *NM); // reproduce the results from Koldobisky, Ma16
+TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2); // reproduce the results from Koldobisky, Mi13/Ma16. option1 = "k_norm", "k_sf" or "N_t", option2 = "Mi13" "Ma16"  
+TGraph *nm_reproduce2(const char *NM, const char *option1, const char *option2); // reproduce the results from Koldobisky, but separate each contribution for p, He & elements above He 
+										 // option 2 = "p" "He" "above" ""(all)
 TH1 *heavier_he(); // return ratio heavier/helium
 
 void nm_auto(){
@@ -239,13 +244,14 @@ void nm_auto(){
 	for (int i=0; i<nNMs_Koldob; i++){ 
 
 		// Mi13
-		k_sf1[i] = (TGraphErrors *) nm_reproduce1(Form("%s", NM_Koldob[i])); // Mi13
+		k_sf1[i] = (TGraphErrors *) nm_reproduce1(NM_Koldob[i], "k_norm", "Mi13"); // Mi13
 
 		legend1->AddEntry(k_sf1[i], Form("%s", NM_Koldob[i]), "l"); 
 
 		c->cd(1);
 
 		HistTools::SetStyle(k_sf1[i], HistTools::GetColorPalette(i, nNMs_Koldob), kFullCircle, 0.7, 1, 1);
+		if (i==0) HistTools::SetStyle(k_sf1[i], kPink, kFullCircle, 0.7, 1, 1);
 
 		k_sf1[i]->GetXaxis()->SetTimeDisplay(1);
   		k_sf1[i]->GetXaxis()->SetTimeFormat("%m-%y");
@@ -261,13 +267,14 @@ void nm_auto(){
 		if (i>0) k_sf1[i]->Draw("PLSAME"); 
 
 		// Ma16
-		k_sf2[i] = (TGraphErrors *) nm_reproduce2(Form("%s", NM_Koldob[i])); // Ma16
+		k_sf2[i] = (TGraphErrors *) nm_reproduce1(NM_Koldob[i], "k_norm", "Ma16"); // Ma16
 
 		legend2->AddEntry(k_sf2[i], Form("%s", NM_Koldob[i]), "l"); 
 
 		c->cd(2);
 
 		HistTools::SetStyle(k_sf2[i], HistTools::GetColorPalette(i, nNMs_Koldob), kFullCircle, 0.7, 1, 1);
+		if (i==0) HistTools::SetStyle(k_sf2[i], kPink, kFullCircle, 0.7, 1, 1);
 
 		k_sf2[i]->GetXaxis()->SetTimeDisplay(1);
   		k_sf2[i]->GetXaxis()->SetTimeFormat("%m-%y");
@@ -307,7 +314,7 @@ void nm_auto(){
 			sum1 += y1; 
 			sum2 += y2; 
 
-			printf("i = %d, x1 = %f, y1 = %f, sum1 = %f \n", iBR, x1, y1, sum1);  
+			//printf("i = %d, x1 = %f, y1 = %f, sum1 = %f \n", iBR, x1, y1, sum1);  
 
 		}
 		
@@ -344,13 +351,13 @@ void nm_auto(){
 	c->cd(1);
 
 	HistTools::SetStyle(k_ave1, kBlack, kFullCircle, 0.9, 1, 3);  
-	PRINT_GRAPH(k_ave1);
+	//PRINT_GRAPH(k_ave1);
 	k_ave1->Draw("PLSAME"); 
 	legend1->AddEntry(k_ave1, "Mean", "l");  
 	legend1->Draw("SAME"); 
 	c->cd(2);
 	HistTools::SetStyle(k_ave2, kBlack, kFullCircle, 0.9, 1, 3);
-	PRINT_GRAPH(k_ave2);
+	//PRINT_GRAPH(k_ave2);
 	k_ave2->Draw("PLSAME"); 
 	legend2->AddEntry(k_ave2, "Mean", "l");
 	legend2->Draw("SAME"); 
@@ -369,46 +376,87 @@ void nm_auto(){
 			k_sf1_kol[i] = new TGraphErrors(Form("./data/nm/reproduce/SF1-KOL-%s.dat", NM_Koldob[i]), "%lg %lg", ""); // Mi13
 			k_sf2_kol[i] = new TGraphErrors(Form("./data/nm/reproduce/SF2-KOL-%s.dat", NM_Koldob[i]), "%lg %lg", ""); // Ma16
 
+			// convert x points to unix time
+			for (int iBR=0; iBR<nBRs; iBR++){
+
+				Double_t x1=0, y1=0, // Ling's
+					 x2=0, y2=0, // Koldobskiy's
+					 x0=0, y0=0; // fix 
+	
+				k_sf1_kol[i]->GetPoint(iBR, x1, y1);
+				k_sf2_kol[i]->GetPoint(iBR, x2, y2);
+
+				k_sf1[i]->GetPoint(iBR, x0, y0); 
+
+				x1 = x0;
+				x2 = x0;  
+				
+				k_sf1_kol[i]->SetPoint(iBR, x1, y1);
+				k_sf2_kol[i]->SetPoint(iBR, x2, y2);
+				
+			} 
+
 			TGraphErrors *k_sf1_ratio = get_k_sf_ratio( k_sf1[i], k_sf1_kol[i] ); // Mi13	
 			TGraphErrors *k_sf2_ratio = get_k_sf_ratio( k_sf2[i], k_sf2_kol[i] ); // Ma16
 	
 			TLegend *legend5 = new TLegend(0.62,0.8,0.9,0.9); // left, down, right, top 
 			TLegend *legend6 = new TLegend(0.62,0.8,0.9,0.9); // left, down, right, top 	
 
-			legend5->AddEntry(k_sf1_ratio, "Mi13", "l");
-			legend6->AddEntry(k_sf2_ratio, "Ma16", "l"); 
+			legend5->AddEntry(k_sf1[i], "Ling's", "l");
+			legend5->AddEntry(k_sf1_kol[i], "Koldobskiy's", "l"); 
+			legend6->AddEntry(k_sf2[i], "Ling's", "l");
+			legend6->AddEntry(k_sf2_kol[i], "Koldobskiy's", "l");  
 	
-			TCanvas *c0 = new TCanvas("c0", "Comparison of Two Models", 2400, 1800); 
-			c0->Divide(1, 2);
+			TCanvas *c01 = new TCanvas("c01", "Comparison of Two Models", 2400, 1800); // Mi13
+			c01->Divide(1, 2); 
 
-			c0->cd(1); 
+			TCanvas *c02 = new TCanvas("c02", "Comparison of Two Models", 2400, 2800); // Ma16 
+			c02->Divide(1, 2); 
+	
+			c01->cd(1);
+			gPad->SetGrid(); 
+
+			k_sf1[i]->Draw("A PL"); 
+			HistTools::SetStyle(k_sf1_kol[i], kBlack, kFullCircle, 0.7, 1, 1); 
+			k_sf1_kol[i]->Draw("PL SAME"); 
+			//k_sf1_kol[i]->Print("range"); 
+			legend5->Draw("SAME"); 
+
+			c01->cd(2); 
 			gPad->SetGrid();
 
-			HistTools::SetStyle(k_sf1_ratio, HistTools::GetColorPalette(i, nNMs_Koldob), kFullCircle, 0.7, 1, 1);
+			HistTools::SetStyle(k_sf1_ratio, kBlue, kFullCircle, 0.7, 1, 1);
 
-			k_sf1_ratio->SetTitle(Form(" ; ; %s Scaling Factor Ratio (Mine/Koldobskiy's)", NM_Koldob[i]));
+			k_sf1_ratio->SetTitle(Form(" ; ; %s Scaling Factor Ratio (Ling's/Koldobskiy's) w/ Mi13", NM_Koldob[i]));
 			k_sf1_ratio->GetXaxis()->SetTimeDisplay(1);
   			k_sf1_ratio->GetXaxis()->SetTimeFormat("%m-%y");
 			k_sf1_ratio->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
-			k_sf1_ratio->GetYaxis()->SetRangeUser(0.985, 1.015);
+			k_sf1_ratio->GetYaxis()->SetRangeUser(0.985, 1.015);		
 
 			k_sf1_ratio->Draw("A PL"); 
-			legend5->Draw("SAME"); 
 
-			c0->cd(2);  
+			c02->cd(1);
+			gPad->SetGrid();
+			
+			k_sf2[i]->Draw("A PL"); 
+			HistTools::SetStyle(k_sf2_kol[i], kBlack, kFullCircle, 0.7, 1, 1); 
+			k_sf2_kol[i]->Draw("PL SAME"); 
+			legend6->Draw("SAME");
+
+			c02->cd(2);  
 			gPad->SetGrid();
 
-			HistTools::SetStyle(k_sf2_ratio, HistTools::GetColorPalette(i, nNMs_Koldob), kFullCircle, 0.7, 1, 1);
+			HistTools::SetStyle(k_sf2_ratio, kBlue, kFullCircle, 0.7, 1, 1);
 
-			k_sf2_ratio->SetTitle(Form(" ; ; %s Scaling Factor Ratio (Mine/Koldobskiy's)", NM_Koldob[i]));
+			k_sf2_ratio->SetTitle(Form(" ; ; %s Scaling Factor Ratio (Ling's/Koldobskiy's) w/ Ma16", NM_Koldob[i]));
 			k_sf2_ratio->GetXaxis()->SetTimeDisplay(1);
   			k_sf2_ratio->GetXaxis()->SetTimeFormat("%m-%y");
 			k_sf2_ratio->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
 			k_sf2_ratio->GetYaxis()->SetRangeUser(0.985, 1.015);			
-			k_sf2_ratio->Draw("A PL"); 
-			legend6->Draw("SAME"); 
+			k_sf2_ratio->Draw("A PL");  
 
-			c0->Print(Form("./data/nm/reproduce/k_sf_ratio_%s.png", NM_Koldob[i]));
+			c01->Print(Form("./data/nm/reproduce/k_sf_ratio_%s_Mi13.png", NM_Koldob[i]));
+			c02->Print(Form("./data/nm/reproduce/k_sf_ratio_%s_Ma16.png", NM_Koldob[i]));
 		} 
 
 	   }
@@ -477,8 +525,8 @@ void nm_auto(){
 	HistTools::SetFillStyle(k_ave1_kol_err, kYellow-7, 1001);
 	HistTools::SetFillStyle(k_ave2_kol_err, kYellow-7, 1001);
 	
-	k_ave1_kol_err->SetTitle(" ; ; NM Scaling Factor Ratio (Mine/Koldobskiy's)"); 
-	k_ave2_kol_err->SetTitle(" ; ; NM Scaling Factor Ratio (Mine/Koldobskiy's)"); 
+	k_ave1_kol_err->SetTitle(" ; ; NM Scaling Factor Ratio (Ling's/Koldobskiy's)"); 
+	k_ave2_kol_err->SetTitle(" ; ; NM Scaling Factor Ratio (Ling's/Koldobskiy's)"); 
 	
 	c1->cd(1);
 	gPad->SetGrid(); 
@@ -507,6 +555,82 @@ void nm_auto(){
 	legend4->Draw("SAME"); 
 	
 	c1->Print("./data/nm/reproduce/k_sf_ave_ratio.png");
+
+}
+
+// plot all N(t) in one canvas
+// plot N(t) by p, He, element above He contribution 
+void nm_all_N_t(){
+
+	Debug::Enable(Debug::ALL);
+
+	// gSystem->mkdir("data/nm/reproduce", true); 
+
+	TGraph *N_nm[nNMs_Koldob];
+	TGraph *N_nm_ave[nNMs_Koldob]; 
+	TGraphErrors *N_simu1[nNMs_Koldob]; //Mi13
+	TGraphErrors *N_simu2[nNMs_Koldob]; //Ma16 
+
+	TGraph *N_simu_p[nNMs_Koldob]; 
+	TGraph *N_simu_He[nNMs_Koldob]; 
+	TGraph *N_simu_above[nNMs_Koldob]; 
+	
+	for (int i=0; i<nNMs_Koldob; i++){
+
+		TFile *nm_data = new TFile(Form("./data/nm/NM-%s.root", NM_Koldob[i]));
+		N_nm[i] = (TGraph*) nm_data->Get("g");
+		N_nm_ave[i] = (TGraph*) nm_data->Get("g_ave");
+
+		N_simu1[i] = (TGraphErrors*) nm_reproduce1(NM_Koldob[i], "N_t", "Mi13"); 
+		N_simu2[i] = (TGraphErrors*) nm_reproduce1(NM_Koldob[i], "N_t", "Ma16"); 
+
+		N_simu_p[i] = (TGraph*) nm_reproduce2(NM_Koldob[i], "N_t", "p"); 
+		N_simu_p[i]->SetTitle(Form(" ; ; %s NM Simulated Partial Count Rate (p)", NM_Koldob[i])); 
+		N_simu_He[i] = (TGraph*) nm_reproduce2(NM_Koldob[i], "N_t", "He");  
+		N_simu_He[i]->SetTitle(Form(" ; ; %s NM Simulated Partial Count Rate (He)", NM_Koldob[i])); 
+		N_simu_above[i] = (TGraph*) nm_reproduce2(NM_Koldob[i], "N_t", "above"); 
+		N_simu_above[i]->SetTitle(Form(" ; ; %s NM Simulated Partial Count Rate (above He)", NM_Koldob[i]));  
+
+		TLegend *legend = new TLegend(0.8,0.8,0.9,0.9); // left, down, right, top 
+
+		TCanvas *c = new TCanvas("c","", 2400, 1600); 
+
+		c->cd(1);
+		N_nm[i]->SetTitle(Form("%s Count Rate Data & Simuations;Time;Flux [1/(m^2 sr s GV)]", NM_Koldob[i]));
+		N_nm[i]->GetXaxis()->SetTimeDisplay(1);
+ 		N_nm[i]->GetXaxis()->SetTimeFormat("%m-%y");
+ 		N_nm[i]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00");
+		N_nm[i]->GetYaxis()->SetRangeUser(N_simu2[i]->Eval(UBRToTime(2426))*0.7, N_nm[i]->Eval(UBRToTime(2426))*1.1); 
+		N_nm[i]->Draw("ALP"); 
+		N_nm_ave[i]->SetMarkerColor(kPink);
+		N_nm_ave[i]->SetMarkerStyle(kFullCircle);
+		N_nm_ave[i]->Draw("PSAME"); 
+		N_simu1[i]->SetMarkerColor(kBlue-4);
+		N_simu1[i]->SetMarkerStyle(kFullCircle);
+		N_simu1[i]->Draw("PSAME");
+		N_simu2[i]->SetMarkerColor(kBlue+4);
+		N_simu2[i]->SetMarkerStyle(kFullCircle);
+		N_simu2[i]->Draw("PSAME"); 
+
+		legend->AddEntry(N_nm[i], "Raw", "lp"); 
+		legend->AddEntry(N_nm_ave[i], "Averaged", "p"); 
+		legend->AddEntry(N_simu1[i], "Mi13", "p"); 
+		legend->AddEntry(N_simu2[i], "Ma16", "p"); 
+
+		legend->Draw("SAME");  
+
+		c->Print(Form("./data/nm/reproduce/N_all_%s.png", NM_Koldob[i])); 
+
+		TFile *NM_simu = new TFile(Form("./data/nm/NM_simu_%s.root", NM_Koldob[i]), "recreate");
+		
+		N_simu_p[i]->Write("N_simu_p");
+		N_simu_He[i]->Write("N_simu_He");
+		N_simu_above[i]->Write("N_simu_above");
+		
+		NM_simu->Write();
+		NM_simu->Close(); 
+	
+	} 
 
 }
 
@@ -564,7 +688,7 @@ void nm_FY(){
 
 		}
 
-		HistTools::PrintFunction(f_fit[i]); 
+		// HistTools::PrintFunction(f_fit[i]); 
 
 		TF1 *fmul = HistTools::CombineTF1(f_fit[i], fyf_pHe, HistTools::Multiply, "fmul");
 
@@ -599,13 +723,16 @@ void nm_FY(){
 } 
 
 // Reconstruct the NM count with a simple cosmic ray contribution model from Koldobisky's assumption, using Mi13
-TGraph *nm_reproduce1(const char *NM){
+// option1 = "normalized" or "", option2 = "Mi13" or "Ma16" 
+TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 	
 	Debug::Enable(Debug::ALL); 
 
 	int nnodes_ams = 6; 	
-	
+	double n_tubes = (double) get_NM_tubes(NM)/6; 
 	double R_cutoff = get_Rcutoff(NM); 
+
+	printf("n_tubes (%s, %s) = %2.2f \n", NM, option2, n_tubes); 
 
 	TGraph *N_t = new TGraph(); 
 
@@ -616,14 +743,19 @@ TGraph *nm_reproduce1(const char *NM){
 	// TH1 *J_sum = heavier_he(); 
 	// J_sum->Print("range"); 
 
-	TF1 *fyfp = NeutronMonitors::YieldFunctions::CreateFunction("fyfp", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mishev13H1, Particle::PROTON, Energy::RIGIDITY);
-	TF1 *fyfhe = NeutronMonitors::YieldFunctions::CreateFunction("fyfhe", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mishev13He4, Particle::HELIUM4, Energy::RIGIDITY); 
+	TF1 *fyfp;
+	TF1 *fyfhe; 
 
-	//TF1 *fyfp = NeutronMonitors::YieldFunctions::CreateFunction("fyfp", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mangeard16H1, Particle::PROTON, Energy::RIGIDITY);
-	//TF1 *fyfhe = NeutronMonitors::YieldFunctions::CreateFunction("fyfhe", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mangeard16He4, Particle::HELIUM4, Energy::RIGIDITY); 
+	if (!strcmp(option2, "Mi13")){
+		fyfp = NeutronMonitors::YieldFunctions::CreateFunction("fyfp", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mishev13H1, Particle::PROTON, Energy::RIGIDITY);
+		fyfhe = NeutronMonitors::YieldFunctions::CreateFunction("fyfhe", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mishev13He4, Particle::HELIUM4, Energy::RIGIDITY); 
+	}else if (!strcmp(option2, "Ma16")){
+		fyfp = NeutronMonitors::YieldFunctions::CreateFunction("fyfp", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mangeard16H1, Particle::PROTON, Energy::RIGIDITY);
+		fyfhe = NeutronMonitors::YieldFunctions::CreateFunction("fyfhe", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mangeard16He4, Particle::HELIUM4, Energy::RIGIDITY); 
+	}
 
-	HistTools::PrintFunction(fyfp);
-	HistTools::PrintFunction(fyfhe); 
+	//HistTools::PrintFunction(fyfp);
+	//HistTools::PrintFunction(fyfhe); 
 
 	TF1 *f_BR_p[nBRs];   
 	TF1 *f_BR_he[nBRs];  
@@ -669,14 +801,15 @@ TGraph *nm_reproduce1(const char *NM){
 			fit_ams->GetRange(x1,x2); 
 			f_fit[k]->SetRange(x1,x2); 
 
-			fe->AddElementFlux_Ave(f_fit[k], A[k]); 
-			if (i==nBRs-1) HistTools::PrintFunction(fit_ams);   
-		} 
+			fe->AddElementFlux_Ave(f_fit[k], A[k]);  
+			// if (i==nBRs-1) HistTools::PrintFunction(fit_ams);   
+		}  
 
 		fe->SetProtonFlux(f_BR_p[i]); 
 		fe->AddElementFlux(f_BR_he[i], A[1]); 
  
 		TF1 *f = fe->GetTF1Pointer(); 
+
 		if (i==nBRs-1){
 			c3->cd(1);
 			gPad->SetLogx();
@@ -696,19 +829,19 @@ TGraph *nm_reproduce1(const char *NM){
 		for (int k=0; k<10; k++){ 
 		
 			f_check += f->Integral(bl[k], bl[k+1]);  
-			if (i==0) printf("k = %d, lower limit = %4.1f, upper limit = %4.1f, f = %10.4f \n", k, bl[k], bl[k+1], f->Integral(R_cutoff, bl[k]));  
+			// if (i==0) printf("k = %d, lower limit = %4.1f, upper limit = %4.1f, f = %10.4f \n", k, bl[k], bl[k+1], f->Integral(R_cutoff, bl[k]));  
 				 
 		}		
 
-		// printf("Time = %d, N_t = %10.4f,  f/f_check = %10.4f (good if =1) \n", UBRToTime(i+2426), f->Integral(0.1, l_max), f->Integral(0.1, l_max)/f_check); 
+		// printf("Time = %d, N_t = %10.4f,  f/f_check = %10.4f (good if =1) \n", UBRToTime(i+2426), f->Integral(0.1, l_max), f->Integral(0.1, l_max)/f_check);  
 
-		N_t->SetPoint(i, UBRToTime(i+2426), f->Integral(R_cutoff, l_max)); // this internally makes a loop in the range Rmin to Rmax, and calls FunctorExample::operator() at every step, computing the integral as the sum of all the steps  
+		N_t->SetPoint(i, UBRToTime(i+2426), n_tubes*f->Integral(R_cutoff, l_max)); // this internally makes a loop in the range Rmin to Rmax, and calls FunctorExample::operator() at every step, computing the integral as the sum of all the steps  
 
 		// break; 
 
 	} 
 
-	c3->Print("data/nm/reproduce/ratio_heavier_helium.png"); 
+	// c3->Print("data/nm/reproduce/ratio_heavier_helium.png"); 
 
 	// PRINT_GRAPH(N_t); 
 
@@ -728,7 +861,7 @@ TGraph *nm_reproduce1(const char *NM){
 	N_t->Draw("APL"); 
 	legend2->Draw("SAME"); 
 
-	c1->Print(Form("data/nm/reproduce/estimated_nm_count_%s.png", NM)); 
+	// c1->Print(Form("data/nm/reproduce/estimated_nm_count_%s.png", NM)); 
 
 	for (int i=0; i<nBRs; i++){
 
@@ -739,7 +872,7 @@ TGraph *nm_reproduce1(const char *NM){
 
 		k_sf->SetPoint(i, UBRToTime(i+2426), y1/y2); 
 
-		printf("iBR = %d, N_nm(t)=%10.4f, N(t)=%10.4f, k_sf=%10.4f \n", i, y2, y1, y1/y2); 
+		// printf("%s, iBR = %d, N_nm(t)=%f, N(t)=%f, k_sf=%10.4f \n", NM, i, y2, y1, y1/y2); 
 	}
 
 	double sum_k = 0., average_k = 0.;  
@@ -770,17 +903,29 @@ TGraph *nm_reproduce1(const char *NM){
 
 	// c2->Print(Form("data/nm/reproduce/estimated_nm_k_%s.png", NM)); 
 
-	return k_norm; 
-}
+	// compute BR mean + std
 
-// Reconstruct the NM count with a simple cosmic ray contribution model from Koldobisky's assumption, using Ma16
-TGraph *nm_reproduce2(const char *NM){
+	double k_BR_mean = get_k_BR_mean( k_sf, "mean" );
+	double k_BR_std = get_k_BR_mean( k_sf, "std" );  
+
+	printf("%s k_BR_mean = %f, k_BR_std = %f \n", NM, k_BR_mean, k_BR_std);  
+
+	if (!strcmp(option1, "k_norm")) return k_norm; 
+	if (!strcmp(option1, "k_sf")) return k_sf; 
+	if (!strcmp(option1, "N_t")) return N_t; 
+
+}	
+
+// Reconstruct the NM count with a simple cosmic ray contribution model from Koldobisky's assumption, but separate for p, He, elements above He contributions
+TGraph *nm_reproduce2(const char *NM, const char* option1, const char* option2){
 	
 	Debug::Enable(Debug::ALL); 
 
 	int nnodes_ams = 6; 
-
+	double n_tubes = (double) get_NM_tubes(NM)/6; 
 	double R_cutoff = get_Rcutoff(NM); 	
+
+	printf("n_tubes (%s, %s) = %2.2f \n", NM, option2, n_tubes); 
 
 	TGraph *N_t = new TGraph(); 
 
@@ -794,8 +939,8 @@ TGraph *nm_reproduce2(const char *NM){
 	TF1 *fyfp = NeutronMonitors::YieldFunctions::CreateFunction("fyfp", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mangeard16H1, Particle::PROTON, Energy::RIGIDITY);
 	TF1 *fyfhe = NeutronMonitors::YieldFunctions::CreateFunction("fyfhe", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mangeard16He4, Particle::HELIUM4, Energy::RIGIDITY); 
 
-	HistTools::PrintFunction(fyfp);
-	HistTools::PrintFunction(fyfhe); 
+	//HistTools::PrintFunction(fyfp);
+	//HistTools::PrintFunction(fyfhe); 
 
 	TF1 *f_BR_p[nBRs];   
 	TF1 *f_BR_he[nBRs];  
@@ -828,7 +973,10 @@ TGraph *nm_reproduce2(const char *NM){
 		fit_he->GetRange(xx1,xx2); 
 		f_BR_he[i]->SetRange(xx1, xx2); 	
 
-		FunctorExample *fe = new FunctorExample("fe", 0.1, 3e3, fyfp, fyfhe); 
+		//FunctorExample *fe = new FunctorExample("fe", 0.1, 3e3, fyfp, fyfhe); 
+		FunctorExample *fe_p = new FunctorExample("fe_p", 0.1, 3e3, fyfp, fyfhe); // p only 
+		FunctorExample *fe_he = new FunctorExample("fe_he", 0.1, 3e3, fyfp, fyfhe); // he only 
+		FunctorExample *fe_above = new FunctorExample("fe_above", 0.1, 3e3, fyfp, fyfhe); // all other elements above only 
 	
 		for(int k=0; k<n_ams; k++){
 
@@ -840,15 +988,32 @@ TGraph *nm_reproduce2(const char *NM){
 			double x1, x2;
 			fit_ams->GetRange(x1,x2); 
 			f_fit[k]->SetRange(x1,x2); 
-
-			fe->AddElementFlux_Ave(f_fit[k], A[k]); 
-			if (i==nBRs-1) HistTools::PrintFunction(fit_ams);   
+ 
+			//fe->AddElementFlux_Ave(f_fit[k], A[k]); 
+			fe_p->AddElementFlux_Ave(f_fit[k], A[k]); 
+			fe_he->AddElementFlux_Ave(f_fit[k], A[k]);
+			fe_above->AddElementFlux_Ave(f_fit[k], A[k]); 
+			// if (i==nBRs-1) HistTools::PrintFunction(fit_ams);   
 		} 
 
-		fe->SetProtonFlux(f_BR_p[i]); 
-		fe->AddElementFlux(f_BR_he[i], A[1]); 
+		TF1 *f0 = new TF1("f0", "0", 0.1, 3e3);  
 
-		TF1 *f = fe->GetTF1Pointer(); 
+		fe_p->SetProtonFlux(f_BR_p[i]); 
+		fe_p->AddElementFlux(f0, A[1]);
+
+		fe_he->SetProtonFlux(f0); 
+		fe_he->AddElementFlux(f_BR_he[i], A[1]);
+
+		fe_above->SetProtonFlux(f0); 
+		fe_above->SetHeliumFluxReplicate(f_BR_he[i]); 
+		fe_above->AddElementFlux(f0, A[1]);
+
+		TF1 *f;
+		if (!strcmp(option2, "p")) f = fe_p->GetTF1Pointer();
+		if (!strcmp(option2, "He")) f = fe_he->GetTF1Pointer();
+		if (!strcmp(option2, "above")) f = fe_above->GetTF1Pointer();		
+ 
+/*
 		if (i==nBRs-1){
 			c3->cd(1);
 			gPad->SetLogx();
@@ -860,6 +1025,7 @@ TGraph *nm_reproduce2(const char *NM){
 			f_RP->Draw(); 
 		}
 		// fe->Print(); 
+*/
 
 		double l_max = 1e4; 
 		double f_check = 0.; 
@@ -868,19 +1034,19 @@ TGraph *nm_reproduce2(const char *NM){
 		for (int k=0; k<10; k++){ 
 		
 			f_check += f->Integral(bl[k], bl[k+1]);  
-			if (i==0) printf("k = %d, lower limit = %4.1f, upper limit = %4.1f, f = %10.4f \n", k, bl[k], bl[k+1], f->Integral(R_cutoff, bl[k]));  
+			// if (i==0) printf("k = %d, lower limit = %4.1f, upper limit = %4.1f, f = %10.4f \n", k, bl[k], bl[k+1], f->Integral(R_cutoff, bl[k]));  
 				 
 		}		
 
-		// printf("Time = %d, N_t = %10.4f,  f/f_check = %10.4f (good if =1) \n", UBRToTime(i+2426), f->Integral(0.1, l_max), f->Integral(0.1, l_max)/f_check); 
+		// printf("Time = %d, N_t = %10.4f,  f/f_check = %10.4f (good if =1) \n", UBRToTime(i+2426), f->Integral(0.1, l_max), f->Integral(0.1, l_max)/f_check);   
 
-		N_t->SetPoint(i, UBRToTime(i+2426), f->Integral(R_cutoff, l_max)); // this internally makes a loop in the range Rmin to Rmax, and calls FunctorExample::operator() at every step, computing the integral as the sum of all the steps  
+		N_t->SetPoint(i, UBRToTime(i+2426), n_tubes*f->Integral(R_cutoff, l_max)); // this internally makes a loop in the range Rmin to Rmax, and calls FunctorExample::operator() at every step, computing the integral as the sum of all the steps  
 
 		// break; 
 
 	} 
 
-	c3->Print("data/nm/reproduce/ratio_heavier_helium.png"); 
+	// c3->Print("data/nm/reproduce/ratio_heavier_helium.png"); 
 
 	// PRINT_GRAPH(N_t); 
 
@@ -900,7 +1066,7 @@ TGraph *nm_reproduce2(const char *NM){
 	N_t->Draw("APL"); 
 	legend2->Draw("SAME"); 
 
-	c1->Print(Form("data/nm/reproduce/estimated_nm_count_%s.png", NM)); 
+	// c1->Print(Form("data/nm/reproduce/estimated_nm_count_%s.png", NM)); 
 
 	for (int i=0; i<nBRs; i++){
 
@@ -911,7 +1077,7 @@ TGraph *nm_reproduce2(const char *NM){
 
 		k_sf->SetPoint(i, UBRToTime(i+2426), y1/y2); 
 
-		printf("iBR = %d, N_nm(t)=%10.4f, N(t)=%10.4f, k_sf=%10.4f \n", i, y2, y1, y1/y2); 
+		// printf("iBR = %d, N_nm(t)=%10.4f, N(t)=%10.4f, k_sf=%10.4f \n", i, y2, y1, y1/y2); 
 	}
 
 	double sum_k = 0., average_k = 0.;  
@@ -942,7 +1108,9 @@ TGraph *nm_reproduce2(const char *NM){
 
 	// c2->Print(Form("data/nm/reproduce/estimated_nm_k_%s.png", NM)); 
 
-	return k_norm; 
+	if (!strcmp(option1, "k_norm")) return k_norm; 
+	if (!strcmp(option1, "k_sf")) return k_sf; 
+	if (!strcmp(option1, "N_t")) return N_t;  
 }
 
 // Return ratio heavier/helium
@@ -1031,7 +1199,7 @@ TH1 *heavier_he(){
 			J_sum->AddBinContent(j, (1.746*A[7]/4.)*(flux/J_int[1]->GetBinContent(j))); 
 		}
 
-	J_sum->Print("range"); 
+	// J_sum->Print("range"); 
 
 	TCanvas *c1 = new TCanvas("c1", "NM", 2700, 900); 
 	// c1->Divide(1, 3);
@@ -1049,7 +1217,7 @@ TH1 *heavier_he(){
 	J_sum->SetYTitle("ratio heavier/helium"); 
 	J_sum->Draw("P"); 
 
-	c1->Print("data/nm/reproduce/ratio_heavier_helium.png"); 
+	// c1->Print("data/nm/reproduce/ratio_heavier_helium.png"); 
 
 	return J_sum; 
 }
@@ -1417,7 +1585,7 @@ TGraphErrors *get_k_sf_ratio( TGraphErrors *k_sf1, TGraphErrors *k_sf2 ){
 
 	for (int iBR=0; iBR<nBRs; iBR++){
 
-		Double_t x1=0, y1=0, // Mine 
+		Double_t x1=0, y1=0, // Ling's 
 			 x2=0, y2=0; // Koldob 		
 		
 		k_sf1->GetPoint(iBR, x1, y1); 
@@ -1439,4 +1607,41 @@ TGraphErrors *get_k_sf_ratio( TGraphErrors *k_sf1, TGraphErrors *k_sf2 ){
 	return k_sf_ratio; 	
 } 
 
+double get_k_BR_mean(TGraph *k_sf, const char *option){
 
+	double mean = 0, std = 0;
+
+	for (int iBR=0; iBR<nBRs; iBR++){
+	
+		Double_t x=0, y=0; 
+
+		k_sf->GetPoint(iBR, x, y);
+		mean += y; 
+
+	} 
+	
+	mean = mean/nBRs; 
+
+	for (int iBR=0; iBR<nBRs; iBR++){
+
+		Double_t x=0, y=0; 
+
+		k_sf->GetPoint(iBR, x, y);
+		std += pow((y-mean), 2);	
+
+	}
+
+	std = std/(nBRs-1); 	
+	std = sqrt(std/nBRs);
+
+	if (!strcmp(option, "mean")) return mean; 
+	if (!strcmp(option, "std")) return std; 
+}
+
+int get_NM_tubes(const char *NM){
+
+	for (int i=0; i<nNMs_Koldob; i++){
+		if (!strcmp(NM, Form("%s", NM_Koldob[i]))) return NM_tubes[i];
+	}
+
+}

@@ -16,7 +16,7 @@ FunctorExample::FunctorExample() :
 // explicit constructor
 FunctorExample::FunctorExample(const Char_t *Name, Double_t XMin, Double_t XMax, TF1 *fyp, TF1 *fyHe) :
    _func(NULL), _fyp(fyp), _fyHe(fyHe), 
-   _flux_p(NULL)
+   _flux_p(NULL), _flux_He(NULL) 
 {
    _nparsp = fyp->GetNpar();
    _nparsHe = fyHe->GetNpar();
@@ -85,7 +85,9 @@ Double_t FunctorExample::operator()(Double_t *x, Double_t *par)
    Double_t f = _flux_p->Eval(xx)*_fyp->Eval(xx); 
    for (int i = 0; i < _A.size(); ++i)
    {
-      f += _flux_elem[i]->Eval(xx)*_fyHe->Eval(xx)*(1.+R_sum); 
+        if (f!=0 && _flux_elem[i]->Eval(xx)!=0) f += _flux_elem[i]->Eval(xx)*_fyHe->Eval(xx)*(1.+R_sum); 
+	if (f==0 && _flux_elem[i]->Eval(xx)!=0) f += _flux_elem[i]->Eval(xx)*_fyHe->Eval(xx); 
+	if (f==0 && _flux_elem[i]->Eval(xx)==0) f += _flux_He->Eval(xx)*_fyHe->Eval(xx)*R_sum; 
    } 
 
    return f;
