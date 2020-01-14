@@ -190,7 +190,12 @@ double *get_EMed(const char *element);
 double *get_kin_bins(const char *element);
 double *get_spall_corr(const char *element);
 double *get_spall_corr_unc(const char *element);
-void ace_fill(const char *element, Particle::Type isotope); // fill ACE/CRIS data into root histograms then save 
+const char *get_template(const char *element); 
+TGraph *get_norm_graph(TGraph *g); 
+
+void ace_fill(const char *element, Particle::Type isotope); // fill ACE/CRIS data into root histograms, then convert to GV/m^2 and save 
+void ace_rescale_BR(const char *element, Particle::Type isotope); // rescale ACE BR points to the level of ACE BR Average
+
 void ace_all_average(); // plot averaged flux over energy bins for all elements
 void ace_convert(const char *element, Particle::Type isotope); // convert h_ene into h_rig and also plot flux and normalized flux over time
 void ace_fitboth(int nnodes); // fit ACE&AMS combined data 
@@ -238,34 +243,56 @@ void ace_auto(const char *operation){
 	
 	if (strcmp(operation, "fill") == 0){
 
-		gROOT->ProcessLine(".> data/ACE/fill/fill_all.txt"); 
-	
-		ace_fill( "B", Particle::BORON11 );
-		ace_fill( "C", Particle::CARBON12 );
-		ace_fill( "N", Particle::NITROGEN15 );
-		ace_fill( "O", Particle::OXYGEN16 );
-		ace_fill( "F", Particle::FLUORINE19 );
-		ace_fill( "Ne", Particle::NEON20 );
-		ace_fill( "Na", Particle::SODIUM23 );
-		ace_fill( "Mg", Particle::MAGNESIUM24 );
-		ace_fill( "Al", Particle::ALUMINUM27 );
-		ace_fill( "Si", Particle::SILICON28 );
-		ace_fill( "P", Particle::PHOSPHORUS31 );
-		ace_fill( "S", Particle::SULFUR32 );
-		ace_fill( "Cl", Particle::CHLORINE35 );
-		ace_fill( "Ar", Particle::ARGON36 );
-		ace_fill( "K", Particle::POTASSIUM41 );
-		ace_fill( "Ca", Particle::CALCIUM40 );
-		ace_fill( "Sc", Particle::SCANDIUM45 );
-		ace_fill( "Ti", Particle::TITANIUM46 );
-		ace_fill( "Va", Particle::VANADIUM51 );
-		ace_fill( "Cr", Particle::CHROMIUM52 );
-		ace_fill( "Mn", Particle::MANGANESE55 );
-		ace_fill( "Fe", Particle::IRON56 );
-		ace_fill( "Co", Particle::COBALT59 );
-		ace_fill( "Ni", Particle::NICKEL60 );
+		// gROOT->ProcessLine(".> data/ACE/fill/fill_all.txt"); 
 
-		gROOT->ProcessLine(".> ");
+		for (int i=0; i<4;i++){
+			ace_fill( ACE_Element[i], ACE_Isotope[i] );
+		}
+
+		TCanvas *c0 = new TCanvas("c0", "Time-dependent Rescaling Factor", 1800, 900);
+		c0->cd(1);  
+
+		for (int i=4; i<n_ele-4;i++){	
+
+			ace_rescale_BR( ACE_Element[i], ACE_Isotope[i] ); 
+		}
+
+		TLegend *legend = new TLegend(0.1,0.6,0.28,0.9); 
+
+		for (int i=4; i<n_ele-4;i++){	
+
+			TGraph *g_ratio_ave = new TGraph(Form("./data/ACE/fill/rescaling_factor_%s.dat", ACE_Element[i])); 
+			HistTools::SetStyle(g_ratio_ave, HistTools::GetColorPalette(i, n_ele-4), kFullCircle, 0.65, 1, 1); 
+
+			TGraph *g_ratio_ave_norm = get_norm_graph(g_ratio_ave); 
+
+			// g_ratio_ave->Print("range"); 
+
+			g_ratio_ave_norm->GetYaxis()->SetRangeUser(0.007, 2.5); 
+			g_ratio_ave_norm->SetTitle("Normalized Time-dependent Rescaling Factor; ; "); 
+
+			g_ratio_ave_norm->GetXaxis()->SetTimeDisplay(1);
+			g_ratio_ave_norm->GetXaxis()->SetTimeFormat("%Y-%m");
+			g_ratio_ave_norm->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+			g_ratio_ave_norm->GetXaxis()->SetTitleSize(0.7);
+
+			legend->AddEntry(g_ratio_ave_norm, Form("%s", ACE_Element[i]), "pl");
+			legend->SetNColumns(3); 
+
+			if (i==4){ 
+				gPad->SetGrid();
+				g_ratio_ave_norm->Draw("APL");
+				legend->Draw("SAME");  
+			}
+			if (i>4){
+				gPad->SetGrid();
+				g_ratio_ave_norm->Draw("PLSAME");
+				legend->Draw("SAME"); 
+			} 
+		}
+		
+		c0->Print("./data/ACE/fill/time_dependent_rescaling_factor.png");  
+		// gROOT->ProcessLine(".> ");
 
 	} else if (strcmp(operation, "convert") == 0){
 
@@ -330,7 +357,7 @@ void ace_auto(const char *operation){
 
 } 
 
-//Fill CRIS Data into Bins
+// Fill CRIS Data into Bins
 void ace_fill(const char *element, Particle::Type isotope){
 
 	double *kin_bins = get_kin_bins(element);
@@ -339,7 +366,7 @@ void ace_fill(const char *element, Particle::Type isotope){
 	double *EMed = get_EMed(element);
 
 	gSystem->mkdir("data/ACE/fill", true);
-		
+	
 	TFile *_file0 = new TFile(Form("data/ACE/%s_97226_18359.root", element));
 	TTree *ace=(TTree*)_file0->Get("ace");
 	
@@ -359,32 +386,204 @@ void ace_fill(const char *element, Particle::Type isotope){
 	// fill the bins for each BR 
 	for (int k=0; k<ace->GetEntries(); k++){
 
-		TH1F *h = new TH1F("h","", 13, kin_bins);
-			
+		TH1F *h_ene = new TH1F("h_ene","", 13, kin_bins);		
+
 		ace->GetEntry(k); //Get the nth entry of TTree!! 						
 
-		for (int i=0; i<h->GetNbinsX(); ++i) { 
+		for (int i=0; i<h_ene->GetNbinsX(); ++i) { 
 			if (i%2==0) { 
 				double sys_err = F[i/2] * sqrt(8e-4 + SpallCorrUnc[i/2]*SpallCorrUnc[i/2]/SpallCorr[i/2]/SpallCorr[i/2]);
 				double stat_err = F[i/2]/sqrt(C[i/2]); 
 				double tot_err = sqrt(stat_err*stat_err + sys_err*sys_err);
-				h->SetBinContent(i+1, F[i/2]); 
+				h_ene->SetBinContent(i+1, F[i/2]); 
 
 				if (C[i/2]!=0){
-					h->SetBinError(i+1, tot_err); 
+					h_ene->SetBinError(i+1, tot_err); 
 				} else if (C[i/2]==0){
 					continue;
 				}
 			} 
 		}
 
-		h->SetMarkerStyle(kFullCircle);
-		//HistTools::SetColors(h, 290, kFullCircle, 1.4);
+		h_ene->SetMarkerStyle(kFullCircle);
+		//HistTools::SetColors(h_ene, 290, kFullCircle, 1.4);
 		gPad->SetGrid(); 
-		h->SetTitle(Form("%s BR-%d Energy Spectrum; Energy (MeV/nuc); Flux (/(cm^2 sr s)(MeV/nuc)", element, UTimeToBR(utime)));
-		//h->Draw("PSAME"); 
+		h_ene->SetTitle(Form("%s BR-%d Energy Spectrum; Energy (MeV/nuc); Flux (/(cm^2 sr s)(MeV/nuc)", element, UTimeToBR(utime)));
+		//h_ene->Draw("PSAME"); 
 
-		h->Write(Form("h_kin_%s_BR%d", element, UTimeToBR(utime)));
+		TH1 *h_rig = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, isotope, "MeV/n cm", "GV m", "_rig");
+
+		h_rig->SetTitle(Form("%s BR-%d Rigidity Spectrum; ; ", element, UTimeToBR(utime)));
+		h_rig->SetXTitle(Unit::GetEnergyLabel("GV"));
+  		h_rig->SetYTitle(Unit::GetDifferentialFluxLabel("GV m"));
+
+		h_ene->Write(Form("h_kin_%s_BR%d", element, UTimeToBR(utime)));
+		h_rig->Write(Form("h_rig_%s_BR%d", element, UTimeToBR(utime))); 
+
+	}
+
+	file1.Write();
+	file1.Close();
+
+	_file0->Close();
+
+}
+
+// & Rescale ACE BR points to the level of ACE BR Average (for convinience, I just merge these functions) 
+void ace_rescale_BR(const char *element, Particle::Type isotope){
+
+	double *kin_bins = get_kin_bins(element);
+        double *SpallCorr = get_spall_corr(element);
+	double *SpallCorrUnc = get_spall_corr_unc(element);
+	double *EMed = get_EMed(element);
+
+	int nnodes = 7;
+
+	TFile *file = new TFile(Form("data/ACE/compare/fit_%s_%dnodes.root", get_template(element), nnodes)); 
+
+	gSystem->mkdir("data/ACE/fill", true);
+	
+	TFile *_file0 = new TFile(Form("data/ACE/%s_97226_18359.root", element));
+	TTree *ace=(TTree*)_file0->Get("ace");
+	
+	float F[7], C[7]; // must be initialized 
+	Long64_t utime;
+	Float_t livetime;
+	
+	ace->SetBranchAddress("F", F);
+	ace->SetBranchAddress("C", C);
+	ace->SetBranchAddress("start_utime", &utime);	
+	ace->SetBranchAddress("livetime", &livetime);		
+
+	TFile file1(Form("data/ACE/fill/%s_fill.root", element), "RECREATE");
+
+	TCanvas *c0 = new TCanvas("c0", "", 800, 600);
+	c0->cd(1);
+	// fill the bins for each BR 
+
+	TGraph *g_ratio_time[7]; 
+
+	for (int i=0; i<7; i++){
+		g_ratio_time[i] = new TGraph(); 
+	}
+
+	gROOT->ProcessLine(Form(".> data/ACE/fill/rescaling_factor_%s.dat", element)); 
+
+	for (int k=0; k<ace->GetEntries(); k++){
+
+		TH1F *h_ene = new TH1F("h_ene","", 13, kin_bins);		
+
+		ace->GetEntry(k); //Get the nth entry of TTree!! 						
+
+		for (int i=0; i<h_ene->GetNbinsX(); ++i) { 
+			if (i%2==0) { 
+				double sys_err = F[i/2] * sqrt(8e-4 + SpallCorrUnc[i/2]*SpallCorrUnc[i/2]/SpallCorr[i/2]/SpallCorr[i/2]);
+				double stat_err = F[i/2]/sqrt(C[i/2]); 
+				double tot_err = sqrt(stat_err*stat_err + sys_err*sys_err);
+				h_ene->SetBinContent(i+1, F[i/2]); 
+
+				if (C[i/2]!=0){
+					h_ene->SetBinError(i+1, tot_err); 
+				} else if (C[i/2]==0){
+					continue;
+				}
+			} 
+		}
+
+		h_ene->SetMarkerStyle(kFullCircle);
+		//HistTools::SetColors(h_ene, 290, kFullCircle, 1.4);
+		gPad->SetGrid(); 
+		h_ene->SetTitle(Form("%s BR-%d Energy Spectrum; Energy (MeV/nuc); Flux (/(cm^2 sr s)(MeV/nuc)", element, UTimeToBR(utime)));
+		//h_ene->Draw("PSAME"); 
+
+		TH1 *h_rig = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, isotope, "MeV/n cm", "GV m", "_rig");
+
+		h_rig->SetTitle(Form("%s BR-%d Rigidity Spectrum; ; ", element, UTimeToBR(utime)));
+		h_rig->SetXTitle(Unit::GetEnergyLabel("GV"));
+  		h_rig->SetYTitle(Unit::GetDifferentialFluxLabel("GV m"));
+
+		h_ene->Write(Form("h_kin_%s_BR%d", element, UTimeToBR(utime)));
+		h_rig->Write(Form("h_rig_%s_BR%d", element, UTimeToBR(utime))); 
+
+		// rescale ACE BR to ACE Averaged Magnitude 
+		Spline *sp_comb = new Spline("sp_comb", nnodes, Spline::LogLog | Spline::PowerLaw);
+		TF1 *fsp_comb = sp_comb->GetTF1Pointer();  
+		TF1 *fit_comb = (TF1*) file->Get("fit_both");
+
+		HistTools::CopyParameters(fit_comb, fsp_comb); // error 
+		double x1, x2;
+		fit_comb->GetRange(x1,x2);
+		fsp_comb->SetRange(x1,x2);		
+
+		TH1 *h_ratio = (TH1 *) h_rig->Clone("h_ratio");
+
+		h_ratio->Divide(fit_comb);
+
+		HistTools::SetStyle(h_ratio, kRed, kFullCircle, 0.9, 1, 1);
+
+		double ratio_sum=0; // compute average of h_ratio manually  
+		for(int nbin=0;nbin<14;nbin++){
+			ratio_sum += h_ratio->GetBinContent(nbin);
+			//printf("ratio_sum = %0.6f \n", ratio_sum);
+		}
+		double ratio_ave = ratio_sum/7;
+
+		printf("%d %0.6f \n", (UInt_t) utime, ratio_ave);
+		//HistTools::PrintFunction(fit_comb);
+			
+		double scale = 1./ratio_ave;
+		h_ratio->Scale(scale);	
+
+		// h_ratio->Print("range"); 
+		for (int nbin=0; nbin<h_ratio->GetNbinsX(); nbin++){
+			if (nbin%2==0) g_ratio_time[nbin/2]->SetPoint(k, (UInt_t) utime, h_ratio->GetBinContent(nbin+1) ); 
+		}
+		
+		h_ratio->Write(Form("h_ratio_%s_BR%d", element, UTimeToBR(utime))); 
+
+	}
+
+	gROOT->ProcessLine(".> "); 
+
+	// gStyle->SetPalette(109); 
+
+	TCanvas *c[7];
+
+	const UInt_t FirstACEBR = 2240;
+	vector<UInt_t> BRs;
+	// we stop at BR 2493, which ends on 2016/05/23, just 3 days before the end of the data taking period for AMS nuclei
+	for (UInt_t br=2426; br<=2493; ++br) { 
+		if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
+	}
+
+	TH1D *h_ene = HistTools::GraphToHist( get_ace_average_graph( element, &BRs[0], BRs.size()), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
+	TH1 *h_ave = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, isotope, "MeV/n cm", "GV m", "_rig");
+
+	for (int i=0; i<7; i++){
+
+		c[i] = new TCanvas("c1", "", 800, 600);
+		c[i]->cd(1);
+
+		// TLegend *legend = new TLegend(0.1,0.8,0.28,0.9);
+
+		HistTools::SetStyle(g_ratio_time[i], HistTools::GetColorPalette(i, 7), kFullCircle, 0.8, 1, 1); 
+		g_ratio_time[i]->GetXaxis()->SetTimeDisplay(1);
+		g_ratio_time[i]->GetXaxis()->SetTimeFormat("%Y-%m");
+		g_ratio_time[i]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+		g_ratio_time[i]->GetXaxis()->SetTitleSize(0.7); 
+
+		g_ratio_time[i]->SetTitle(Form(" ; ; Ratio of ACE %s Flux and %s Model (%0.4f GV)", element, get_template(element), h_ave->GetBinLowEdge(i*2))); 
+
+		// legend->AddEntry(g_ratio_time[i], Form("%0.4f GV", h_ave->GetBinLowEdge(i*2)), "p"); 
+
+		gPad->SetGrid();
+		g_ratio_time[i]->Draw("APL");
+
+		// legend->Draw("SAME"); 
+		
+		if (i==0) c[i]->Print(Form("./data/ACE/fill/ratio_%s_flux_model.pdf(", element), "pdf"); 
+		if (i>0 && i<6) c[i]->Print(Form("./data/ACE/fill/ratio_%s_flux_model.pdf", element), "pdf"); 
+		if (i==6) c[i]->Print(Form("./data/ACE/fill/ratio_%s_flux_model.pdf)", element), "pdf"); 
 	}
 
 	file1.Write();
@@ -619,6 +818,8 @@ void ace_convert(const char *element, Particle::Type isotope){
 			}
 		}
 	} 
+
+	c3->Print(Form("./data/ACE/convert/fluxtime/h_fluxtime_%s_all.png", element));	
 
 	// plot normalized flux_time 
 	TCanvas *c4 = new TCanvas("c4","",800,600);
@@ -2429,7 +2630,7 @@ void ace_extend5(int temp){
 		int nnodes = 9; 
 
 		int nnodes_ams = 6; 
-		int nnodes_ace = 7; 
+		int nnodes_ace = 7;  
 
 		TH1 *ha = HistTools::CreateAxis("ha", "haxis1", 0.1, 2500., 7, 1e-10, 1e3, false); 
 		ha->SetXTitle(Unit::GetEnergyLabel("GV"));
@@ -3903,6 +4104,8 @@ TH1 *ace_contribute(int temp, const char *option){
 
 		h_contribute_ratio[i]->Write(Form("h_contribute_ratio_%s", Element[i]));
 		h_contribute_mw_ratio[i]->Write(Form("h_contribute_mw_ratio_%s", Element[i]));   
+
+		f_fit[i]->Write(Form("fit_%s", Element[i])); 
 		
 	} 
 
@@ -3994,13 +4197,14 @@ void ace_contribute2(){
 
 	//printf("R1 = %f, R2 = %f \n", R1, R2); 
 
-	gStyle->SetOptStat(0); 
+	gStyle->SetOptStat(0);
+	//gStyle->SetPalette(109); 
 
 	TF1 *f_fit[n_total];
 	
 	//gPad->SetLogx();
 	//gPad->SetLogy();
-	gPad->SetGrid();
+	//gPad->SetGrid();
 
 	// Sum up the Total Cosmic Ray Flux 
 	// p, He, Li, Be
@@ -4085,6 +4289,8 @@ void ace_contribute2(){
 		double ratio_ave = ratio_sum/7; 
 	
 		f_fit[j] = HistTools::CombineTF1Const(f_fit[j], ratio_ave, HistTools::MultiplyConst, "f_fit", R1, R2); 
+
+// ####
 
 	}
 
@@ -4459,6 +4665,8 @@ void ace_contribute2(){
 
 		h_contribute_ratio[i]->Write(Form("h_contribute_ratio_%s", Element[i]));
 		h_contribute_mw_ratio[i]->Write(Form("h_contribute_mw_ratio_%s", Element[i]));   
+
+		f_fit[i]->Write(Form("fit_%s", Element[i])); 
 		
 	} 
 
@@ -4577,7 +4785,7 @@ TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_
    ace->SetBranchAddress("start_utime", &utime);	
    ace->SetBranchAddress("livetime", &livetime);
 
-   const UShort_t nbins = 7;
+   const UShort_t nbins = 7; 
    TGraphAsymmErrors *graph = new TGraphAsymmErrors(nbins); 
 
    for (UShort_t ibin = 0; ibin < nbins; ++ibin)
@@ -4851,4 +5059,41 @@ double *get_EMed(const char *element)
    else if (!strcmp(element, "Fe")) return EMed_Fe;
    else if (!strcmp(element, "Co")) return EMed_Co;
    else if (!strcmp(element, "Ni")) return EMed_Ni;
+}
+
+const char *get_template(const char *element){
+
+	for (int i=0; i<n_total; i++){
+		if (!strcmp(element, Form("%s", Element[i]))) return ACE_Element[i_temp[i]];
+	}
+
+}
+
+TGraph *get_norm_graph(TGraph *g){
+
+	double ave=0, sum=0; 
+
+	for (int i=0; i<g->GetN(); i++){
+
+		Double_t x=0, y=0; 
+		g->GetPoint(i, x, y); 
+		sum += y; 
+	} 
+
+	ave = sum/g->GetN(); 
+
+	TGraph *g_norm = new TGraph(); 
+
+	for (int i=0; i<g->GetN(); i++){
+
+		Double_t x=0, y=0; 
+		g->GetPoint(i, x, y); 
+
+		g_norm->SetPoint(i, x, y/ave); 
+
+	} 
+
+	HistTools::CopyStyle(g, g_norm); 
+
+	return g_norm; 
 }
