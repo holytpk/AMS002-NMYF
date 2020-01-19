@@ -245,24 +245,24 @@ void ace_auto(const char *operation){
 
 		// gROOT->ProcessLine(".> data/ACE/fill/fill_all.txt"); 
 
-		for (int i=0; i<4;i++){
-			ace_fill( ACE_Element[i], ACE_Isotope[i] );
-		}
+		// for (int i=0; i<4;i++){
+		//	ace_fill( ACE_Element[i], ACE_Isotope[i] );
+		// }
 
 		TCanvas *c0 = new TCanvas("c0", "Time-dependent Rescaling Factor", 1800, 900);
 		c0->cd(1);  
 
-		for (int i=4; i<n_ele-4;i++){	
+		for (int i=0; i<n_ele; ++i){	
 
 			ace_rescale_BR( ACE_Element[i], ACE_Isotope[i] ); 
 		}
 
 		TLegend *legend = new TLegend(0.1,0.6,0.28,0.9); 
 
-		for (int i=4; i<n_ele-4;i++){	
+		for (int i=0; i<n_ele; ++i){	
 
 			TGraph *g_ratio_ave = new TGraph(Form("./data/ACE/fill/rescaling_factor_%s.dat", ACE_Element[i])); 
-			HistTools::SetStyle(g_ratio_ave, HistTools::GetColorPalette(i, n_ele-4), kFullCircle, 0.65, 1, 1); 
+			HistTools::SetStyle(g_ratio_ave, HistTools::GetColorPalette(i, n_ele), kFullCircle, 0.65, 1, 1); 
 
 			TGraph *g_ratio_ave_norm = get_norm_graph(g_ratio_ave); 
 
@@ -281,7 +281,7 @@ void ace_auto(const char *operation){
 
 			if (i==4){ 
 				gPad->SetGrid();
-				g_ratio_ave_norm->Draw("APL");
+				g_ratio_ave_norm->Draw("APL"); 
 				legend->Draw("SAME");  
 			}
 			if (i>4){
@@ -384,7 +384,7 @@ void ace_fill(const char *element, Particle::Type isotope){
 	TCanvas *c0 = new TCanvas("c0", "", 800, 600);
 	c0->cd(1);
 	// fill the bins for each BR 
-	for (int k=0; k<ace->GetEntries(); k++){
+	for (int k=0; k<ace->GetEntries(); ++k){
 
 		TH1F *h_ene = new TH1F("h_ene","", 13, kin_bins);		
 
@@ -432,10 +432,31 @@ void ace_fill(const char *element, Particle::Type isotope){
 // & Rescale ACE BR points to the level of ACE BR Average (for convinience, I just merge these functions) 
 void ace_rescale_BR(const char *element, Particle::Type isotope){
 
+	gStyle->SetOptStat(0);
+
+ 	Experiments::DataPath = "data";	
+   	int data_value[n_ele] = {0, 18, 23, 27, 31, 20, 43, 22}; // p, He, Li, Be, B, C, N, O
+
 	double *kin_bins = get_kin_bins(element);
         double *SpallCorr = get_spall_corr(element);
 	double *SpallCorrUnc = get_spall_corr_unc(element);
 	double *EMed = get_EMed(element);
+
+	const UInt_t FirstACEBR = 2240;
+	vector<UInt_t> BRs;
+	// we stop at BR 2493, which ends on 2016/05/23, just 3 days before the end of the data taking period for AMS nuclei
+	for (UInt_t br=2426; br<=2493; ++br) { 
+		if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
+	}
+
+	TH1 *h_ams = Experiments::GetMeasurementHistogram(Experiments::AMS02, data_value[1], 0); // load AMS data for a given element
+	TH1 *h_ace_ene = HistTools::GraphToHist(get_ace_average_graph( element , &BRs[0], BRs.size() ), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
+	TH1 *h_ace = HistTools::TransformEnergyAndDifferentialFluxNew(h_ace_ene, isotope, "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element, converted in rigidity
+
+	UShort_t namsbins = h_ams->GetNbinsX();
+	UShort_t nacebins = h_ace->GetNbinsX();
+	double R1 = h_ace->GetBinLowEdge(1);
+	double R2 = h_ams->GetBinLowEdge(namsbins+1);
 
 	int nnodes = 7;
 
@@ -461,15 +482,21 @@ void ace_rescale_BR(const char *element, Particle::Type isotope){
 	c0->cd(1);
 	// fill the bins for each BR 
 
+	TH1 *h_a1 = new TH1D("", "", 200, 0, 200); 
+	TH1 *h_a2 = new TH1D("", "", 200, 0, 200); 
+
 	TGraph *g_ratio_time[7]; 
 
-	for (int i=0; i<7; i++){
+	for (int i=0; i<7; ++i){
 		g_ratio_time[i] = new TGraph(); 
 	}
 
 	gROOT->ProcessLine(Form(".> data/ACE/fill/rescaling_factor_%s.dat", element)); 
 
-	for (int k=0; k<ace->GetEntries(); k++){
+	TCanvas *c1 = new TCanvas("c1", "", 1600, 900); 
+	c1->Divide(1, 2);  
+
+	for (int k=0; k<ace->GetEntries(); ++k){
 
 		TH1F *h_ene = new TH1F("h_ene","", 13, kin_bins);		
 
@@ -491,7 +518,6 @@ void ace_rescale_BR(const char *element, Particle::Type isotope){
 		}
 
 		h_ene->SetMarkerStyle(kFullCircle);
-		//HistTools::SetColors(h_ene, 290, kFullCircle, 1.4);
 		gPad->SetGrid(); 
 		h_ene->SetTitle(Form("%s BR-%d Energy Spectrum; Energy (MeV/nuc); Flux (/(cm^2 sr s)(MeV/nuc)", element, UTimeToBR(utime)));
 		//h_ene->Draw("PSAME"); 
@@ -508,21 +534,33 @@ void ace_rescale_BR(const char *element, Particle::Type isotope){
 		// rescale ACE BR to ACE Averaged Magnitude 
 		Spline *sp_comb = new Spline("sp_comb", nnodes, Spline::LogLog | Spline::PowerLaw);
 		TF1 *fsp_comb = sp_comb->GetTF1Pointer();  
-		TF1 *fit_comb = (TF1*) file->Get("fit_both");
+		TF1 *fit_comb = (TF1*) file->Get("fit_both"); 
 
 		HistTools::CopyParameters(fit_comb, fsp_comb); // error 
 		double x1, x2;
 		fit_comb->GetRange(x1,x2);
-		fsp_comb->SetRange(x1,x2);		
+		fsp_comb->SetRange(x1,x2);
+
+		double *nodes = sp_comb->GetXNodes(); 
+
+		TLine *l1 = new TLine( nodes[0], 0, nodes[0], h_rig->GetMaximum()*2); 
+		TLine *l2 = new TLine( nodes[1], 0, nodes[1], h_rig->GetMaximum()*2); 
+
+		TLegend *legend = new TLegend(0.62,0.8,0.9,0.9); 
+
+		l1->SetLineColor(kGreen-3);
+		l2->SetLineColor(kGreen-3);
+		l1->SetLineStyle(2);
+		l2->SetLineStyle(2); 		
 
 		TH1 *h_ratio = (TH1 *) h_rig->Clone("h_ratio");
 
-		h_ratio->Divide(fit_comb);
+		h_ratio->Divide(fsp_comb);
 
 		HistTools::SetStyle(h_ratio, kRed, kFullCircle, 0.9, 1, 1);
 
 		double ratio_sum=0; // compute average of h_ratio manually  
-		for(int nbin=0;nbin<14;nbin++){
+		for(int nbin=0;nbin<14;++nbin){
 			ratio_sum += h_ratio->GetBinContent(nbin);
 			//printf("ratio_sum = %0.6f \n", ratio_sum);
 		}
@@ -534,11 +572,57 @@ void ace_rescale_BR(const char *element, Particle::Type isotope){
 		double scale = 1./ratio_ave;
 		h_ratio->Scale(scale);	
 
+		TF1 *rescaled_fit = HistTools::CombineTF1Const(fsp_comb, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", R1, R2); 
+
 		// h_ratio->Print("range"); 
-		for (int nbin=0; nbin<h_ratio->GetNbinsX(); nbin++){
+		for (int nbin=0; nbin<h_ratio->GetNbinsX(); ++nbin){
 			if (nbin%2==0) g_ratio_time[nbin/2]->SetPoint(k, (UInt_t) utime, h_ratio->GetBinContent(nbin+1) ); 
 		}
 		
+		c1->cd(1);
+		gPad->SetGrid(); 
+		//gPad->SetLogy();	
+
+		h_a1->SetTitle(Form("%s BR-%d Rigidity Spectrum; ; ", element, UTimeToBR(utime)));
+		h_a1->SetXTitle(Unit::GetEnergyLabel("GV"));
+  		h_a1->SetYTitle(Unit::GetDifferentialFluxLabel("GV m"));
+
+		h_a1->GetYaxis()->SetRangeUser(h_rig->GetMinimum()*0.5, h_rig->GetMaximum()*2); 
+		h_a1->GetXaxis()->SetRangeUser(0., 3.); 	
+
+		//h_rig->GetYaxis()->SetRangeUser(0.0001, 2.0); 
+		h_rig->GetXaxis()->SetRangeUser(0., 3.);
+
+		legend->AddEntry(rescaled_fit, "rescaled model", "l"); 
+		legend->AddEntry(h_rig, "ACE flux", "p"); 
+	
+		h_a1->Draw("E1X0");  
+		h_rig->Draw("E1X0 SAME"); 
+
+		rescaled_fit->SetRange(0., 3.); 
+		rescaled_fit->Draw("SAME"); 
+		legend->Draw("SAME"); 
+		l1->Draw();
+		l2->Draw();   
+
+		c1->cd(2); 
+		gPad->SetGrid(); 
+
+		h_a2->GetYaxis()->SetRangeUser(0, 2); 
+		h_a2->GetXaxis()->SetRangeUser(0., 3.); 
+
+		h_a2->SetTitle("");
+		h_a2->SetXTitle(Unit::GetEnergyLabel("GV"));
+		h_a2->SetYTitle(Form("%s BR-%d Flux / %s Model", element, UTimeToBR(utime), get_template(element))); 
+		//h_ratio->GetXaxis()->SetRangeUser(0, 3.0); 
+
+		h_a2->Draw("E1X0");
+		h_ratio->Draw("HIST P SAME"); 
+
+		if (k==0) c1->Print(Form("./data/ACE/fill/compare_%s_flux_model.pdf(", element), "pdf"); 
+		if (k>0 && k<ace->GetEntries()) c1->Print(Form("./data/ACE/fill/compare_%s_flux_model.pdf", element), "pdf"); 
+		if (k==ace->GetEntries()-1) c1->Print(Form("./data/ACE/fill/compare_%s_flux_model.pdf)", element), "pdf"); 
+
 		h_ratio->Write(Form("h_ratio_%s_BR%d", element, UTimeToBR(utime))); 
 
 	}
@@ -549,17 +633,10 @@ void ace_rescale_BR(const char *element, Particle::Type isotope){
 
 	TCanvas *c[7];
 
-	const UInt_t FirstACEBR = 2240;
-	vector<UInt_t> BRs;
-	// we stop at BR 2493, which ends on 2016/05/23, just 3 days before the end of the data taking period for AMS nuclei
-	for (UInt_t br=2426; br<=2493; ++br) { 
-		if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
-	}
-
 	TH1D *h_ene = HistTools::GraphToHist( get_ace_average_graph( element, &BRs[0], BRs.size()), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
 	TH1 *h_ave = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, isotope, "MeV/n cm", "GV m", "_rig");
 
-	for (int i=0; i<7; i++){
+	for (int i=0; i<7; ++i){
 
 		c[i] = new TCanvas("c1", "", 800, 600);
 		c[i]->cd(1);
@@ -622,7 +699,7 @@ void ace_all_average(){
    h2->SetXTitle(Unit::GetEnergyLabel("GV"));
    h2->SetYTitle(Unit::GetDifferentialFluxLabel("GV m"));
 
-   for (int i=0; i<n_ele; i++){
+   for (int i=0; i<n_ele; ++i){
 
 	const UInt_t FirstACEBR = 2240;
 	vector<UInt_t> BRs;
