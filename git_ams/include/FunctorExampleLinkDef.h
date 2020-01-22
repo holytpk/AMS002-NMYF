@@ -4,4 +4,5 @@
 #pragma link off all functions;
 
 #pragma link C++ class FunctorExample+;
+#pragma link C++ class NormSpline+;
 #endif
