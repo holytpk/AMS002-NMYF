@@ -191,10 +191,12 @@ double *get_kin_bins(const char *element);
 double *get_spall_corr(const char *element);
 double *get_spall_corr_unc(const char *element);
 const char *get_template(const char *element); 
+int get_ams_data_value(const char *element); 
 TGraph *get_norm_graph(TGraph *g); 
 
 void ace_fill(const char *element, Particle::Type isotope); // fill ACE/CRIS data into root histograms, then convert to GV/m^2 and save 
 void ace_rescale_BR(const char *element, Particle::Type isotope); // rescale ACE BR points to the level of ACE BR Average
+void ace_rescale_BR_averaged(const char *element, Particle::Type isotope); 
 
 void ace_all_average(); // plot averaged flux over energy bins for all elements
 void ace_convert(const char *element, Particle::Type isotope); // convert h_ene into h_rig and also plot flux and normalized flux over time
@@ -213,7 +215,6 @@ void ace_contribution2(); // plot the optimized contribution (proper template fo
 TH1* ace_contribute(int temp, const char *option); // reconstructe ACE fit for all elements through C combined fit template, check the contribution of each element by plotting the ratio of CR Flux/total CR Flux 
 // option "n" - normal total; option "mw" - mass-weighted total.
 void ace_contribute2(); // recompute the total cosmic ray flux with selected template for each element according to its category   
-
 
 TGraphAsymmErrors *get_ace_graph(const char *element, UInt_t iBin, UInt_t nBRs); // flux in Kinetic Energy over time 
 TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_t nBRs); // flux in Kinetic over energy bins 
@@ -252,13 +253,18 @@ void ace_auto(const char *operation){
 		TCanvas *c0 = new TCanvas("c0", "Time-dependent Rescaling Factor", 1800, 900);
 		c0->cd(1);  
 
-		for (int i=0; i<n_ele; ++i){	
-
-			ace_rescale_BR( ACE_Element[i], ACE_Isotope[i] ); 
+		for (int i=0; i<4;i++){
+			ace_rescale_BR_averaged( ACE_Element[i], ACE_Isotope[i] );
 		}
+
+		//for (int i=0; i<n_ele; ++i){	
+
+		//	ace_rescale_BR( ACE_Element[i], ACE_Isotope[i] ); 
+		//}
 
 		TLegend *legend = new TLegend(0.1,0.6,0.28,0.9); 
 
+		/*
 		for (int i=0; i<n_ele; ++i){	
 
 			TGraph *g_ratio_ave = new TGraph(Form("./data/ACE/fill/rescaling_factor_%s.dat", ACE_Element[i])); 
@@ -266,7 +272,7 @@ void ace_auto(const char *operation){
 
 			TGraph *g_ratio_ave_norm = get_norm_graph(g_ratio_ave); 
 
-			// g_ratio_ave->Print("range"); 
+			g_ratio_ave->Print("range"); 
 
 			g_ratio_ave_norm->GetYaxis()->SetRangeUser(0.007, 2.5); 
 			g_ratio_ave_norm->SetTitle("Normalized Time-dependent Rescaling Factor; ; "); 
@@ -291,7 +297,9 @@ void ace_auto(const char *operation){
 			} 
 		}
 		
-		c0->Print("./data/ACE/fill/time_dependent_rescaling_factor.png");  
+		c0->Print("./data/ACE/fill/time_dependent_rescaling_factor.png");
+		*/
+  
 		// gROOT->ProcessLine(".> ");
 
 	} else if (strcmp(operation, "convert") == 0){
@@ -491,7 +499,7 @@ void ace_rescale_BR(const char *element, Particle::Type isotope){
 		g_ratio_time[i] = new TGraph(); 
 	}
 
-	gROOT->ProcessLine(Form(".> data/ACE/fill/rescaling_factor_%s.dat", element)); 
+	// gROOT->ProcessLine(Form(".> data/ACE/fill/rescaling_factor_%s.dat", element)); 
 
 	TCanvas *c1 = new TCanvas("c1", "", 1600, 900); 
 	c1->Divide(1, 2);  
@@ -522,7 +530,17 @@ void ace_rescale_BR(const char *element, Particle::Type isotope){
 		h_ene->SetTitle(Form("%s BR-%d Energy Spectrum; Energy (MeV/nuc); Flux (/(cm^2 sr s)(MeV/nuc)", element, UTimeToBR(utime)));
 		//h_ene->Draw("PSAME"); 
 
-		TH1 *h_rig = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, isotope, "MeV/n cm", "GV m", "_rig");
+		TH1 *h_rig = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, isotope, "MeV/n cm", "GV m", "_rig"); 
+
+		// average of h_rig 
+		double rig_sum=0; // compute average of h_rig manually  
+		for(int nbin=0;nbin<14;++nbin){
+			rig_sum += h_rig->GetBinContent(nbin);
+			//printf("ratio_sum = %0.6f \n", ratio_sum);
+		}
+		double rig_ave = rig_sum/7;
+
+		// printf("rig_ave = %10.4f \n", rig_ave);  
 
 		h_rig->SetTitle(Form("%s BR-%d Rigidity Spectrum; ; ", element, UTimeToBR(utime)));
 		h_rig->SetXTitle(Unit::GetEnergyLabel("GV"));
@@ -541,6 +559,16 @@ void ace_rescale_BR(const char *element, Particle::Type isotope){
 		fit_comb->GetRange(x1,x2);
 		fsp_comb->SetRange(x1,x2);
 
+		// Modify Nodes of The Spline 
+		NormSpline *ns = new NormSpline("f_norm_spline", R1, R2, fsp_comb); // normalized spline with first node and derivative free
+		TF1 *f_norm_spline = ns->GetTF1Pointer();
+		// ns->Print(); 
+		// set initial parameters: average value of current BR ACE flux, same first derivative and first Y node as template
+		f_norm_spline->SetParameters(rig_ave, fsp_comb->GetParameter(0), fsp_comb->GetParameter(8)); // replace 8 with appropriate index of first Y node
+		h_rig->Fit(f_norm_spline, "NQ"); // fit current BR ACE flux
+
+		// f_norm_spline->Print(); 
+
 		double *nodes = sp_comb->GetXNodes(); 
 
 		TLine *l1 = new TLine( nodes[0], 0, nodes[0], h_rig->GetMaximum()*2); 
@@ -555,7 +583,7 @@ void ace_rescale_BR(const char *element, Particle::Type isotope){
 
 		TH1 *h_ratio = (TH1 *) h_rig->Clone("h_ratio");
 
-		h_ratio->Divide(fsp_comb);
+		h_ratio->Divide(f_norm_spline);
 
 		HistTools::SetStyle(h_ratio, kRed, kFullCircle, 0.9, 1, 1);
 
@@ -572,7 +600,9 @@ void ace_rescale_BR(const char *element, Particle::Type isotope){
 		double scale = 1./ratio_ave;
 		h_ratio->Scale(scale);	
 
-		TF1 *rescaled_fit = HistTools::CombineTF1Const(fsp_comb, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", R1, R2); 
+		TF1 *rescaled_fit = HistTools::CombineTF1Const(f_norm_spline, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", R1, R2); 
+
+		rescaled_fit->Print(); 
 
 		// h_ratio->Print("range"); 
 		for (int nbin=0; nbin<h_ratio->GetNbinsX(); ++nbin){
@@ -599,7 +629,7 @@ void ace_rescale_BR(const char *element, Particle::Type isotope){
 		h_a1->Draw("E1X0");  
 		h_rig->Draw("E1X0 SAME"); 
 
-		rescaled_fit->SetRange(0., 3.); 
+		//rescaled_fit->SetRange(0., 3.); 
 		rescaled_fit->Draw("SAME"); 
 		legend->Draw("SAME"); 
 		l1->Draw();
@@ -627,7 +657,7 @@ void ace_rescale_BR(const char *element, Particle::Type isotope){
 
 	}
 
-	gROOT->ProcessLine(".> "); 
+	// gROOT->ProcessLine(".> "); 
 
 	// gStyle->SetPalette(109); 
 
@@ -667,6 +697,222 @@ void ace_rescale_BR(const char *element, Particle::Type isotope){
 	file1.Close();
 
 	_file0->Close();
+
+}
+
+void ace_rescale_BR_averaged(const char *element, Particle::Type isotope){
+
+	gStyle->SetOptStat(0); 
+
+ 	Experiments::DataPath = "data";	
+   	int data_value[n_ele] = {0, 18, 23, 27, 31, 20, 43, 22}; // p, He, Li, Be, B, C, N, O
+
+	double *kin_bins = get_kin_bins(element);
+        double *SpallCorr = get_spall_corr(element);
+	double *SpallCorrUnc = get_spall_corr_unc(element);
+	double *EMed = get_EMed(element);
+
+	const UInt_t FirstACEBR = 2240;
+	vector<UInt_t> BRs;
+	// we stop at BR 2493, which ends on 2016/05/23, just 3 days before the end of the data taking period for AMS nuclei
+	for (UInt_t br=2426; br<=2493; ++br) { 
+		if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
+	}
+
+	TH1 *h_ams = Experiments::GetMeasurementHistogram(Experiments::AMS02, get_ams_data_value(element), 0); // load AMS data for a given element
+	TH1 *h_ene_ave = HistTools::GraphToHist(get_ace_average_graph( element , &BRs[0], BRs.size() ), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
+	TH1 *h_rig_ave = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene_ave, isotope, "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element, converted in rigidity
+	HistTools::SetStyle(h_ams, kBlue, kFullCircle, 1.4, 1, 1);
+	HistTools::SetStyle(h_rig_ave, kBlack, kFullCircle, 1.4, 1, 1);
+
+	UShort_t namsbins = h_ams->GetNbinsX();
+	UShort_t nacebins = h_rig_ave->GetNbinsX();
+	double R1 = h_rig_ave->GetBinLowEdge(1);
+	double R2 = h_ams->GetBinLowEdge(namsbins+1);
+
+	int nnodes = 7;
+
+	TFile *file = new TFile(Form("data/ACE/compare/fit_%s_%dnodes.root", get_template(element), nnodes)); 
+
+	gSystem->mkdir("data/ACE/fill", true);	
+
+	TFile *_file0 = new TFile(Form("data/ACE/%s_97226_18359.root", element));
+	TTree *ace=(TTree*)_file0->Get("ace");
+	
+	float F[7], C[7]; // must be initialized 
+	Long64_t utime;
+	Float_t livetime;
+	
+	ace->SetBranchAddress("F", F);
+	ace->SetBranchAddress("C", C);
+	ace->SetBranchAddress("start_utime", &utime);	
+	ace->SetBranchAddress("livetime", &livetime);	
+
+	TCanvas *c0 = new TCanvas("c0", "", 800, 600);
+	c0->cd(1);
+	// fill the bins for each BR 
+
+	TH1 *h_a1 = new TH1D("", "", 200, 0, 200); 
+	TH1 *h_a2 = new TH1D("", "", 200, 0, 200); 
+
+	// gROOT->ProcessLine(Form(".> data/ACE/fill/rescaling_factor_%s.dat", element)); 
+
+	TCanvas *c1 = new TCanvas("c1", "", 1600, 900); 
+	c1->Divide(1, 2);  
+
+	// plot BR-averaged data vs. rescaled template for each BR 
+
+	for (int k=0; k<ace->GetEntries(); ++k){
+
+		TH1F *h_ene = new TH1F("h_ene","", 13, kin_bins);		
+
+		ace->GetEntry(k); //Get the nth entry of TTree!! 						
+
+		for (int i=0; i<h_ene->GetNbinsX(); ++i) { 
+			if (i%2==0) { 
+				double sys_err = F[i/2] * sqrt(8e-4 + SpallCorrUnc[i/2]*SpallCorrUnc[i/2]/SpallCorr[i/2]/SpallCorr[i/2]);
+				double stat_err = F[i/2]/sqrt(C[i/2]); 
+				double tot_err = sqrt(stat_err*stat_err + sys_err*sys_err);
+				h_ene->SetBinContent(i+1, F[i/2]); 
+
+				if (C[i/2]!=0){
+					h_ene->SetBinError(i+1, tot_err); 
+				} else if (C[i/2]==0){
+					continue;
+				}
+			} 
+		}
+
+		TH1 *h_rig = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, isotope, "MeV/n cm", "GV m", "_rig"); 
+		HistTools::SetStyle(h_rig, kPink, kFullCircle, 1.4, 1, 1); 
+
+		// average of h_rig
+		double rig_sum=0; // compute average of h_rig manually  
+		for(int nbin=0;nbin<14;++nbin){
+			rig_sum += h_rig->GetBinContent(nbin);
+			//printf("ratio_sum = %0.6f \n", ratio_sum);
+		}
+		double rig_ave = rig_sum/7;
+
+		// printf("rig_ave = %10.4f \n", rig_ave);  
+
+		h_rig_ave->SetTitle(Form("%s BR-%d Rigidity Spectrum; ; ", element,  UTimeToBR(utime)));
+		h_rig_ave->SetXTitle(Unit::GetEnergyLabel("GV"));
+  		h_rig_ave->SetYTitle(Unit::GetDifferentialFluxLabel("GV m"));
+
+		// rescale ACE BR to ACE Averaged Magnitude 
+		Spline *sp_comb = new Spline("sp_comb", nnodes, Spline::LogLog | Spline::PowerLaw);
+		TF1 *fsp_comb = sp_comb->GetTF1Pointer();  
+		TF1 *fit_comb = (TF1*) file->Get("fit_both"); 
+
+		HistTools::CopyParameters(fit_comb, fsp_comb); // error 
+		double x1, x2;
+		fit_comb->GetRange(x1,x2);
+		fsp_comb->SetRange(x1,x2);
+
+		// Modify Nodes of The Spline 
+		//NormSpline *ns = new NormSpline("f_norm_spline", R1, R2, fsp_comb); // normalized spline with first node and derivative free
+		//TF1 *f_norm_spline = ns->GetTF1Pointer();
+		//ns->Print(); 
+		// set initial parameters: average value of current BR ACE flux, same first derivative and first Y node as template
+		//f_norm_spline->SetParameters(rig_ave, fsp_comb->GetParameter(0), fsp_comb->GetParameter(8)); // replace 8 with appropriate index of first Y node
+		//h_rig->Fit(f_norm_spline, "NQ"); // fit current BR ACE flux
+		//f_norm_spline->Print(); 
+
+		double *nodes = sp_comb->GetXNodes(); 
+
+		TLine *l1 = new TLine( nodes[0], 0, nodes[0], h_rig->GetMaximum()*3); 
+		TLine *l2 = new TLine( nodes[1], 0, nodes[1], h_rig->GetMaximum()*3); 
+
+		TLegend *legend = new TLegend(0.62,0.8,0.9,1.0);
+		TLegend *legend2 = new TLegend(0.62,0.8,0.9,0.9);  
+
+		l1->SetLineColor(kGreen-3);
+		l2->SetLineColor(kGreen-3);
+		l1->SetLineStyle(2);
+		l2->SetLineStyle(2); 		
+
+		TH1 *h_ratio = (TH1 *) h_rig->Clone("h_ratio");
+		TH1 *h_ratio2 = (TH1 *) h_ams->Clone("h_ratio2"); 		
+
+		h_ratio->Divide(fsp_comb); 
+		h_ratio2->Divide(fsp_comb); 
+
+		HistTools::SetStyle(h_ratio, kPink, kFullCircle, 1.4, 1, 1);
+		HistTools::SetStyle(h_ratio2, kBlue, kFullCircle, 1.4, 1, 1);
+
+		double ratio_sum=0; // compute average of h_ratio manually  
+		for(int nbin=0;nbin<14;++nbin){
+			ratio_sum += h_ratio->GetBinContent(nbin);
+			//printf("ratio_sum = %0.6f \n", ratio_sum);
+		}
+		double ratio_ave = ratio_sum/7;
+
+		// printf("%0.6f \n", ratio_ave);
+		//HistTools::PrintFunction(fit_comb);
+			
+		double scale = 1./ratio_ave;
+		h_ratio->Scale(scale);	
+
+		TF1 *rescaled_fit = HistTools::CombineTF1Const(fsp_comb, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", R1, R2); 
+
+		// rescaled_fit->Print(); 
+		
+		c1->cd(1);
+		gPad->SetGrid(); 
+		gPad->SetLogy();	
+
+		h_a1->SetTitle(Form("%s BR-%d Model Rigidity Spectrum; ; ", element, UTimeToBR(utime)));
+		h_a1->SetXTitle(Unit::GetEnergyLabel("GV"));
+  		h_a1->SetYTitle(Unit::GetDifferentialFluxLabel("GV m"));
+
+		h_a1->GetYaxis()->SetRangeUser(0.1, h_rig_ave->GetMaximum()*3); 
+		h_a1->GetXaxis()->SetRangeUser(0., 10.); 	
+
+		//h_rig_ave->GetYaxis()->SetRangeUser(0.0001, 2.0); 
+		h_rig_ave->GetXaxis()->SetRangeUser(0., 10.);
+
+		legend->AddEntry(rescaled_fit, "rescaled template", "l"); 
+		legend->AddEntry(h_rig_ave, "ACE Mean flux", "p"); 
+		legend->AddEntry(h_rig, "ACE BR Flux", "p"); 
+		legend->AddEntry(h_ams, "AMS Integrated flux", "p"); 
+		legend->SetTextSize(0.05); 
+
+		legend2->AddEntry(h_ratio, "ratio wrt ACE BR Flux", "p");
+		legend2->AddEntry(h_ratio2, "ratio wrt Integrated AMS Flux", "p"); 
+	
+		h_a1->Draw("E1X0");  
+		rescaled_fit->SetRange(0., 10.); 
+		rescaled_fit->Draw("SAME"); 
+		h_rig_ave->Draw("E1X0 SAME"); 
+		h_rig->Draw("E1X0 SAME"); 
+		h_ams->Draw("E1X0 SAME"); 
+		legend->Draw("SAME"); 
+		l1->Draw();
+		l2->Draw();   
+
+		c1->cd(2); 
+		gPad->SetGrid(); 
+
+		h_a2->GetYaxis()->SetRangeUser(0.5, 1.5); 
+		h_a2->GetXaxis()->SetRangeUser(0., 10.); 
+
+		h_a2->SetTitle("");
+		h_a2->SetXTitle(Unit::GetEnergyLabel("GV"));
+		h_a2->SetYTitle(Form("%s BR-Averaged Flux / %s Model", element, get_template(element))); 
+		//h_ratio->GetXaxis()->SetRangeUser(0, 3.0); 
+
+		h_a2->Draw("E1X0");
+		h_ratio->Draw("E1X0 SAME"); 
+		// h_ratio2->Draw("E1X0 SAME"); 
+		legend2->Draw("SAME"); 
+
+		if (k==0) c1->Print(Form("./data/ACE/fill/compare2_%s_flux_model.pdf(", element), "pdf"); 
+		if (k>0 && k<ace->GetEntries()) c1->Print(Form("./data/ACE/fill/compare2_%s_flux_model.pdf", element), "pdf"); 
+		if (k==ace->GetEntries()-1) c1->Print(Form("./data/ACE/fill/compare2_%s_flux_model.pdf)", element), "pdf"); 
+	} 
+
+	// gROOT->ProcessLine(".> "); 
 
 }
 
@@ -5143,7 +5389,15 @@ const char *get_template(const char *element){
 	for (int i=0; i<n_total; i++){
 		if (!strcmp(element, Form("%s", Element[i]))) return ACE_Element[i_temp[i]];
 	}
+}
 
+int get_ams_data_value(const char *element){
+
+	int data_value[8] = {0, 18, 23, 27, 31, 20, 43, 22}; // p, He, Li, Be, B, C, N, O 
+
+	for (int i=0; i<8; i++){
+		if (!strcmp(element, Form("%s", Element[i]))) return data_value[i];
+	}
 }
 
 TGraph *get_norm_graph(TGraph *g){
