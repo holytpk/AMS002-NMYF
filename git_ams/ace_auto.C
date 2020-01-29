@@ -878,8 +878,8 @@ void ace_rescale_BR_averaged(const char *element, Particle::Type isotope){
 		legend->AddEntry(h_ams, "AMS Integrated flux", "p"); 
 		legend->SetTextSize(0.05); 
 
-		legend2->AddEntry(h_ratio, "ratio wrt ACE BR Flux", "p");
-		legend2->AddEntry(h_ratio2, "ratio wrt Integrated AMS Flux", "p"); 
+		legend2->AddEntry(h_ratio, "ratio of ACE BR Flux wrt the template ", "p");
+		// legend2->AddEntry(h_ratio2, "ratio wrt Integrated AMS Flux", "p"); 
 	
 		h_a1->Draw("E1X0");  
 		rescaled_fit->SetRange(0., 10.); 
