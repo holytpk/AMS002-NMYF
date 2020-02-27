@@ -88,8 +88,7 @@ void amsfit(int nnodes){
 
 	for (iBR = 0; iBR < nBRs; iBR++)
 	{
-
-			// monthly +integrated 
+			// monthly + integrated 
     			h_BR_p_all[iBR] = (TH1D *)h_p->Clone(Form("%s_all", h_BR_p[iBR]->GetName())); // set the histogram style as you prefer, with 
 			HistTools::SetStyle(h_BR_p_all[iBR], kBlue, kFullCircle, 1.1, 1, 1);
 
@@ -100,17 +99,15 @@ void amsfit(int nnodes){
     			{
        				h_BR_p_all[iBR]->SetBinContent(bin, h_BR_p[iBR]->GetBinContent(bin)); 
        				h_BR_p_all[iBR]->SetBinError(bin, h_BR_p[iBR]->GetBinError(bin));
-
     			}
 
 			for (int bin = 1; bin <= h_BR_he[0]->GetNbinsX(); ++bin)
     			{
        				h_BR_he_all[iBR]->SetBinContent(bin, h_BR_he[iBR]->GetBinContent(bin));
        				h_BR_he_all[iBR]->SetBinError(bin, h_BR_he[iBR]->GetBinError(bin));
-
     			}
 
-			PRINT_HIST(h_BR_p_all[iBR])  
+			// PRINT_HIST(h_BR_p_all[iBR])  
 
 	} // acquiring the data
 
@@ -362,9 +359,9 @@ void amsfit(int nnodes){
 			fsp_o->Draw("SAME");
 
 			c0->cd(11);
-   			h_o->SetTitle("");
-   			h_o->SetXTitle("Rigidity [GV]");
-   			h_o->SetYTitle("Data / Fit");
+   			h_fiterr_o->SetTitle("");
+   			h_fiterr_o->SetXTitle("Rigidity [GV]");
+   			h_fiterr_o->SetYTitle("Data / Fit");
    			h_fiterr_o->Draw("E3");
    			h_fiterr_o->GetYaxis()->SetRangeUser(0.9, 1.1);
    			gPad->SetLogx();
@@ -436,12 +433,12 @@ void amsfit(int nnodes){
 			h_fitres_n->Write("h_n_fitres");
 			h_fiterr_n->Write("h_n_fiterr");
 
-/*
+
 		// Fit p, He
 
 		for (iBR = 0; iBR < nBRs; iBR++)
 		{ 
-			break; 
+			// break; 
 			
 			gSystem->mkdir(Form("data/amsfit/nodes%d", nnodes), true);
 
@@ -469,6 +466,7 @@ void amsfit(int nnodes){
 			h_BR_p_all[iBR]->SetTitle(Form("AMS-02 Proton Flux BR-%02d", iBR));
 			h_BR_p_all[iBR]->Draw("E1X0");
 			fsp_p->Draw("SAME");
+			h_BR_p_all[iBR]->Draw("E1X0 SAME");
 
 			c1->cd(3);
    			h_fiterr_p->SetTitle("");
@@ -500,6 +498,7 @@ void amsfit(int nnodes){
 			h_BR_he_all[iBR]->SetTitle(Form("AMS-02 Helium Flux BR-%02d", iBR));
 			h_BR_he_all[iBR]->Draw("E1X0");
 			fsp_he->Draw("SAME");
+			h_BR_he_all[iBR]->Draw("E1X0 SAME");
 
 			c1->cd(4);
    			h_fiterr_he->SetTitle("");
@@ -512,7 +511,9 @@ void amsfit(int nnodes){
    			h_fitres_he->Draw("E1X0 SAME");
 
 			// Save the canvas		
-			c1->Print(Form("./data/amsfit/nodes%d/node%d_BR%02d.png", nnodes, nnodes, iBR));
+			if (iBR==0) c1->Print(Form("./data/amsfit/nodes%d/node%d_BR.pdf(", nnodes, nnodes), "pdf");
+			if (iBR>0 && iBR<nBRs-1) c1->Print(Form("./data/amsfit/nodes%d/node%d_BR.pdf", nnodes, nnodes), "pdf");
+			if (iBR==nBRs-1) c1->Print(Form("./data/amsfit/nodes%d/node%d_BR.pdf)", nnodes, nnodes), "pdf");
 
 			h_BR_p_all[iBR]->Write(Form("h_BR_p_%02d", iBR));
 			fsp_p->Write();
@@ -529,8 +530,6 @@ void amsfit(int nnodes){
 		}
 
 		// Plot chi-2 sigma vs. iBR 
-
-*/
 
 		// Write in Results
 		file_fitresult.Write();

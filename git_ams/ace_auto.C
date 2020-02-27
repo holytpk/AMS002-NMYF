@@ -1013,6 +1013,7 @@ void ace_rescale_BR_averaged(const char *element, Particle::Type isotope){
 void ace_fake_td_ams(const char *element, Particle::Type isotope){
 
 	gStyle->SetOptStat(0); 
+	gStyle->SetTitleSize(26,"t");
 
 	gSystem->mkdir("data/ACE/fill/fake_td_ams", true);	
 
@@ -1107,8 +1108,8 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 	TCanvas *c0 = new TCanvas("c0", "", 1600, 900); // fluxes & flux/template
 	c0->Divide(1, 2); 
 
-	TCanvas *c1 = new TCanvas("c1", "", 1600, 900); // He ratio & spectral indices 
-	c1->Divide(1, 2); 
+	TCanvas *c1 = new TCanvas("c1", "", 1600, 900); // He ratio, F(R,t)/<F(R)> & spectral indices 
+	c1->Divide(1, 3); 
 	
 	TCanvas *c2 = new TCanvas("c2", "", 1600, 900); // spectral indices of flux(R,t)/int_flux(R), here is defined by h_ratio (ACE) and h_ratio0 (AMS) 
 	c2->Divide(1, 1); 
@@ -1140,15 +1141,6 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		fit_he_ave->GetRange(x1,x2);
 		fsp_he_ave->SetRange(x1,x2); 
 
-/*
-		fsp_he->Draw();
-		h_BR_he[iBR]->Draw("E1X0 SAME"); 
-
-		HistTools::SetStyle(h_BR_he[iBR], kBlack, kFullCircle, 0.9, 1, 1);
-
-		break;  
-*/
-
 		// AMS_He Model by Rescaled C ACE+AMS Combined Template  
 		Spline *sp_he_temp = new Spline("sp_he_temp", nnodes, Spline::LogLog | Spline::PowerLaw);
 		TF1 *fsp_he_temp = sp_he_temp->GetTF1Pointer();  
@@ -1160,7 +1152,6 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		fsp_he_temp->SetRange(x1,x2);  
 
 		TF1 *fsp_he2 = HistTools::CombineTF1(fsp_he, fsp_he_ave, HistTools::Divide, "fsp_he2");
-
 		TF1 *fspind_he = HistTools::GetSpectralIndex(fsp_he2, "fspind_he", R1, R2); 
 		fspind_he->SetRange(h_he_int->GetBinCenter(2), x2);
 
@@ -1180,6 +1171,19 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 
 		h_ams_BR_fake->Multiply(h_ratio0); 
 		// h_ams_BR_fake->Print("range"); 
+
+/*
+		fsp_comb->Draw();
+		h_ace_rig_ave->Draw("E1X0 SAME");
+		h_ams_new->Draw("E1X0 SAME");  
+
+		fsp_he_ave->Draw("SAME");
+		fsp_he_ave->SetLineColor(kGreen);		
+		HistTools::SetStyle(h_ace_rig_ave, kBlack, kFullCircle, 0.9, 1, 1);
+		HistTools::SetStyle(h_ams_new, kBlack, kFullCircle, 0.9, 1, 1);
+
+		break;
+*/  
 
 		// rescaled combined fit 
 		TH1 *h_ratio = (TH1 *) h_ace_BR->Clone("h_ratio"); // ACE BR/Temp 		
@@ -1204,11 +1208,11 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		TF1 *rescaled_fit = HistTools::CombineTF1Const(fsp_comb, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", R1, R2); 
 
 		TH1 *h_ratio1 = (TH1D*) h_ace_BR->Clone("h_ratio1"); // spind model 
-		h_ratio1->Divide(h_ace_rig_ave); 
+		h_ratio1->Divide(fsp_comb); 
 
-		TH1 *h_ratio2 = (TH1D*) h_BR_he[iBR]->Clone("h_ratio2"); // spind model 
-		h_ratio2->Divide(h_he_int); 
-
+		TH1 *h_ratio2 = (TH1D*) h_ams_BR_fake->Clone("h_ratio2"); // spind model 
+		h_ratio2->Divide(h_ams_new);
+   
 		// estimated AMS / resclaed combined fit
 		TH1 *h_ratio3 = (TH1D *) h_ams_BR_fake->Clone("h_ratio3");		
 
@@ -1267,13 +1271,14 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		h_a2->SetTitle("");
 		h_a2->SetXTitle(Unit::GetEnergyLabel("GV"));
 		h_a2->SetYTitle(Form("Estimated BR Fluxes / Rescaled %s Model", element)); 
+		h_a2->SetTitleSize(0.3,"t"); 
 
 		h_a2->Draw("E1X0"); 
 		h_ratio->Draw("E1X0 SAME"); 
 		h_ratio3->Draw("E1X0 SAME"); 
 
-		if (iBR==0) c0->Print(Form("./data/ACE/fill/fake_td_ams/%s_flux_model.pdf(", element), "pdf"); 
-		if (iBR>0 && iBR<nBRs-1) c0->Print(Form("./data/ACE/fill/fake_td_ams/%s_flux_model.pdf", element), "pdf"); 
+		if (iBR==0) { c0->Print(Form("./data/ACE/fill/fake_td_ams/%s_flux_model.pdf(", element), "pdf"); } 
+		if (iBR>0 && iBR<nBRs-1) { c0->Print(Form("./data/ACE/fill/fake_td_ams/%s_flux_model.pdf", element), "pdf"); } 
 		if (iBR==nBRs-1){
 			c0->Print(Form("./data/ACE/fill/fake_td_ams/%s_flux_model.pdf)", element), "pdf"); 
 		} 
@@ -1300,24 +1305,48 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 
 		c1->cd(1); 
 		gPad->SetGrid(); 
-		gPad->SetLogx(); 		
+		gPad->SetLogx(); 
 
-		TAxis *axis3 = h_ratio0->GetXaxis(); 
-		axis3->SetLimits(0.7, 60.); 
+		h_a3->GetYaxis()->SetRangeUser(0.5, 1.5); 
+		h_a3->GetXaxis()->SetLimits(0.7, 60);		
 
-		HistTools::SetStyle(h_ratio0, kBlack, kFullCircle, 1.4, 1, 1);
-		h_ratio0->SetTitle(Form("; ; BR-%d He(R,t) / <He(R)>", iBR_true+2426)); 
-		h_ratio0->SetXTitle(Unit::GetEnergyLabel("GV"));
-		h_ratio0->GetYaxis()->SetRangeUser(0.5, 1.5); 
-		h_ratio0->Draw("E1X0"); 
+		TLegend *l1 = new TLegend(0.62,0.8,0.9,0.9); 
+		l1->AddEntry(h_ratio0, "AMS He(R,t)/<He(R)>", "PL"); 	
+
+		h_a3->Draw("E1X0"); 
+		h_a3->SetXTitle(Unit::GetEnergyLabel("GV"));
+		h_a3->SetTitle(Form("; ; BR-%d He(R,t)/<He(R)>", iBR_true+2426)); 
+		HistTools::SetStyle(h_ratio0, kBlue, kFullCircle, 1.4, 1, 1);
+		h_ratio0->Draw("E1X0 SAME"); 
 
 		//h_ams_BR_fake->Print("range"); 
+
+		c1->cd(2); 
+		gPad->SetGrid(); 
+		gPad->SetLogx();
+
+		h_a4->GetYaxis()->SetRangeUser(0.5, 2.2); 
+		h_a4->GetXaxis()->SetLimits(0.7, 60); 
+	
+		TLegend *l2 = new TLegend(0.62,0.8,0.9,0.9); 
+		l2->AddEntry(h_ratio1, Form("ACE %s(R,t)/<%s(R)>", element, element), "PL");
+		l2->AddEntry(h_ratio2, Form("AMS %s(R,t)/<%s(R)>", element, element), "PL"); 
+
+		h_a4->Draw("E1X0"); 
+		h_a4->SetXTitle(Unit::GetEnergyLabel("GV"));
+		h_a4->SetTitle(Form("; ; BR-%d %s(R,t)/<%s(R)>", iBR_true+2426, element, element));
+		// h_a4->SetTitleSize(0.5,"y"); 
+		HistTools::SetStyle(h_ratio1, kPink, kFullCircle, 1.4, 1, 1);
+		HistTools::SetStyle(h_ratio2, kBlue, kFullCircle, 1.4, 1, 1);
+		h_ratio1->Draw("E1X0 SAME");
+		h_ratio2->Draw("E1X0 SAME");
+		l2->Draw("SAME"); 
 
 		// plot spectral indices
 		TGraphAsymmErrors *gspind_ace = HistTools::GetSpectralIndex(h_ace_BR, 5, 2); // get spectral indices 
 		TGraphAsymmErrors *gspind_ams = HistTools::GetSpectralIndex(h_ams_BR_fake, 4, 1); 
 
-		c1->cd(2); 
+		c1->cd(3); 
 		gPad->SetGrid(); 
 		gPad->SetLogx();  
 
@@ -1326,8 +1355,7 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		l_both->AddEntry(gspind_ams, "AMS Spectral Indices", "PL"); 		
 	
 		gspind_ace->GetYaxis()->SetRangeUser(-3, 3); 
-		TAxis *axis4 = gspind_ace->GetXaxis(); 
-		axis4->SetLimits(h_ratio->GetXaxis()->GetXmin(), 60.); 
+		gspind_ace->GetXaxis()->SetLimits(0.7, 60);
 
 		HistTools::SetStyle(gspind_ace, kPink, kFullCircle, 1.4, 1, 1); 
 		gspind_ace->SetTitle(Form("; ; ACE %s Spectral Indices BR-%d", element, 2426+iBR_true));
@@ -1338,12 +1366,13 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		HistTools::SetStyle(gspind_ams, kBlue, kFullCircle, 1.4, 1, 1); 
 		gspind_ams->SetTitle(Form("; ; AMS %s Spectral Indices", element)); 
 		gspind_ams->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
+		gspind_ams->GetXaxis()->SetTitleSize(1.5); 
 		gspind_ams->Draw("PL SAME"); 
 		// fspind->Draw("SAME"); 
 		l_both->Draw("SAME"); 
 
-		if (iBR==0) c1->Print(Form("./data/ACE/fill/fake_td_ams/fake_ams_spind_%s.pdf(", element), "pdf"); 
-		if (iBR>0 && iBR<nBRs-1) c1->Print(Form("./data/ACE/fill/fake_td_ams/fake_ams_spind_%s.pdf", element), "pdf"); 
+		if (iBR==0) { c1->Print(Form("./data/ACE/fill/fake_td_ams/fake_ams_spind_%s.pdf(", element), "pdf"); }
+		if (iBR>0 && iBR<nBRs-1) { c1->Print(Form("./data/ACE/fill/fake_td_ams/fake_ams_spind_%s.pdf", element), "pdf"); }
 		if (iBR==nBRs-1){
 			// gspind_ace->Print("range");
 			// cout << " " << endl; 
@@ -1359,6 +1388,7 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		HistTools::SetStyle(gspind_ams2, kBlue, kFullCircle, 1.4, 1, 1); 
 		HistTools::SetStyle(fspind_he, kBlack, kFullCircle, 0.8, 1, 1);
 
+/*
 		// fit to the spectral indices
 		TF1 *fspind = new TF1("fspind", "pow(10, [0]*x+[1])", 0.7, 60); 
 
@@ -1372,6 +1402,7 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		//HistTools::PrintFunction(fit);
 		FitTools::SetCommonFitterOptions(fitter);
 		FitTools::FitCombinedData(data, fspind, "I", rigmin, rigmax, chi2norm, fitter, 3); 
+*/
 
 		c2->cd(1);
 		gPad->SetGrid();
@@ -1385,7 +1416,7 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 
 		gspind_ace2->GetYaxis()->SetRangeUser(-2, 1); 
 		TAxis *axis5 = gspind_ace2->GetXaxis(); 
-		axis5->SetLimits(h_ratio0->GetXaxis()->GetXmin(), 60.); 
+		axis5->SetLimits(0.7, 60.); 
 
 		gspind_ace2->SetTitle(Form("; ; Spectral Indices Model of %s F(R,t)/<F(R)> at BR-%d", element, 2426+iBR_true));
 		gspind_ace2->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
@@ -1402,7 +1433,7 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 			cout << " " << endl; 
 			//gspind_ams2->Print("range");
 			cout << " " << endl; 
-			fspind_he->Print("range");
+			h_ratio2->Print("range");
 			c2->Print(Form("./data/ACE/fill/fake_td_ams/spind_model_%s_temp.pdf)", element), "pdf"); 
 		}
 
@@ -4326,7 +4357,7 @@ TH1 *ace_contribute(int temp, const char *option){
 
 	// Sum up the Total Cosmic Ray Flux 
 	// p, He, Li, Be
-	for (int i=0;i<4;i++){
+	for (int i=0;i<4;++i){
 		
 		f_fit[i] = new TF1(); 
 
@@ -4392,11 +4423,11 @@ TH1 *ace_contribute(int temp, const char *option){
 	} 
 
 	// B, C, N, O 
-	for (int i=0;i<4;i++){ 
+	for (int i=0;i<4;++i){ 
 
 		int j = i+4; 		
 
-		int nnodes = 7;
+		int nnodes = 9;
 	
 		f_fit[j] = new TF1(); 
 
@@ -4463,7 +4494,7 @@ TH1 *ace_contribute(int temp, const char *option){
 	}
 
 	// F, Ne, Na ... Va, Ni
-	for (int i=4;i<24;i++){ 
+	for (int i=4;i<24;++i){ 
 
 		int j = i+4; 		
 
@@ -4628,7 +4659,7 @@ TH1 *ace_contribute(int temp, const char *option){
 	TH1 *h_contribute_mw_ratio[n_total]; // mass-weighted flux / total 
 
 	// p, He, Li, Be
-	for (int i=0;i<4;i++){
+	for (int i=0;i<4;++i){
 
 		int nnodes = 6;  
 
@@ -4636,7 +4667,7 @@ TH1 *ace_contribute(int temp, const char *option){
 		h_contribute_mw[i] = (TH1 *) h_tot_cr_flux->Clone("h_contribute_mw"); 
 		HistTools::SetStyle(h_contribute_mw[i], kBlue, kFullCircle, 0.9, 1, 1); 
 
-		for (int k=1;k<=nbins;k++){ 
+		for (int k=1;k<=nbins;++k){ 
 
 			Double_t R = h_tot_cr_flux->GetBinLowEdge(k);  
      			Double_t w = h_tot_cr_flux->GetBinWidth(k);  
@@ -4717,7 +4748,7 @@ TH1 *ace_contribute(int temp, const char *option){
 	}
 
 	// B, C, N, O
-	for (int i=0;i<4;i++){ 
+	for (int i=0;i<4;++i){ 
 
 		int j = i+4; 		
 
@@ -4727,7 +4758,7 @@ TH1 *ace_contribute(int temp, const char *option){
 		h_contribute_mw[j] = (TH1 *) h_tot_cr_flux->Clone("h_contribute_mw"); 
 		HistTools::SetStyle(h_contribute_mw[j], kBlue, kFullCircle, 0.9, 1, 1); 
 
-		for (int k=1;k<=nbins;k++){ 
+		for (int k=1;k<=nbins;++k){ 
 
 			Double_t x = h_tot_cr_flux->GetBinCenter(k), y = h_tot_cr_flux->GetBinContent(k);  
 
@@ -4809,7 +4840,7 @@ TH1 *ace_contribute(int temp, const char *option){
 	}
 
 	// F, Ne, Na ... Va, Ni
-	for (int i=4;i<24;i++){ 
+	for (int i=4;i<24;++i){ 
 
 		int j = i+4; 		
 
@@ -4909,7 +4940,7 @@ TH1 *ace_contribute(int temp, const char *option){
 	
 	// input THStack for relative contribution comparison
 	// save the h_contribute_ratio histograms
-	for (int i = 0; i<28; i++){
+	for (int i = 0; i<28; ++i){
 	
 		HistTools::SetStyle(h_contribute_ratio[i], HistTools::GetColorPalette(i, n_total), 21, 0.9, 1, 1);
 		h_contribute_ratio[i]->SetFillColor(HistTools::GetColorPalette(i, n_total));
