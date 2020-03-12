@@ -1395,6 +1395,8 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 			last_pars[ipar] = fit_ratio->GetParameter(ipar); 
 		}  
 
+		TF1 *fspind_ratio = HistTools::GetSpectralIndex(fit_ratio, "fspind_ratio", R1, R2); 
+
 		//h_ams_BR_fake->Print("range"); 
 		c2->cd(1); 
 		gPad->SetGrid(); 
@@ -1406,7 +1408,7 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 	
 		TLegend *l2 = new TLegend(0.62,0.8,0.9,1.); 
 		l2->AddEntry(h_ratio1, Form("ACE %s(R,t)/<%s(R)>", element, element), "PL");
-		l2->AddEntry(h_ratio0, "AMS He(R,t)/<He(R)>", "PL"); 
+		l2->AddEntry(h_ratio0, "AMS He(R,t)/<He(R)>", "PL");  
 		l2->AddEntry(fit_ratio, Form("1+%6.3fexp(-%6.3fR)", fit_ratio->GetParameter(0), fit_ratio->GetParameter(1)), "L"); 
 
 		h_a4->Draw("E1X0"); 
@@ -1431,9 +1433,12 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 
    			UShort_t ndf  = hist->GetNbinsX();
    			Double_t chi2 = chi2norm[i]*ndf; 
-   			printf(" %d nodes ### %-34s   chi2/ndf=%6.2f/%-2u   chi2norm=%5.2f   prob.=%5.2f%%\n", nnodes, hist->GetTitle(), chi2, ndf, chi2norm[i], TMath::Prob(chi2, ndf)*1e2);
+   			// printf(" %d nodes ### %-34s   chi2/ndf=%6.2f/%-2u   chi2norm=%5.2f   prob.=%5.2f%%\n", nnodes, hist->GetTitle(), chi2, ndf, chi2norm[i], TMath::Prob(chi2, ndf)*1e2);
 
 			l_chi2->AddEntry(h_fitres[i], Form("chi2/ndf=%6.2f/%-2u", chi2, ndf), "P");  
+
+				
+
 		}	 
 
 		c2->cd(2);
@@ -1459,7 +1464,8 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		TLegend *l_both3 = new TLegend(0.62,0.8,0.9,1.0); 
 		l_both3->AddEntry(gspind_ace2, Form("ACE %s(R,t)/<%s(R)> Spectral Indices", element, element), "PL");
 		l_both3->AddEntry(gspind_ams2, Form("AMS %s(R,t)/<%s(R)> Spectral Indices", element, element), "PL"); 
-		// l_both2->AddEntry(fspind_he, "AMS He(R,t)_Fit/temp<He(R)>_Fit Spectral Indices", "L");  		
+		// l_both2->AddEntry(fspind_he, "AMS He(R,t)_Fit/temp<He(R)>_Fit Spectral Indices", "L");  	
+		l_both3->AddEntry(fspind_ratio, "Spectral Index of Fit to He(R,t)/<He(R)>", "PL");	
 		l_both3->AddEntry(fspind_he, "AMS He(R,t)_Fit/<He(R)>_Fit Spectral Indices", "L");  	
 
 		gspind_ace2->GetYaxis()->SetRangeUser(-2, 1); 
@@ -1469,8 +1475,9 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		gspind_ace2->SetTitle(Form("; ; Spectral Indices Model of %s F(R,t)/<F(R)> at BR-%d", element, 2426+iBR_true));
 		gspind_ace2->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
 		gspind_ace2->Draw("APL"); 
-		gspind_ams2->Draw("PL SAME"); 
 		fspind_he->Draw("PL SAME"); 
+		fspind_ratio->Draw("SAME"); 
+		gspind_ams2->Draw("PL SAME"); 
 		l_both3->Draw("SAME"); 
 
 		// break; 
