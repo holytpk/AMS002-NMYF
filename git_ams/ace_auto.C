@@ -1113,7 +1113,13 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 	
 	TCanvas *c2 = new TCanvas("c2", "", 1600, 900); // Modeling F(R,t)/<F(R)> 
 							// fit/data of F(R,t)/<F(R)> 
-	c2->Divide(1, 3); 				// spectral indices of F(R,t)/<F(R)>, here is defined by h_ratio (ACE) and h_ratio0 (AMS) 
+	c2->Divide(1, 3); 				// spectral indices of F(R,t)/<F(R)>, here is defined by h_ratio (ACE) and h_ratio0 (AMS)
+
+	TCanvas *c3 = new TCanvas("c3", "", 1600, 900); // plot chi2/ndf vs. BR for both ACE & AMS F(R,t)/<F(R)> fits  
+	c3->Divide(2, 1);  
+
+	TCanvas *c4 = new TCanvas("c4", "", 1600, 900); // plot for F(R,t)/<F(R)> fit residuals for each ACE bin 
+	c4->Divide(1, 1); 
 
 	TH1 *h_a1 = new TH1D("", "", 3000, 0, 3000); 
 	TH1 *h_a2 = new TH1D("", "", 3000, 0, 3000);
@@ -1122,6 +1128,16 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 	TH1 *h_a5 = new TH1D("", "", 3000, 0, 3000); 
 
 	vector<double> last_pars = {1, 1}; 
+
+	TGraph *g_chi2_ace = new TGraph(); 
+	TGraph *g_chi2_ams = new TGraph(); 
+
+	TGraphErrors *g_residual_ace[7];
+	for (int bin=0; bin <= h_ace_rig_ave->GetNbinsX(); ++bin){ 
+		if (bin%2==0){ 
+			g_residual_ace[bin/2] = new TGraphErrors(nBRs);  
+		} 
+	}   
  
 	int iBR_true = 0;
 	for (int iBR=0; iBR<nBRs; ++iBR){
@@ -1423,7 +1439,7 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		l2->Draw("SAME"); 
 
 		TH1D *h_fitres[2];
-		TLegend *l_chi2 = new TLegend(0.62,0.8,0.9,1.); 
+		TLegend *l_chi2 = new TLegend(0.62,0.8,0.8,0.9); 
 
 		for (UShort_t i = 0; i < 2; ++i)
 		{
@@ -1437,9 +1453,22 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 
 			l_chi2->AddEntry(h_fitres[i], Form("chi2/ndf=%6.2f/%-2u", chi2, ndf), "P");  
 
-				
+			if (i==0){ 
+				HistTools::CopyStyle(g_chi2_ace, h_ratio1);
+				g_chi2_ace->SetPoint(iBR, UBRToTime(iBR_true+2426), chi2/ndf);
+				for (int bin=0; bin <= h_fitres[0]->GetNbinsX(); ++bin){ 
+					if (bin%2==0){ 
+						g_residual_ace[bin/2]->SetPoint(iBR, UBRToTime(iBR_true+2426), h_fitres[0]->GetBinContent(bin+1)); 
+						// printf("bin/2 = %d, iBR = %d, time = %10.4u, fitres = %10.4f \n", bin/2, iBR, UBRToTime(iBR_true+2426), h_fitres[0]->GetBinContent(bin+1)); 
+					} 
+				}   
+			} 
 
-		}	 
+			if (i==1){ 
+				HistTools::CopyStyle(g_chi2_ams, h_ratio2);
+				g_chi2_ams->SetPoint(iBR, UBRToTime(iBR_true+2426), chi2/ndf);
+			} 	
+		}	
 
 		c2->cd(2);
 		gPad->SetGrid();
@@ -1495,7 +1524,49 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 
 	   	if (iBR+2426==2472-1) iBR_true += 3; 
 		else iBR_true ++; 
-	}	
+	}
+				
+	for (int bin=0; bin <= h_ace_rig_ave->GetNbinsX(); ++bin){ 
+		if (bin%2==0) g_residual_ace[bin/2]->Print("range"); 
+	}
+
+	c3->cd(1);
+	TLegend *l_c3_1 = new TLegend(0.62,0.8,0.9,1.0); 
+	l_c3_1->AddEntry(g_chi2_ace, "ACE Chi2/NDF", "PL"); 
+	g_chi2_ace->GetXaxis()->SetTimeDisplay(1);
+	g_chi2_ace->GetXaxis()->SetTimeFormat("%m-%y");
+	g_chi2_ace->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+	g_chi2_ace->GetXaxis()->SetTitleSize(0.7); 
+	g_chi2_ace->Draw("APL"); 
+	l_c3_1->Draw("SAME");
+
+	c3->cd(2); 
+	TLegend *l_c3_2 = new TLegend(0.62,0.8,0.9,1.0); 
+	l_c3_2->AddEntry(g_chi2_ams, "AMS Chi2/NDF", "PL");
+	g_chi2_ams->GetXaxis()->SetTimeDisplay(1);
+	g_chi2_ams->GetXaxis()->SetTimeFormat("%m-%y");
+	g_chi2_ams->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+	g_chi2_ams->GetXaxis()->SetTitleSize(0.7);
+	g_chi2_ams->Draw("APL"); 
+	l_c3_2->Draw("SAME"); 
+
+	c3->Print("./data/ACE/fill/fake_td_ams/chi2_vs_BR.png"); 
+
+	c4->cd(1); 
+	for (int bin=0; bin <= h_ace_rig_ave->GetNbinsX(); ++bin){ 
+		if (bin%2==0) { 
+			g_residual_ace[bin/2]->GetXaxis()->SetTimeDisplay(1);
+			g_residual_ace[bin/2]->GetXaxis()->SetTimeFormat("%m-%y");
+			g_residual_ace[bin/2]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+			g_residual_ace[bin/2]->GetXaxis()->SetTitleSize(0.7);
+			g_residual_ace[bin/2]->Draw("APL"); 
+			if (bin==0) c4->Print("./data/ACE/fill/fake_td_ams/fitres_vs_BR.pdf(", "pdf"); 
+			if (bin>0 && bin<h_ace_rig_ave->GetNbinsX()-1) c4->Print("./data/ACE/fill/fake_td_ams/fitres_vs_BR.pdf", "pdf");  
+			if (bin==h_ace_rig_ave->GetNbinsX()-1){
+				c4->Print("./data/ACE/fill/fake_td_ams/fitres_vs_BR.pdf)", "pdf"); 
+			} 
+		} 
+	}  			
 
 }
 
