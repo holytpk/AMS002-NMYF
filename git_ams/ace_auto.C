@@ -1127,15 +1127,19 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 	TH1 *h_a4 = new TH1D("", "", 3000, 0, 3000);	
 	TH1 *h_a5 = new TH1D("", "", 3000, 0, 3000); 
 
-	vector<double> last_pars = {1, 1}; 
+	vector<double> last_pars = {1, 1};
+	vector<double> last_pars2 = {0.5, 2};  
 
 	TGraph *g_chi2_ace = new TGraph(); 
 	TGraph *g_chi2_ams = new TGraph(); 
+	TGraph *g_chi2_ace2 = new TGraph(); 
+	TGraph *g_chi2_ams2 = new TGraph(); 
 
 	TGraphErrors *g_residual_ace[7];
 	for (int bin=0; bin <= h_ace_rig_ave->GetNbinsX(); ++bin){ 
-		if (bin%2==0){ 
+		if (bin%2==0){  
 			g_residual_ace[bin/2] = new TGraphErrors(nBRs);  
+			HistTools::SetStyle(g_residual_ace[bin/2], kBlack, kFullCircle, 1.4, 1, 1);
 		} 
 	}   
  
@@ -1392,9 +1396,11 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 
 		// fit to F(R,t)/<F(R)>
 		TF1 *fit_ratio = new TF1("f_ratio", "1+[0]*exp(-[1]*x)", 0.7, 60);
+		TF1 *fit_ratio2 = new TF1("f_ratio2", "1+[0]*exp(-[1]*log(x))", 0.7, 60);
 
 		for (int ipar=0; ipar<fit_ratio->GetNpar(); ++ipar){
 			fit_ratio->SetParameter(ipar, last_pars[ipar]); 
+			fit_ratio2->SetParameter(ipar, last_pars2[ipar]); 
 		}   
 
 		TObjArray data; 
@@ -1409,6 +1415,17 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		FitTools::FitCombinedData(data, fit_ratio, "I", rigmin, rigmax, chi2norm, fitter, 3); 
 		for (int ipar=0; ipar<fit_ratio->GetNpar(); ++ipar){
 			last_pars[ipar] = fit_ratio->GetParameter(ipar); 
+			last_pars2[ipar] = fit_ratio2->GetParameter(ipar); 
+		}  
+
+		vector<double> rigmin2, rigmax2, chi2norm2(2);
+		ROOT::Fit::Fitter fitter2;
+		FitTools::SetCommonFitterOptions(fitter2);
+		FitTools::FitCombinedData(data, fit_ratio2, "I", rigmin2, rigmax2, chi2norm2, fitter2, 3);
+ 
+		for (int ipar=0; ipar<fit_ratio->GetNpar(); ++ipar){
+			last_pars[ipar] = fit_ratio->GetParameter(ipar); 
+			last_pars2[ipar] = fit_ratio2->GetParameter(ipar); 
 		}  
 
 		TF1 *fspind_ratio = HistTools::GetSpectralIndex(fit_ratio, "fspind_ratio", R1, R2); 
@@ -1425,7 +1442,7 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		TLegend *l2 = new TLegend(0.62,0.8,0.9,1.); 
 		l2->AddEntry(h_ratio1, Form("ACE %s(R,t)/<%s(R)>", element, element), "PL");
 		l2->AddEntry(h_ratio0, "AMS He(R,t)/<He(R)>", "PL");  
-		l2->AddEntry(fit_ratio, Form("1+%6.3fexp(-%6.3fR)", fit_ratio->GetParameter(0), fit_ratio->GetParameter(1)), "L"); 
+		l2->AddEntry(fit_ratio, Form("1+%6.3fexp(-%6.3fln(R))", fit_ratio->GetParameter(0), fit_ratio->GetParameter(1)), "L"); 
 
 		h_a4->Draw("E1X0"); 
 		h_a4->SetXTitle(Unit::GetEnergyLabel("GV"));
@@ -1439,6 +1456,7 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		l2->Draw("SAME"); 
 
 		TH1D *h_fitres[2];
+		TH1D *h_fitres2[2]; 
 		TLegend *l_chi2 = new TLegend(0.62,0.8,0.8,0.9); 
 
 		for (UShort_t i = 0; i < 2; ++i)
@@ -1454,7 +1472,6 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 			l_chi2->AddEntry(h_fitres[i], Form("chi2/ndf=%6.2f/%-2u", chi2, ndf), "P");  
 
 			if (i==0){ 
-				HistTools::CopyStyle(g_chi2_ace, h_ratio1);
 				g_chi2_ace->SetPoint(iBR, UBRToTime(iBR_true+2426), chi2/ndf);
 				for (int bin=0; bin <= h_fitres[0]->GetNbinsX(); ++bin){ 
 					if (bin%2==0){ 
@@ -1465,10 +1482,28 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 			} 
 
 			if (i==1){ 
-				HistTools::CopyStyle(g_chi2_ams, h_ratio2);
 				g_chi2_ams->SetPoint(iBR, UBRToTime(iBR_true+2426), chi2/ndf);
 			} 	
 		}	
+
+		for (UShort_t i = 0; i < 2; ++i)
+		{
+  			TH1 *hist = HistTools::ToHist(data[i]);
+   			h_fitres2[i] = (TH1D *)HistTools::GetResiduals(hist, fit_ratio2, "_fitres2", false, true, true, 5, 1, 0.68, &fitter2);
+			HistTools::CopyStyle(hist, h_fitres2[i]);
+
+   			UShort_t ndf  = hist->GetNbinsX();
+   			Double_t chi2 = chi2norm2[i]*ndf; 
+   			// printf(" %d nodes ### %-34s   chi2/ndf=%6.2f/%-2u   chi2norm=%5.2f   prob.=%5.2f%%\n", nnodes, hist->GetTitle(), chi2, ndf, chi2norm[i], TMath::Prob(chi2, ndf)*1e2); 
+
+			if (i==0){ 
+				g_chi2_ace2->SetPoint(iBR, UBRToTime(iBR_true+2426), chi2/ndf);
+			} 
+
+			if (i==1){ 
+				g_chi2_ams2->SetPoint(iBR, UBRToTime(iBR_true+2426), chi2/ndf);
+			} 	
+		}
 
 		c2->cd(2);
 		gPad->SetGrid();
@@ -1527,27 +1562,39 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 	}
 				
 	for (int bin=0; bin <= h_ace_rig_ave->GetNbinsX(); ++bin){ 
-		if (bin%2==0) g_residual_ace[bin/2]->Print("range"); 
+		// if (bin%2==0) g_residual_ace[bin/2]->Print("range"); 
 	}
 
 	c3->cd(1);
-	TLegend *l_c3_1 = new TLegend(0.62,0.8,0.9,1.0); 
-	l_c3_1->AddEntry(g_chi2_ace, "ACE Chi2/NDF", "PL"); 
+	HistTools::SetStyle(g_chi2_ace, kPink, kFullCircle, 1.4, 1, 1); 
+	HistTools::SetStyle(g_chi2_ace2, kBlue, kFullCircle, 1.4, 1, 1); 
+	TLegend *l_c3_1 = new TLegend(0.62,0.8,0.9,0.9); 
+	l_c3_1->AddEntry(g_chi2_ace, "1+[0]*exp(-[1]*R)", "PL"); 
+	l_c3_1->AddEntry(g_chi2_ace2, "1+[0]*exp(-[1]*ln(R))", "PL"); 
+	g_chi2_ace->SetTitle("; ; ACE F(R,t)/<F(R)> Fitting Chi2/NDF"); 
 	g_chi2_ace->GetXaxis()->SetTimeDisplay(1);
 	g_chi2_ace->GetXaxis()->SetTimeFormat("%m-%y");
 	g_chi2_ace->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
 	g_chi2_ace->GetXaxis()->SetTitleSize(0.7); 
+	g_chi2_ace->GetYaxis()->SetRangeUser(0., 4.5); 
 	g_chi2_ace->Draw("APL"); 
+	g_chi2_ace2->Draw("PL SAME"); 
 	l_c3_1->Draw("SAME");
 
 	c3->cd(2); 
-	TLegend *l_c3_2 = new TLegend(0.62,0.8,0.9,1.0); 
-	l_c3_2->AddEntry(g_chi2_ams, "AMS Chi2/NDF", "PL");
+	HistTools::SetStyle(g_chi2_ams, kPink, kFullCircle, 1.4, 1, 1); 
+	HistTools::SetStyle(g_chi2_ams2, kBlue, kFullCircle, 1.4, 1, 1);
+	TLegend *l_c3_2 = new TLegend(0.62,0.8,0.9,0.9); 
+	l_c3_2->AddEntry(g_chi2_ams, "1+[0]*exp(-[1]*R)", "PL");
+	l_c3_2->AddEntry(g_chi2_ams2, "1+[0]*exp([1]*ln(R))", "PL");
+	g_chi2_ams->SetTitle("; ; AMS F(R,t)/<F(R)> Fitting Chi2/NDF"); 
 	g_chi2_ams->GetXaxis()->SetTimeDisplay(1);
 	g_chi2_ams->GetXaxis()->SetTimeFormat("%m-%y");
 	g_chi2_ams->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
 	g_chi2_ams->GetXaxis()->SetTitleSize(0.7);
-	g_chi2_ams->Draw("APL"); 
+	g_chi2_ams->GetYaxis()->SetRangeUser(0., 2.2); 
+	g_chi2_ams->Draw("APL");
+	g_chi2_ams2->Draw("PL SAME");  
 	l_c3_2->Draw("SAME"); 
 
 	c3->Print("./data/ACE/fill/fake_td_ams/chi2_vs_BR.png"); 
@@ -1555,6 +1602,7 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 	c4->cd(1); 
 	for (int bin=0; bin <= h_ace_rig_ave->GetNbinsX(); ++bin){ 
 		if (bin%2==0) { 
+			g_residual_ace[bin/2]->SetTitle(Form(" ; ; ACE F(R,t)/<F(R)> Fitting Residuals (%0.4f GV)", h_ace_rig_ave->GetBinLowEdge(bin*2)));  
 			g_residual_ace[bin/2]->GetXaxis()->SetTimeDisplay(1);
 			g_residual_ace[bin/2]->GetXaxis()->SetTimeFormat("%m-%y");
 			g_residual_ace[bin/2]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
