@@ -193,6 +193,7 @@ double *get_spall_corr_unc(const char *element);
 const char *get_template(const char *element); 
 int get_ams_data_value(const char *element); 
 TGraph *get_norm_graph(TGraph *g); 
+TGraphErrors *get_norm_graph(TGraphErrors *g); 
 
 void ace_fill(const char *element, Particle::Type isotope); // fill ACE/CRIS data into root histograms, then convert to GV/m^2 and save 
 void ace_rescale_BR(const char *element, Particle::Type isotope); // rescale ACE BR points to the level of ACE BR Average
@@ -1119,10 +1120,10 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 	c3->Divide(2, 1);  
 
 	TCanvas *c4 = new TCanvas("c4", "", 1600, 900); // plot for F(R,t)/<F(R)> fit residuals for each ACE bin 
-	c4->Divide(1, 1); 
+	c4->Divide(1, 2); 
 
 	TCanvas *c4_2 = new TCanvas("c4_2", "", 1600, 900); // c4 but for each AMS bin 
-	c4_2->Divide(1, 1); 
+	c4_2->Divide(1, 2); 
 	
 	TCanvas *c5 = new TCanvas("c5", "", 1600, 900); // plot parameter [0] [1] vs. BR for the fit 
 	c5->Divide(1, 2); 
@@ -1147,7 +1148,10 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 	} 
 
 	TGraphErrors *g_residual_ace[7];
+	TGraphErrors *g_residual_norm_ace[7];
 	TGraphErrors *g_residual_ams[h_ams_new->GetNbinsX()]; 
+	TGraphErrors *g_residual_norm_ams[h_ams_new->GetNbinsX()]; 
+
 	for (int bin=0; bin <= h_ace_rig_ave->GetNbinsX(); ++bin){ 
 		if (bin%2==0){  
 			g_residual_ace[bin/2] = new TGraphErrors(nBRs);  
@@ -1598,10 +1602,14 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 				
 	for (int bin=0; bin <= h_ace_rig_ave->GetNbinsX(); ++bin){ 
 		// if (bin%2==0) g_residual_ace[bin/2]->Print("range"); 
+		if (bin%2==0){
+			g_residual_norm_ace[bin/2] = get_norm_graph( g_residual_ace[bin/2] ); 			 
+		} 
 	}
 
 	for (int bin=0; bin <= h_ams_new->GetNbinsX()-1; ++bin){ 
 		// g_residual_ams[bin]->Print("range"); 
+		g_residual_norm_ams[bin] = get_norm_graph( g_residual_ams[bin] ); 
 	}  
 
 	c3->cd(1);
@@ -1640,11 +1648,13 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 
 	c3->Print(Form("./data/ACE/fill/fake_td_ams/chi2_vs_BR_%s.png", element)); 
 
-	c4->cd(1); 
-	gPad->SetGrid(); 
 	for (int bin=0; bin <= h_ace_rig_ave->GetNbinsX(); ++bin){ 
 		if (bin%2==0) { 
-			g_residual_ace[bin/2]->SetTitle(Form(" ; ; ACE %s(R,t)/<%s(R)> Fitting Residuals (%0.4f GV)", element, element, h_ace_rig_ave->GetBinCenter(bin+1)));  
+
+			c4->cd(1);
+			gPad->SetGrid(); 
+
+			g_residual_ace[bin/2]->SetTitle(Form("ACE %s(R,t)/<%s(R)>; ; Fitting Residuals (%0.4f GV)", element, element, h_ace_rig_ave->GetBinCenter(bin+1)));  
 			g_residual_ace[bin/2]->GetXaxis()->SetTimeDisplay(1);
 			g_residual_ace[bin/2]->GetXaxis()->SetTimeFormat("%m-%y");
 			g_residual_ace[bin/2]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
@@ -1652,18 +1662,32 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 			g_residual_ace[bin/2]->GetYaxis()->SetRangeUser(-0.25, 0.3);
 			// g_residual_ace[bin/2]->Print("range");   
 			g_residual_ace[bin/2]->Draw("APL"); 
+
+			c4->cd(2);
+			gPad->SetGrid(); 
+
+			g_residual_norm_ace[bin/2]->SetTitle(Form(" ; ; Normalized Fitting Residuals (%0.4f GV)", h_ace_rig_ave->GetBinCenter(bin+1)));  
+			g_residual_norm_ace[bin/2]->GetXaxis()->SetTimeDisplay(1);
+			g_residual_norm_ace[bin/2]->GetXaxis()->SetTimeFormat("%m-%y");
+			g_residual_norm_ace[bin/2]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+			g_residual_norm_ace[bin/2]->GetXaxis()->SetTitleSize(0.7);
+			g_residual_norm_ace[bin/2]->GetYaxis()->SetRangeUser(-20, 20);
+			g_residual_norm_ace[bin/2]->Draw("APL"); 
+
 			if (bin==0) c4->Print(Form("./data/ACE/fill/fake_td_ams/fitres_ace_vs_BR_%s.pdf(", element), "pdf"); 
 			if (bin>0 && bin<h_ace_rig_ave->GetNbinsX()-1) c4->Print(Form("./data/ACE/fill/fake_td_ams/fitres_ace_vs_BR_%s.pdf", element), "pdf");  
 			if (bin==h_ace_rig_ave->GetNbinsX()-1){
 				c4->Print(Form("./data/ACE/fill/fake_td_ams/fitres_ace_vs_BR_%s.pdf)", element), "pdf"); 
 			} 
 		} 
-	}  	
+	}   	
 
-	c4_2->cd(1); 
-	gPad->SetGrid(); 
 	for (int bin=0; bin <= h_ams_new->GetNbinsX()-1; ++bin){ 
-			g_residual_ams[bin]->SetTitle(Form(" ; ; AMS %s(R,t)/<%s(R)> Fitting Residuals (%0.4f GV)", element, element, h_ams_new->GetBinCenter(bin+1)));  
+
+			c4_2->cd(1); 
+			gPad->SetGrid(); 
+
+			g_residual_ams[bin]->SetTitle(Form("AMS %s(R,t)/<%s(R)>; ; Fitting Residuals (%0.4f GV)", element, element, h_ams_new->GetBinCenter(bin+1)));  
 			g_residual_ams[bin]->GetXaxis()->SetTimeDisplay(1);
 			g_residual_ams[bin]->GetXaxis()->SetTimeFormat("%m-%y");
 			g_residual_ams[bin]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
@@ -1671,6 +1695,18 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 			g_residual_ams[bin]->GetYaxis()->SetRangeUser(-0.06, 0.1);  
 			// g_residual_ams[bin]->Print("range"); 
 			g_residual_ams[bin]->Draw("APL"); 
+
+			c4_2->cd(2); 
+			gPad->SetGrid(); 
+
+			g_residual_norm_ams[bin]->SetTitle(Form(" ; ; Normalized Fitting Residuals (%0.4f GV)", h_ams_new->GetBinCenter(bin+1)));  
+			g_residual_norm_ams[bin]->GetXaxis()->SetTimeDisplay(1);
+			g_residual_norm_ams[bin]->GetXaxis()->SetTimeFormat("%m-%y");
+			g_residual_norm_ams[bin]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+			g_residual_norm_ams[bin]->GetXaxis()->SetTitleSize(0.7);
+			g_residual_norm_ams[bin]->GetYaxis()->SetRangeUser(-20, 20);  
+			g_residual_norm_ams[bin]->Draw("APL"); 
+
 			if (bin==0) c4_2->Print(Form("./data/ACE/fill/fake_td_ams/fitres_ams_vs_BR_%s.pdf(", element), "pdf"); 
 			if (bin>0 && bin<h_ams_new->GetNbinsX()-1) c4_2->Print(Form("./data/ACE/fill/fake_td_ams/fitres_ams_vs_BR_%s.pdf", element), "pdf");  
 			if (bin==h_ams_new->GetNbinsX()-1){
@@ -6226,6 +6262,44 @@ TGraph *get_norm_graph(TGraph *g){
 
 		g_norm->SetPoint(i, x, y/ave); 
 
+	} 
+
+	HistTools::CopyStyle(g, g_norm); 
+
+	return g_norm; 
+}
+
+TGraphErrors *get_norm_graph(TGraphErrors *g){
+
+	double ave=0, sum=0; 
+	double ex, ey, dsum=0; 
+
+	for (int i=0; i<g->GetN(); i++){
+
+		Double_t x=0, y=0;
+		Double_t dy=0;  
+		g->GetPoint(i, x, y);
+		dy = g->GetErrorY(i);  
+		sum += y; 
+		dsum += dy*dy; 
+	} 
+
+	ave = sum/g->GetN(); 
+	ey = sqrt(dsum)/g->GetN(); 
+
+	TGraphErrors *g_norm = new TGraphErrors(); 
+
+	for (int i=0; i<g->GetN(); i++){
+
+		Double_t x=0, y=0; 
+		Double_t dx=0; 
+		g->GetPoint(i, x, y); 
+
+		dx = g->GetErrorX(i); 
+		ex = dx; 
+
+		g_norm->SetPoint(i, x, y/ave); 
+		g_norm->SetPointError(i, ex, ey); 
 	} 
 
 	HistTools::CopyStyle(g, g_norm); 
