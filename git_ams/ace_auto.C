@@ -1120,10 +1120,10 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 	c3->Divide(2, 1);  
 
 	TCanvas *c4 = new TCanvas("c4", "", 1600, 900); // plot for F(R,t)/<F(R)> fit residuals for each ACE bin 
-	c4->Divide(1, 2); 
+	c4->Divide(1, 1); 
 
 	TCanvas *c4_2 = new TCanvas("c4_2", "", 1600, 900); // c4 but for each AMS bin 
-	c4_2->Divide(1, 2); 
+	c4_2->Divide(1, 1); 
 	
 	TCanvas *c5 = new TCanvas("c5", "", 1600, 900); // plot parameter [0] [1] vs. BR for the fit 
 	c5->Divide(1, 2); 
@@ -1147,6 +1147,9 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		g_pars[ipar] = new TGraphErrors(); 
 	} 
 
+	TGraphErrors *g_ratio_ave = new TGraphErrors();
+	TGraphErrors *g_ratio_ave_norm; // normalized averaged ratio of data/template-1 vs. time  
+
 	TGraphErrors *g_residual_ace[7];
 	TGraphErrors *g_residual_norm_ace[7];
 	TGraphErrors *g_residual_ams[h_ams_new->GetNbinsX()]; 
@@ -1156,6 +1159,7 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		if (bin%2==0){  
 			g_residual_ace[bin/2] = new TGraphErrors(nBRs);  
 			HistTools::SetStyle(g_residual_ace[bin/2], kBlack, kFullCircle, 1.4, 1, 1);
+			HistTools::SetStyle(g_ratio_ave, kBlue+1, kFullCircle, 1.4, 1, 1);
 		} 
 	}  
  
@@ -1498,6 +1502,7 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 				for (int bin=0; bin <= h_fitres[i]->GetNbinsX(); ++bin){ 
 					if (bin%2==0){ 
 						g_residual_ace[bin/2]->SetPoint(iBR, UBRToTime(iBR_true+2426), h_fitres[i]->GetBinContent(bin+1)); 
+
 						// printf("bin/2 = %d, iBR = %d, time = %10.4u, fitres = %10.4f \n", bin/2, iBR, UBRToTime(iBR_true+2426), h_fitres[0]->GetBinContent(bin+1)); 
 					} 
 				}   
@@ -1533,6 +1538,22 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 			} 	
 		}
 
+		TH1 *h_comp1 = (TH1*) h_ace_BR->Clone("h_comp1");
+		h_comp1->Divide(rescaled_fit); 
+
+		double comp1_sum=0, dcomp1_sum=0; // compute average ratio of data/template-1 of ACE F(R,t)/<F(R)> manually 		
+
+		for(int nbin=0;nbin<h_ace_rig_ave->GetNbinsX();++nbin){
+			comp1_sum += h_comp1->GetBinContent(nbin); 
+			dcomp1_sum += h_comp1->GetBinError(nbin)*h_comp1->GetBinError(nbin); 
+			//printf("comp1_sum = %0.6f \n", comp1_sum);
+		}
+		double comp1_ave = comp1_sum/7; 
+		double dcomp1_ave = sqrt(dcomp1_sum)/7; 
+
+		g_ratio_ave->SetPoint(iBR, UBRToTime(iBR_true+2426), comp1_ave-1); 
+		g_ratio_ave->SetPointError(iBR, 0, dcomp1_ave); 
+
 		c2->cd(2);
 		gPad->SetGrid();
 		gPad->SetLogx(); 
@@ -1545,14 +1566,14 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		h_a5->SetXTitle(Unit::GetEnergyLabel("GV"));
 		h_a5->SetTitle("; ; Data/Fit-1"); 
 
+		h_fitres2[0]->Draw("E1X0 SAME"); 
+		h_fitres2[1]->Draw("E1X0 SAME");
+
 		h_fitres[0]->Draw("E1X0 SAME");
 		h_fitres[1]->Draw("E1X0 SAME");
 
-		HistTools::SetStyle(h_fitres2[0], kPink+1, kFullCircle, 1.4, 1, 1);
-		HistTools::SetStyle(h_fitres2[1], kBlue-1, kFullCircle, 1.4, 1, 1);
-
-		h_fitres2[0]->Draw("E1X0 SAME"); 
-		h_fitres2[1]->Draw("E1X0 SAME"); 
+		HistTools::SetStyle(h_fitres2[0], kGreen-1, kFullCircle, 1.4, 1, 1);
+		HistTools::SetStyle(h_fitres2[1], kGreen-1, kFullCircle, 1.4, 1, 1); 
 
 		l_chi2->Draw("SAME"); 		
 
@@ -1599,19 +1620,7 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 	   	if (iBR+2426==2472-1) iBR_true += 3; 
 		else iBR_true ++; 
 	}
-				
-	for (int bin=0; bin <= h_ace_rig_ave->GetNbinsX(); ++bin){ 
-		// if (bin%2==0) g_residual_ace[bin/2]->Print("range"); 
-		if (bin%2==0){
-			g_residual_norm_ace[bin/2] = get_norm_graph( g_residual_ace[bin/2] ); 			 
-		} 
-	}
-
-	for (int bin=0; bin <= h_ams_new->GetNbinsX()-1; ++bin){ 
-		// g_residual_ams[bin]->Print("range"); 
-		g_residual_norm_ams[bin] = get_norm_graph( g_residual_ams[bin] ); 
-	}  
-
+			
 	c3->cd(1);
 	gPad->SetGrid(); 
 	HistTools::SetStyle(g_chi2_ace, kPink, kFullCircle, 1.4, 1, 1); 
@@ -1648,31 +1657,33 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 
 	c3->Print(Form("./data/ACE/fill/fake_td_ams/chi2_vs_BR_%s.png", element)); 
 
+	g_ratio_ave_norm = get_norm_graph( g_ratio_ave ); 
+
+	for (int iBR=0; iBR<nBRs; ++iBR){
+				Double_t x=0, y=0; 
+				g_ratio_ave_norm->GetPoint(iBR, x, y); 
+				g_ratio_ave_norm->SetPoint(iBR, x, y-1); 			 
+	}
+
 	for (int bin=0; bin <= h_ace_rig_ave->GetNbinsX(); ++bin){ 
 		if (bin%2==0) { 
 
 			c4->cd(1);
 			gPad->SetGrid(); 
 
-			g_residual_ace[bin/2]->SetTitle(Form("ACE %s(R,t)/<%s(R)>; ; Fitting Residuals (%0.4f GV)", element, element, h_ace_rig_ave->GetBinCenter(bin+1)));  
+			TLegend *l_comp1 = new TLegend(0.62, 0.8, 0.9, 1.0); 
+			l_comp1->AddEntry(g_ratio_ave_norm, "Normalized Averaged ACE Data/Template-1", "PL"); 
+			l_comp1->AddEntry(g_residual_ace[bin/2], Form("ACE Fitting Residuals (%0.4f GV)", h_ace_rig_ave->GetBinCenter(bin+1)), "PL"); 
+
+			g_residual_ace[bin/2]->SetTitle(Form(" ; ; ACE %s Data/Template-1 vs. Fitting Residuals", element));  
 			g_residual_ace[bin/2]->GetXaxis()->SetTimeDisplay(1);
 			g_residual_ace[bin/2]->GetXaxis()->SetTimeFormat("%m-%y");
 			g_residual_ace[bin/2]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
 			g_residual_ace[bin/2]->GetXaxis()->SetTitleSize(0.7);
 			g_residual_ace[bin/2]->GetYaxis()->SetRangeUser(-0.25, 0.3);
-			// g_residual_ace[bin/2]->Print("range");   
-			g_residual_ace[bin/2]->Draw("APL"); 
-
-			c4->cd(2);
-			gPad->SetGrid(); 
-
-			g_residual_norm_ace[bin/2]->SetTitle(Form(" ; ; Normalized Fitting Residuals (%0.4f GV)", h_ace_rig_ave->GetBinCenter(bin+1)));  
-			g_residual_norm_ace[bin/2]->GetXaxis()->SetTimeDisplay(1);
-			g_residual_norm_ace[bin/2]->GetXaxis()->SetTimeFormat("%m-%y");
-			g_residual_norm_ace[bin/2]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
-			g_residual_norm_ace[bin/2]->GetXaxis()->SetTitleSize(0.7);
-			g_residual_norm_ace[bin/2]->GetYaxis()->SetRangeUser(-20, 20);
-			g_residual_norm_ace[bin/2]->Draw("APL"); 
+			g_residual_ace[bin/2]->Draw("APL");
+			g_ratio_ave_norm->Draw("PL SAME"); 
+			l_comp1->Draw("SAME"); 		
 
 			if (bin==0) c4->Print(Form("./data/ACE/fill/fake_td_ams/fitres_ace_vs_BR_%s.pdf(", element), "pdf"); 
 			if (bin>0 && bin<h_ace_rig_ave->GetNbinsX()-1) c4->Print(Form("./data/ACE/fill/fake_td_ams/fitres_ace_vs_BR_%s.pdf", element), "pdf");  
@@ -1695,17 +1706,6 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 			g_residual_ams[bin]->GetYaxis()->SetRangeUser(-0.06, 0.1);  
 			// g_residual_ams[bin]->Print("range"); 
 			g_residual_ams[bin]->Draw("APL"); 
-
-			c4_2->cd(2); 
-			gPad->SetGrid(); 
-
-			g_residual_norm_ams[bin]->SetTitle(Form(" ; ; Normalized Fitting Residuals (%0.4f GV)", h_ams_new->GetBinCenter(bin+1)));  
-			g_residual_norm_ams[bin]->GetXaxis()->SetTimeDisplay(1);
-			g_residual_norm_ams[bin]->GetXaxis()->SetTimeFormat("%m-%y");
-			g_residual_norm_ams[bin]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
-			g_residual_norm_ams[bin]->GetXaxis()->SetTitleSize(0.7);
-			g_residual_norm_ams[bin]->GetYaxis()->SetRangeUser(-20, 20);  
-			g_residual_norm_ams[bin]->Draw("APL"); 
 
 			if (bin==0) c4_2->Print(Form("./data/ACE/fill/fake_td_ams/fitres_ams_vs_BR_%s.pdf(", element), "pdf"); 
 			if (bin>0 && bin<h_ams_new->GetNbinsX()-1) c4_2->Print(Form("./data/ACE/fill/fake_td_ams/fitres_ams_vs_BR_%s.pdf", element), "pdf");  
