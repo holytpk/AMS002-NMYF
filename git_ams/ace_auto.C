@@ -1853,9 +1853,13 @@ void plot_fit_pars(){
 	TCanvas *c1 = new TCanvas("c1", "", 1600, 900); // BCN/ACE_BR
 	c1->Divide(1, 2);
 
+	TCanvas *c2 = new TCanvas("c2", "", 1600, 900);
+	c2->Divide(1, 3); 
+
 	TLegend *l0 = new TLegend(0.62,0.8,0.9,0.9);
 	TLegend *l1 = new TLegend(0.62,0.8,0.9,0.9);
-	
+
+	// pars vs time 	
 	for (int i=0; i<4; ++i){ 
 
 		const char *element = ACE_Element[i]; 
@@ -1887,7 +1891,7 @@ void plot_fit_pars(){
 		TGraphErrors *par0_ratio = new TGraphErrors();
 		TGraphErrors *par1_ratio = new TGraphErrors(); 
 
-		TGraphErrors *par0_ACE[7];
+		TGraphErrors *par0_ACE[7]; 
 		TGraphErrors *par1_ACE[7];
 
 		int nbins =7; 
@@ -1899,8 +1903,13 @@ void plot_fit_pars(){
 			par0_ACE[bin] = new TGraphErrors();
 			par1_ACE[bin] = new TGraphErrors(); 
 
-			HistTools::SetStyle(par0_ACE[bin], HistTools::GetColorPalette(3*bin, 3*nbins), kFullCircle, 0.9, 1, 1);
-			HistTools::SetStyle(par1_ACE[bin], HistTools::GetColorPalette(3*bin, 3*nbins), kFullCircle, 0.9, 1, 1);
+			TGraphErrors *par1_par0_sc = new TGraphErrors(); // scatter plot, include every BR in one plot, separate for each bin 
+
+			TGraphErrors *par0_ACE_sc = new TGraphErrors();
+			TGraphErrors *par1_ACE_sc = new TGraphErrors();
+
+			HistTools::SetStyle(par0_ACE[bin], kBlue-2, kFullCircle, 0.9, 1, 1);
+			HistTools::SetStyle(par1_ACE[bin], kBlue-2, kFullCircle, 0.9, 1, 1);
 
 			int iBR_true = 0;
 			for (int iBR=0; iBR<nBRs; ++iBR){ 
@@ -1913,6 +1922,15 @@ void plot_fit_pars(){
 				par1_ACE[bin]->SetPoint(iBR, par1_X->GetX()[iBR], par1_X->GetY()[iBR]/h_ace_BR->GetBinContent(2*bin+1)); 
 				par1_ACE[bin]->SetPointError(iBR, 0, par1_X->GetY()[iBR]/h_ace_BR->GetBinContent(2*bin+1)*sqrt(pow(par1_X->GetEY()[iBR]/par1_X->GetY()[iBR], 2)+pow(h_ace_BR->GetBinError(2*bin+1)/h_ace_BR->GetBinContent(2*bin+1), 2)));
 
+				par1_par0_sc->SetPoint(iBR, par0_X->GetY()[iBR], par1_X->GetY()[iBR]); 
+				par1_par0_sc->SetPointError(iBR, par0_X->GetEY()[iBR], par1_X->GetEY()[iBR]); 	
+
+				par0_ACE_sc->SetPoint(iBR, h_ace_BR->GetBinContent(2*bin+1), par0_X->GetY()[iBR]); 
+				par0_ACE_sc->SetPointError(iBR, h_ace_BR->GetBinError(2*bin+1), par0_X->GetEY()[iBR]); 
+
+				par1_ACE_sc->SetPoint(iBR, h_ace_BR->GetBinContent(2*bin+1), par1_X->GetY()[iBR]); 
+				par1_ACE_sc->SetPointError(iBR, h_ace_BR->GetBinError(2*bin+1), par1_X->GetEY()[iBR]); 				
+		
 				if (iBR+2426==2472-1) iBR_true += 3; 
 				else iBR_true ++; 
 			} 
@@ -1949,7 +1967,44 @@ void plot_fit_pars(){
 			if (bin==nbins-1){
 				c1->Print(Form("./data/ACE/fill/fake_td_ams_v2/fit_pars_%s_vs_ACE.pdf)", element), "pdf"); 
 			}
-		
+
+			c2->cd(1);  
+			gPad->SetGrid(); 
+
+			par1_par0_sc->SetTitle(Form(" %s Flux 1+[0]*exp(-[1]*R) Fit (%0.2f GV); Par_%s[0]; Par_%s[1]", element, h_ace_rig->GetBinCenter(2*bin+1), element, element)); 
+			//par1_par0_sc->GetXaxis()->SetTitleSize(1.3);
+			HistTools::SetStyle(par1_par0_sc, kBlue, kFullCircle, 1.2, 1, 1);
+			par1_par0_sc->SetLineStyle(2); 
+			par1_par0_sc->SetLineWidth(1.0); 
+			par1_par0_sc->Draw("AP"); 
+
+			c2->cd(2);
+			gPad->SetGrid();
+
+			par0_ACE_sc->SetTitle(Form("; ; Par_%s[0]", element));
+			par0_ACE_sc->GetXaxis()->SetTitle(Form("ACE %s %s", element, Unit::GetDifferentialFluxLabel("GV m"))); 
+			//par0_ACE_sc->GetXaxis()->SetTitleSize(1.3);
+			HistTools::SetStyle(par0_ACE_sc, kRed, kFullCircle, 1.2, 1, 1);
+			par0_ACE_sc->SetLineStyle(2); 
+			par0_ACE_sc->SetLineWidth(1.0); 
+			par0_ACE_sc->Draw("AP");
+			
+			c2->cd(3);
+			gPad->SetGrid(); 
+
+			par1_ACE_sc->SetTitle(Form("; ; Par_%s[1]", element));  
+			par1_ACE_sc->GetXaxis()->SetTitle(Form("ACE %s %s", element, Unit::GetDifferentialFluxLabel("GV m")));
+			//par1_ACE_sc->GetXaxis()->SetTitleSize(1.3);
+			HistTools::SetStyle(par1_ACE_sc, kRed, kFullCircle, 1.2, 1, 1);
+			par1_ACE_sc->SetLineStyle(2);
+			par1_ACE_sc->SetLineWidth(1.0);  
+			par1_ACE_sc->Draw("AP"); 
+			
+			if (bin==0) c2->Print(Form("./data/ACE/fill/fake_td_ams_v2/fit_pars_sca_%s.pdf(", element), "pdf"); 
+			if (bin>0 && bin<nbins-1) c2->Print(Form("./data/ACE/fill/fake_td_ams_v2/fit_pars_sca_%s.pdf", element), "pdf"); 
+			if (bin==nbins-1){
+				c2->Print(Form("./data/ACE/fill/fake_td_ams_v2/fit_pars_sca_%s.pdf)", element), "pdf"); 
+			} 
 		} 
 		
 		HistTools::SetStyle(par0_ratio, HistTools::GetColorPalette(3*i, 9), kFullCircle, 0.9, 1, 1);
@@ -2378,7 +2433,7 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 		gPad->SetLogx();  
 
 		TLegend *l_both = new TLegend(0.62,0.8,0.9,1.); 
-		l_both->AddEntry(gspind_ace, "ACE Spectral Indices", "PL");
+		l_both->AddEntry(gspind_ace, "ACE Spectral Indices", "PL"); 
 		l_both->AddEntry(gspind_ams, "AMS Spectral Indices", "PL"); 		
 	
 		gspind_ace->GetYaxis()->SetRangeUser(-3, 3); 
@@ -2503,6 +2558,25 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
  
 			l_chi2->AddEntry(h_fitres[i], Form("He(R,t)Fit/<He(R)>Fit chi2/ndf=%6.2f/%-2u", chi2, ndf), "P");  
 
+			if (i==0){ 
+				g_chi2_ace->SetPoint(iBR, UBRToTime(iBR_true+2426), chi2/ndf);
+				for (int bin=0; bin <= h_fitres[i]->GetNbinsX(); ++bin){ 
+					if (bin%2==0){ 
+						g_residual_ace[bin/2]->SetPoint(iBR, UBRToTime(iBR_true+2426), h_fitres[i]->GetBinContent(bin+1)); 
+
+						// printf("bin/2 = %d, iBR = %d, time = %10.4u, fitres = %10.4f \n", bin/2, iBR, UBRToTime(iBR_true+2426), h_fitres[0]->GetBinContent(bin+1)); 
+					} 
+				}   
+			} 
+
+			if (i==1){ 
+				g_chi2_ams->SetPoint(iBR, UBRToTime(iBR_true+2426), chi2/ndf);
+				for (int bin=0; bin <= h_ams_new->GetNbinsX()-1; ++bin){ 
+					g_residual_ams[bin]->SetPoint(iBR, UBRToTime(iBR_true+2426), h_fitres[i]->GetBinContent(bin+1));
+					// printf("bin = %d, iBR = %d, time = %10.4u, fitres = %10.4f \n", bin, iBR, UBRToTime(iBR_true+2426), h_fitres[1]->GetBinContent(bin+1)); 
+				}  
+			} 	
+
 		} 
 
 		for (UShort_t i = 0; i < 2; ++i)
@@ -2514,26 +2588,16 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
    			UShort_t ndf  = hist->GetNbinsX();
    			Double_t chi2 = chi2norm1[i]*ndf; 
  
-			// l_chi2->AddEntry(h_fitres1[i], Form("1+[0]*exp(-[1]*R) chi2/ndf=%6.2f/%-2u", chi2, ndf), "P");  
+			// l_chi2->AddEntry(h_fitres1[i], Form("1+[0]*exp(-[1]*R) chi2/ndf=%6.2f/%-2u", chi2, ndf), "P");
 
 			if (i==0){ 
-				g_chi2_ace->SetPoint(iBR, UBRToTime(iBR_true+2426), chi2/ndf);
-				for (int bin=0; bin <= h_fitres1[i]->GetNbinsX(); ++bin){ 
-					if (bin%2==0){ 
-						g_residual_ace[bin/2]->SetPoint(iBR, UBRToTime(iBR_true+2426), h_fitres1[i]->GetBinContent(bin+1)); 
-
-						// printf("bin/2 = %d, iBR = %d, time = %10.4u, fitres1 = %10.4f \n", bin/2, iBR, UBRToTime(iBR_true+2426), h_fitres1[0]->GetBinContent(bin+1)); 
-					} 
-				}   
+				g_chi2_ace2->SetPoint(iBR, UBRToTime(iBR_true+2426), chi2/ndf);
 			} 
 
 			if (i==1){ 
-				g_chi2_ams->SetPoint(iBR, UBRToTime(iBR_true+2426), chi2/ndf);
-				for (int bin=0; bin <= h_ams_new->GetNbinsX()-1; ++bin){ 
-					g_residual_ams[bin]->SetPoint(iBR, UBRToTime(iBR_true+2426), h_fitres1[i]->GetBinContent(bin+1));
-					// printf("bin = %d, iBR = %d, time = %10.4u, fitres1 = %10.4f \n", bin, iBR, UBRToTime(iBR_true+2426), h_fitres1[1]->GetBinContent(bin+1)); 
-				}  
-			} 	
+				g_chi2_ams2->SetPoint(iBR, UBRToTime(iBR_true+2426), chi2/ndf);
+			}   
+
 		}	
 
 		for (UShort_t i = 0; i < 2; ++i)
@@ -2545,15 +2609,7 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
    			UShort_t ndf  = hist->GetNbinsX();
    			Double_t chi2 = chi2norm2[i]*ndf; 
    	
-			// l_chi2->AddEntry(h_fitres2[i], Form("1+[0]*exp(-[1]*ln(R)) chi2/ndf=%6.2f/%-2u", chi2, ndf), "P"); 
-
-			if (i==0){ 
-				g_chi2_ace2->SetPoint(iBR, UBRToTime(iBR_true+2426), chi2/ndf);
-			} 
-
-			if (i==1){ 
-				g_chi2_ams2->SetPoint(iBR, UBRToTime(iBR_true+2426), chi2/ndf);
-			} 	
+			// l_chi2->AddEntry(h_fitres2[i], Form("1+[0]*exp(-[1]*ln(R)) chi2/ndf=%6.2f/%-2u", chi2, ndf), "P"); 	
 		}
 
 		// %time %par0 %par0_er %par1 %par1_er  
@@ -2641,8 +2697,8 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 	HistTools::SetStyle(g_chi2_ace, kPink, kFullCircle, 1.4, 1, 1); 
 	HistTools::SetStyle(g_chi2_ace2, kBlue, kFullCircle, 1.4, 1, 1); 
 	TLegend *l_c3_1 = new TLegend(0.62,0.8,0.9,0.9); 
-	l_c3_1->AddEntry(g_chi2_ace, "1+[0]*exp(-[1]*R)", "PL"); 
-	l_c3_1->AddEntry(g_chi2_ace2, "1+[0]*exp(-[1]*ln(R))", "PL"); 
+	l_c3_1->AddEntry(g_chi2_ace, "He(R,t)_Fit/<He(R)>_Fit", "PL"); 
+	l_c3_1->AddEntry(g_chi2_ace2, "1+[0]*exp(-[1]*R)", "PL"); 
 	g_chi2_ace->SetTitle(Form("; ; ACE %s(R,t)/<%s(R)> Fitting Chi2/NDF", element, element)); 
 	g_chi2_ace->GetXaxis()->SetTimeDisplay(1);
 	g_chi2_ace->GetXaxis()->SetTimeFormat("%m-%y"); 
@@ -2658,8 +2714,8 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 	HistTools::SetStyle(g_chi2_ams, kPink, kFullCircle, 1.4, 1, 1); 
 	HistTools::SetStyle(g_chi2_ams2, kBlue, kFullCircle, 1.4, 1, 1); 
 	TLegend *l_c3_2 = new TLegend(0.62,0.8,0.9,0.9); 
-	l_c3_2->AddEntry(g_chi2_ams, "1+[0]*exp(-[1]*R)", "PL");
-	l_c3_2->AddEntry(g_chi2_ams2, "1+[0]*exp(-[1]*ln(R))", "PL");
+	l_c3_2->AddEntry(g_chi2_ams, "He(R,t)_Fit/<He(R)>_Fit", "PL");
+	l_c3_2->AddEntry(g_chi2_ams2, "1+[0]*exp(-[1]*R)", "PL");
 	g_chi2_ams->SetTitle(Form("; ; AMS %s(R,t)/<%s(R)> Fitting Chi2/NDF", element, element)); 
 	g_chi2_ams->GetXaxis()->SetTimeDisplay(1);
 	g_chi2_ams->GetXaxis()->SetTimeFormat("%m-%y");
@@ -2703,7 +2759,7 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 
 			TLegend *l_comp1 = new TLegend(0.62, 0.8, 0.9, 1.0); 
 			l_comp1->AddEntry(g_ratio_ave_norm, "Normalized Averaged ACE Data/Template-1", "PL"); 
-			l_comp1->AddEntry(g_residual_ace[bin/2], Form("ACE Fitting Residuals (%0.4f GV)", h_ace_rig_ave->GetBinCenter(bin+1)), "PL"); 
+			l_comp1->AddEntry(g_residual_ace[bin/2], Form("ACE He_Fit Residuals (%0.4f GV)", h_ace_rig_ave->GetBinCenter(bin+1)), "PL"); 
 
 			g_residual_ace[bin/2]->SetTitle(Form(" ; ; ACE %s Data/Template-1 vs. Fitting Residuals", element));  
 			g_residual_ace[bin/2]->GetXaxis()->SetTimeDisplay(1);
@@ -2802,7 +2858,7 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 	HistTools::CopyStyle( h_ams_new, g_ave_residual_ams_rig );
 	g_ave_residual_ace_rig->GetYaxis()->SetRangeUser(-0.085, 0.085); 
 	g_ave_residual_ace_rig->GetXaxis()->SetLimits(0.7, 60);
-	g_ave_residual_ace_rig->SetTitle(Form(" ; ; Time-averaged Fit Residuals of %s(R,t)/<%s(R)>", element, element)); 
+	g_ave_residual_ace_rig->SetTitle(Form(" ; ; Time-averaged Fit Residuals of He(R,t)_Fit/<He(R)>_Fit vs. ACE %s Flux", element)); 
 	g_ave_residual_ace_rig->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV")); 
 
 	TLegend *l_both4 = new TLegend(0.62,0.8,0.9,0.9); 
@@ -7442,3 +7498,5 @@ TGraphErrors *get_norm_graph(TGraphErrors *g){
 	if (!strcmp(option, "std")) return std; 
 	else return 0; 	
 } */
+
+
