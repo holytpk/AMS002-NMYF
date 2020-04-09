@@ -200,6 +200,7 @@ TGraphErrors *ace_rescale_BR(const char *element, Particle::Type isotope); // re
 void ace_rescale_BR_averaged(const char *element, Particle::Type isotope); // improved ver. for BCNO. Plots spectral indices vs. rigidity and time. y
 void ace_fake_td_ams(const char *element, Particle::Type isotope); // make a fake time-dependent TOA Flux Model with (AMS Helium BR)*(<AMS>_C/<AMS>_He)   
 void ace_fake_td_ams_v2(const char *element, Particle::Type isotope); // fake_td_ams but plot He(R,t) Fit vs. <He(R)> Fit
+void ace_fake_td_ams_v3(const char *element, Particle::Type isotope); // use O pars for C, B pars for N. 
 void plot_fit_pars(); // plot fit par_BCN vs. par_O  
 
 void ace_all_average(); // plot averaged flux over energy bins for all elements
@@ -272,6 +273,7 @@ void ace_auto(const char *operation){
 
 		for (int i=0; i<4; ++i){	
 			// ace_rescale_BR( ACE_Element[i], ACE_Isotope[i] ); 
+			// ace_fake_td_ams_v3( ACE_Element[i], ACE_Isotope[i] ); 
 		}
 
 		// TLegend *legend = new TLegend(0.1,0.6,0.28,0.9); 
@@ -1489,6 +1491,7 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 			// last_pars[ipar] = fit_ratio->GetParameter(ipar); 
 			// last_pars2[ipar] = fit_ratio2->GetParameter(ipar); 
 			g_pars[ipar]->SetPoint(iBR, UBRToTime(iBR_true+2426), fit_ratio->GetParameter(ipar)); 
+			g_pars[ipar]->SetPointError(iBR, 0, fit_ratio->GetParError(ipar));  
 		}  
 
 		TF1 *fspind_ratio = HistTools::GetSpectralIndex(fit_ratio, "fspind_ratio", R1, R2); 
@@ -1575,7 +1578,7 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 			} 
 
 			if (i==1){ 
-				g_chi2_ams2->SetPoint(iBR, UBRToTime(iBR_true+2426), chi2/ndf);
+				g_chi2_ams2->SetPoint(iBR, UBRToTime(iBR_true+2426), chi2/ndf); 
 			} 	
 		}
 
@@ -1854,7 +1857,7 @@ void plot_fit_pars(){
 	c1->Divide(1, 2);
 
 	TCanvas *c2 = new TCanvas("c2", "", 1600, 900);
-	c2->Divide(1, 3); 
+	c2->Divide(1, 1); 
 
 	TLegend *l0 = new TLegend(0.62,0.8,0.9,0.9);
 	TLegend *l1 = new TLegend(0.62,0.8,0.9,0.9);
@@ -1971,39 +1974,84 @@ void plot_fit_pars(){
 			c2->cd(1);  
 			gPad->SetGrid(); 
 
+			TF1 *f_corr1 = new TF1("f_corr1", "[0]*x+[1]", -1, 2);
+			par1_par0_sc->Fit(f_corr1, "N"); 
+
+			TLegend *l_corr1 = new TLegend(0.62,0.8,0.9,0.9); 
+			l_corr1->AddEntry(f_corr1, Form("%0.4fx+%0.4f", f_corr1->GetParameter(0), f_corr1->GetParameter(1))); 
+
 			par1_par0_sc->SetTitle(Form(" %s Flux 1+[0]*exp(-[1]*R) Fit (%0.2f GV); Par_%s[0]; Par_%s[1]", element, h_ace_rig->GetBinCenter(2*bin+1), element, element)); 
 			//par1_par0_sc->GetXaxis()->SetTitleSize(1.3);
 			HistTools::SetStyle(par1_par0_sc, kBlue, kFullCircle, 1.2, 1, 1);
 			par1_par0_sc->SetLineStyle(2); 
 			par1_par0_sc->SetLineWidth(1.0); 
+			par1_par0_sc->GetYaxis()->SetRangeUser(-0.5, 2); 
+			par1_par0_sc->GetXaxis()->SetRangeUser(-1, 2); 
 			par1_par0_sc->Draw("AP"); 
+			f_corr1->Draw("SAME"); 
+			par1_par0_sc->Draw("PSAME"); 
+			l_corr1->Draw("SAME"); 
 
-			c2->cd(2);
+			// par1_par0_sc->Print("range"); 
+
+			if (bin==0) c2->Print(Form("./data/ACE/fill/fake_td_ams_v2/fit_pars_sca_%s_1.pdf(", element), "pdf"); 
+			if (bin>0 && bin<nbins-1) c2->Print(Form("./data/ACE/fill/fake_td_ams_v2/fit_pars_sca_%s_1.pdf", element), "pdf"); 
+			if (bin==nbins-1){
+				c2->Print(Form("./data/ACE/fill/fake_td_ams_v2/fit_pars_sca_%s_1.pdf)", element), "pdf"); 
+			} 
+
+			c2->cd(1);
 			gPad->SetGrid();
 
-			par0_ACE_sc->SetTitle(Form("; ; Par_%s[0]", element));
+			TF1 *f_corr2 = new TF1("f_corr2", "[0]*x+[1]", -1, 2);
+			par0_ACE_sc->Fit(f_corr2, "N"); 
+
+			TLegend *l_corr2 = new TLegend(0.62,0.8,0.9,0.9); 
+			l_corr2->AddEntry(f_corr2, Form("%0.4fx+%0.4f", f_corr2->GetParameter(0), f_corr2->GetParameter(1)));
+
+			par0_ACE_sc->SetTitle(Form(" %s Flux 1+[0]*exp(-[1]*R) Fit (%0.2f GV); ; Par_%s[0]", element, h_ace_rig->GetBinCenter(2*bin+1), element));
 			par0_ACE_sc->GetXaxis()->SetTitle(Form("ACE %s %s", element, Unit::GetDifferentialFluxLabel("GV m"))); 
 			//par0_ACE_sc->GetXaxis()->SetTitleSize(1.3);
 			HistTools::SetStyle(par0_ACE_sc, kRed, kFullCircle, 1.2, 1, 1);
 			par0_ACE_sc->SetLineStyle(2); 
 			par0_ACE_sc->SetLineWidth(1.0); 
+			par0_ACE_sc->GetYaxis()->SetRangeUser(-0.5, 2); 
 			par0_ACE_sc->Draw("AP");
-			
-			c2->cd(3);
+			f_corr2->Draw("SAME"); 
+			par0_ACE_sc->Draw("PSAME"); 
+			l_corr2->Draw("SAME"); 			
+
+			if (bin==0) c2->Print(Form("./data/ACE/fill/fake_td_ams_v2/fit_pars_sca_%s_2.pdf(", element), "pdf"); 
+			if (bin>0 && bin<nbins-1) c2->Print(Form("./data/ACE/fill/fake_td_ams_v2/fit_pars_sca_%s_2.pdf", element), "pdf"); 
+			if (bin==nbins-1){
+				c2->Print(Form("./data/ACE/fill/fake_td_ams_v2/fit_pars_sca_%s_2.pdf)", element), "pdf"); 
+			} 
+
+			c2->cd(1);
 			gPad->SetGrid(); 
 
-			par1_ACE_sc->SetTitle(Form("; ; Par_%s[1]", element));  
+			TF1 *f_corr3 = new TF1("f_corr3", "[0]*x+[1]", -1, 2);
+			par1_ACE_sc->Fit(f_corr3, "N"); 
+
+			TLegend *l_corr3 = new TLegend(0.62,0.8,0.9,0.9); 
+			l_corr3->AddEntry(f_corr3, Form("%0.4fx+%0.4f", f_corr3->GetParameter(0), f_corr3->GetParameter(1)));
+
+			par1_ACE_sc->SetTitle(Form(" %s Flux 1+[0]*exp(-[1]*R) Fit (%0.2f GV); ; Par_%s[1]", element, h_ace_rig->GetBinCenter(2*bin+1), element));  
 			par1_ACE_sc->GetXaxis()->SetTitle(Form("ACE %s %s", element, Unit::GetDifferentialFluxLabel("GV m")));
 			//par1_ACE_sc->GetXaxis()->SetTitleSize(1.3);
 			HistTools::SetStyle(par1_ACE_sc, kRed, kFullCircle, 1.2, 1, 1);
 			par1_ACE_sc->SetLineStyle(2);
 			par1_ACE_sc->SetLineWidth(1.0);  
+			par1_ACE_sc->GetYaxis()->SetRangeUser(-0.5, 2); 
 			par1_ACE_sc->Draw("AP"); 
-			
-			if (bin==0) c2->Print(Form("./data/ACE/fill/fake_td_ams_v2/fit_pars_sca_%s.pdf(", element), "pdf"); 
-			if (bin>0 && bin<nbins-1) c2->Print(Form("./data/ACE/fill/fake_td_ams_v2/fit_pars_sca_%s.pdf", element), "pdf"); 
+			f_corr3->Draw("SAME"); 
+			par1_ACE_sc->Draw("PSAME");
+			l_corr3->Draw("SAME"); 
+
+			if (bin==0) c2->Print(Form("./data/ACE/fill/fake_td_ams_v2/fit_pars_sca_%s_3.pdf(", element), "pdf"); 
+			if (bin>0 && bin<nbins-1) c2->Print(Form("./data/ACE/fill/fake_td_ams_v2/fit_pars_sca_%s_3.pdf", element), "pdf"); 
 			if (bin==nbins-1){
-				c2->Print(Form("./data/ACE/fill/fake_td_ams_v2/fit_pars_sca_%s.pdf)", element), "pdf"); 
+				c2->Print(Form("./data/ACE/fill/fake_td_ams_v2/fit_pars_sca_%s_3.pdf)", element), "pdf"); 
 			} 
 		} 
 		
@@ -2011,7 +2059,7 @@ void plot_fit_pars(){
 		HistTools::SetStyle(par1_ratio, HistTools::GetColorPalette(3*i, 9), kFullCircle, 0.9, 1, 1);
 
 		if (i<3) l0->AddEntry(par0_ratio, Form("Par_%s[0]/Par_O[0]", element), "PL"); 
-		if (i<3) l1->AddEntry(par0_ratio, Form("Par_%s[0]/Par_O[0]", element), "PL"); 
+		if (i<3) l1->AddEntry(par1_ratio, Form("Par_%s[1]/Par_O[1]", element), "PL"); 
 
 		for (int iBR=0; iBR<nBRs; ++iBR){
 
@@ -2059,7 +2107,90 @@ void plot_fit_pars(){
 
 	} 
 
-	c0->Print("data/ACE/fill/fake_td_ams_v2/plot_fit_pars.png"); 
+	c0->Print("data/ACE/fill/fake_td_ams_v2/plot_fit_pars.png");
+
+	TGraphErrors *par0_X[4]; 
+	TGraphErrors *par1_X[4];  
+
+	TGraphErrors *par0_ratio_CO = new TGraphErrors();
+	TGraphErrors *par1_ratio_CO = new TGraphErrors(); 
+
+	TGraphErrors *par0_ratio_NB = new TGraphErrors();
+	TGraphErrors *par1_ratio_NB = new TGraphErrors(); 
+
+	for (int i=0; i<4; ++i){ 
+
+		par0_X[i] = new TGraphErrors(Form("data/ACE/fill/fake_td_ams_v2/fit_pars_%s.dat", ACE_Element[i]), "%lg %lg %lg %*s %*s"); 
+		par1_X[i] = new TGraphErrors(Form("data/ACE/fill/fake_td_ams_v2/fit_pars_%s.dat", ACE_Element[i]), "%lg %*s %*s %lg %lg"); 
+
+	}
+
+	for (int iBR=0; iBR<nBRs; ++iBR){
+
+		par0_ratio_CO->SetPoint(iBR, par0_X[1]->GetX()[iBR], par0_X[1]->GetY()[iBR]/par0_X[3]->GetY()[iBR]);
+		par0_ratio_CO->SetPointError(iBR, 0, par0_X[1]->GetY()[iBR]/par0_X[3]->GetY()[iBR]*sqrt(pow(par0_X[1]->GetEY()[iBR]/par0_X[1]->GetY()[iBR], 2)+pow(par0_X[3]->GetEY()[iBR]/par0_X[3]->GetY()[iBR], 2)));
+
+		par1_ratio_CO->SetPoint(iBR, par1_X[1]->GetX()[iBR], par1_X[1]->GetY()[iBR]/par1_X[3]->GetY()[iBR]);
+		par1_ratio_CO->SetPointError(iBR, 0, par1_X[1]->GetY()[iBR]/par1_X[3]->GetY()[iBR]*sqrt(pow(par1_X[1]->GetEY()[iBR]/par1_X[1]->GetY()[iBR], 2)+pow(par1_X[3]->GetEY()[iBR]/par1_X[3]->GetY()[iBR], 2)));		
+
+		par0_ratio_NB->SetPoint(iBR, par0_X[2]->GetX()[iBR], par0_X[2]->GetY()[iBR]/par0_X[0]->GetY()[iBR]);
+		par0_ratio_NB->SetPointError(iBR, 0, par0_X[2]->GetY()[iBR]/par0_X[0]->GetY()[iBR]*sqrt(pow(par0_X[2]->GetEY()[iBR]/par0_X[2]->GetY()[iBR], 2)+pow(par0_X[0]->GetEY()[iBR]/par0_X[0]->GetY()[iBR], 2)));
+
+		par1_ratio_NB->SetPoint(iBR, par1_X[2]->GetX()[iBR], par1_X[2]->GetY()[iBR]/par1_X[0]->GetY()[iBR]);
+		par1_ratio_NB->SetPointError(iBR, 0, par1_X[2]->GetY()[iBR]/par1_X[0]->GetY()[iBR]*sqrt(pow(par1_X[2]->GetEY()[iBR]/par1_X[2]->GetY()[iBR], 2)+pow(par1_X[0]->GetEY()[iBR]/par1_X[0]->GetY()[iBR], 2)));
+
+	}
+
+	HistTools::SetStyle(par0_ratio_CO, kBlue-2, kFullCircle, 0.9, 1, 1);
+	HistTools::SetStyle(par1_ratio_CO, kBlue-2, kFullCircle, 0.9, 1, 1);
+	HistTools::SetStyle(par0_ratio_NB, kBlue-2, kFullCircle, 0.9, 1, 1);
+	HistTools::SetStyle(par1_ratio_NB, kBlue-2, kFullCircle, 0.9, 1, 1);
+
+	// reuse of the canvas
+	c0->cd(1);
+	
+	par0_ratio_CO->SetTitle(" 1+[0]*exp(-[1]*R) ; ; F(R,t)/<F(R)> Fit Par_C[0]/Par_O[0]"); 
+	par0_ratio_CO->GetXaxis()->SetTimeDisplay(1);
+	par0_ratio_CO->GetXaxis()->SetTimeFormat("%m-%y");
+	par0_ratio_CO->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+	par0_ratio_CO->GetXaxis()->SetTitleSize(0.7);
+	par0_ratio_CO->GetYaxis()->SetRangeUser(-0.5, 2.5); 
+	par0_ratio_CO->Draw("APL");
+
+	c0->cd(2);
+	
+	par1_ratio_CO->SetTitle(" ; ; F(R,t)/<F(R)> Fit Par_C[1]/Par_O[1]"); 
+	par1_ratio_CO->GetXaxis()->SetTimeDisplay(1);
+	par1_ratio_CO->GetXaxis()->SetTimeFormat("%m-%y");
+	par1_ratio_CO->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+	par1_ratio_CO->GetXaxis()->SetTitleSize(0.7);
+	par1_ratio_CO->GetYaxis()->SetRangeUser(0, 2); 
+	par1_ratio_CO->Draw("APL"); 
+
+	c0->Print("data/ACE/fill/fake_td_ams_v2/plot_fit_pars_CO.png");
+
+	// reuse of the canvas
+	c0->cd(1);
+	
+	par0_ratio_NB->SetTitle(" 1+[0]*exp(-[1]*R) ; ; F(R,t)/<F(R)> Fit Par_N[0]/Par_B[0]"); 
+	par0_ratio_NB->GetXaxis()->SetTimeDisplay(1);
+	par0_ratio_NB->GetXaxis()->SetTimeFormat("%m-%y");
+	par0_ratio_NB->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+	par0_ratio_NB->GetXaxis()->SetTitleSize(0.7);
+	par0_ratio_NB->GetYaxis()->SetRangeUser(-0.5, 2.5);
+	par0_ratio_NB->Draw("APL");
+
+	c0->cd(2);
+	
+	par1_ratio_NB->SetTitle(" ; ; F(R,t)/<F(R)> Fit Par_N[1]/Par_B[1]"); 
+	par1_ratio_NB->GetXaxis()->SetTimeDisplay(1);
+	par1_ratio_NB->GetXaxis()->SetTimeFormat("%m-%y");
+	par1_ratio_NB->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+	par1_ratio_NB->GetXaxis()->SetTitleSize(0.7);
+	par1_ratio_NB->GetYaxis()->SetRangeUser(0, 2); 
+	par1_ratio_NB->Draw("APL"); 
+
+	c0->Print("data/ACE/fill/fake_td_ams_v2/plot_fit_pars_NB.png");
 
 } 
 
@@ -2509,7 +2640,8 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 		FitTools::FitCombinedData(data, fit_ratio2, "I", rigmin2, rigmax2, chi2norm2, fitter2, 3); 
  
 		for (int ipar=0; ipar<fit_ratio->GetNpar(); ++ipar){
-			g_pars[ipar]->SetPoint(iBR, UBRToTime(iBR_true+2426), fit_ratio->GetParameter(ipar)); 
+			g_pars[ipar]->SetPoint(iBR, UBRToTime(iBR_true+2426), fit_ratio->GetParameter(ipar));
+			g_pars[ipar]->SetPointError(iBR, 0, fit_ratio->GetParError(ipar));  
 		}  
 
 		TF1 *fspind_ratio = HistTools::GetSpectralIndex(fit_ratio, "fspind_ratio", R1, R2); 
@@ -2766,7 +2898,7 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 			g_residual_ace[bin/2]->GetXaxis()->SetTimeFormat("%m-%y");
 			g_residual_ace[bin/2]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
 			g_residual_ace[bin/2]->GetXaxis()->SetTitleSize(0.7);
-			g_residual_ace[bin/2]->GetYaxis()->SetRangeUser(-0.25, 0.3);
+			g_residual_ace[bin/2]->GetYaxis()->SetRangeUser(-0.5, 0.5);
 			g_residual_ace[bin/2]->Draw("APL");
 			// g_ratio_ave_norm->Draw("PL SAME"); 
 			g_ratio_time_norm[bin/2]->Draw("PL SAME"); 
@@ -2788,19 +2920,19 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 			c4_2->cd(1); 
 			gPad->SetGrid(); 
 
-			g_residual_ams[bin]->SetTitle(Form("AMS %s(R,t)/<%s(R)>; ; Fitting Residuals (%0.4f GV)", element, element, h_ams_new->GetBinCenter(bin+1)));  
+			g_residual_ams[bin]->SetTitle(Form("AMS %s(R,t)/<%s(R)>; ; Fitting Residuals (%0.4f GV)", "He_Fit", "He_Fit", h_ams_new->GetBinCenter(bin+1)));  
 			g_residual_ams[bin]->GetXaxis()->SetTimeDisplay(1);
 			g_residual_ams[bin]->GetXaxis()->SetTimeFormat("%m-%y");
 			g_residual_ams[bin]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
 			g_residual_ams[bin]->GetXaxis()->SetTitleSize(0.7);
-			g_residual_ams[bin]->GetYaxis()->SetRangeUser(-0.06, 0.1);  
+			g_residual_ams[bin]->GetYaxis()->SetRangeUser(-0.1, 0.05);  
 			// g_residual_ams[bin]->Print("range"); 
 			g_residual_ams[bin]->Draw("APL"); 
 
-			if (bin==0) c4_2->Print(Form("./data/ACE/fill/fake_td_ams_v2/fitres_ams_vs_BR_%s.pdf(", element), "pdf"); 
-			if (bin>0 && bin<h_ams_new->GetNbinsX()-1) c4_2->Print(Form("./data/ACE/fill/fake_td_ams_v2/fitres_ams_vs_BR_%s.pdf", element), "pdf");  
+			if (bin==0) c4_2->Print(Form("./data/ACE/fill/fake_td_ams_v2/fitres_ams_vs_BR_%s.pdf(", "He_fit"), "pdf"); 
+			if (bin>0 && bin<h_ams_new->GetNbinsX()-1) c4_2->Print(Form("./data/ACE/fill/fake_td_ams_v2/fitres_ams_vs_BR_%s.pdf", "He_fit"), "pdf");  
 			if (bin==h_ams_new->GetNbinsX()-1){
-				c4_2->Print(Form("./data/ACE/fill/fake_td_ams_v2/fitres_ams_vs_BR_%s.pdf)", element), "pdf"); 
+				c4_2->Print(Form("./data/ACE/fill/fake_td_ams_v2/fitres_ams_vs_BR_%s.pdf)", "He_fit"), "pdf"); 
 			} 
 	} 
 
@@ -2811,6 +2943,803 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 
 	// g_ave_residual_ace_rig->Print("range");
 	// g_ave_residual_ams_rig->Print("range"); 
+
+	for (int ipar=0; ipar<2; ++ipar){
+		c5->cd(ipar+1); 
+		gPad->SetGrid(); 
+		g_pars[ipar]->Draw("APL"); 
+		HistTools::SetStyle(g_pars[ipar], kPink, kFullCircle, 1.4, 1, 1); 
+		g_pars[ipar]->GetXaxis()->SetTimeDisplay(1);
+		g_pars[ipar]->GetXaxis()->SetTimeFormat("%m-%y");
+		g_pars[ipar]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+		g_pars[ipar]->GetXaxis()->SetTitleSize(0.7);
+		g_pars[ipar]->GetYaxis()->SetRangeUser(-3., 3.); 
+		if (ipar==0) g_pars[ipar]->SetTitle(Form("1+[0]*exp(-[1]*R); ; Parameter [%d]", ipar));
+		else g_pars[ipar]->SetTitle(Form(" ; ; Parameter [%d]", ipar));
+	}		
+
+	TGraphErrors *g_pars_ratio = new TGraphErrors(); 
+	for (int i=0; i<g_pars[0]->GetN(); ++i){
+		g_pars_ratio->SetPoint(i, g_pars[0]->GetX()[i], g_pars[1]->GetY()[i]/g_pars[0]->GetY()[i]); 
+		g_pars_ratio->SetPointError(i, 0, g_pars[1]->GetY()[i]/g_pars[0]->GetY()[i]*sqrt(pow(g_pars[1]->GetEY()[i]/g_pars[1]->GetY()[i], 2)+pow(g_pars[0]->GetEY()[i]/g_pars[0]->GetY()[i], 2))); 
+		// printf ("par1 = %0.4f, par1err = %0.4f, par0 = %0.4f, par0err = %0.4f \n", g_pars[1]->GetY()[i], g_pars[1]->GetEY()[i], g_pars[0]->GetY()[i], g_pars[0]->GetEY()[i]); 
+	}
+
+	c5->cd(3);
+	gPad->SetGrid();
+	HistTools::SetStyle(g_pars_ratio, kPink, kFullCircle, 1.4, 1, 1);
+	g_pars_ratio->GetXaxis()->SetTimeDisplay(1);
+	g_pars_ratio->GetXaxis()->SetTimeFormat("%m-%y");
+	g_pars_ratio->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+	g_pars_ratio->GetXaxis()->SetTitleSize(0.7);
+	g_pars_ratio->GetYaxis()->SetRangeUser(-15., 30.); 
+	g_pars_ratio->SetTitle(Form(" ; ; [%d]/[%d]", 1, 0)); 
+	g_pars_ratio->Draw("APL"); 
+
+	// g_pars_ratio->Print("range"); 
+
+	c5->Print(Form("./data/ACE/fill/fake_td_ams_v2/pars_vs_BR_%s.png", element)); 
+
+	TCanvas *c6 = new TCanvas("c6", "", 1600, 900); // plot time-averaged fit residuals to F(R,t)/<F(R)> vs. rigidity 
+	c6->Divide(1, 1);  
+
+	c6->cd(1); 
+	gPad->SetGrid(); 
+	gPad->SetLogx(); 
+
+	HistTools::CopyStyle( h_ace_rig_ave, g_ave_residual_ace_rig ); 
+	HistTools::CopyStyle( h_ams_new, g_ave_residual_ams_rig );
+	g_ave_residual_ace_rig->GetYaxis()->SetRangeUser(-0.085, 0.085); 
+	g_ave_residual_ace_rig->GetXaxis()->SetLimits(0.7, 60);
+	g_ave_residual_ace_rig->SetTitle(Form(" ; ; Time-averaged Fit Residuals of He(R,t)_Fit/<He(R)>_Fit vs. ACE %s Flux", element)); 
+	g_ave_residual_ace_rig->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV")); 
+
+	TLegend *l_both4 = new TLegend(0.62,0.8,0.9,0.9); 
+	l_both4->AddEntry(g_ave_residual_ace_rig, "ACE", "PL");
+	l_both4->AddEntry(g_ave_residual_ams_rig, "AMS", "PL"); 
+
+	g_ave_residual_ace_rig->Draw("APL");
+	g_ave_residual_ams_rig->Draw("PLSAME"); 
+	l_both4->Draw("SAME"); 
+
+	c6->Print(Form("./data/ACE/fill/fake_td_ams_v2/time_ave_residual_vs_rig_%s.png", element)); 
+
+	return 0; 
+}
+
+void ace_fake_td_ams_v3(const char *element, Particle::Type isotope){
+
+	gStyle->SetOptStat(0); 
+	// gStyle->SetTitleSize(26,"t");
+
+	gSystem->mkdir("data/ACE/fill/fake_td_ams_v3", true);	
+
+ 	Experiments::DataPath = "data";	
+   	int data_value[n_ele] = {0, 18, 23, 27, 31, 20, 43, 22}; // p, He, Li, Be, B, C, N, O
+
+	TGraphErrors *par0_X[4];
+	TGraphErrors *par1_X[4]; 
+
+	for (int i=0; i<4; ++i){ 
+
+		par0_X[i] = new TGraphErrors(Form("data/ACE/fill/fake_td_ams_v2/fit_pars_%s.dat", ACE_Element[i]), "%lg %lg %lg %*s %*s"); 
+		par1_X[i] = new TGraphErrors(Form("data/ACE/fill/fake_td_ams_v2/fit_pars_%s.dat", ACE_Element[i]), "%lg %*s %*s %lg %lg"); 
+
+	}
+
+	double *kin_bins = get_kin_bins(element);
+        double *SpallCorr = get_spall_corr(element);
+	double *SpallCorrUnc = get_spall_corr_unc(element);
+	double *EMed = get_EMed(element);
+
+	const UInt_t FirstACEBR = 2240;
+	vector<UInt_t> BRs;
+	// we stop at BR 2493, which ends on 2016/05/23, just 3 days before the end of the data taking period for AMS nuclei
+	for (UInt_t br=2426; br<=2493; ++br) { 
+		if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
+	}
+
+	// load AMS He BR fluxes 
+	const int nBRs = Experiments::Info[Experiments::AMS02].Dataset[1].nMeasurements; // read the number of BRs
+	TH1D **h_BR_he = Experiments::GetDatasetHistograms(Experiments::AMS02, 4);
+	// Create a new set of histograms which match the AMS monthly bins with the AMS integrated bins 
+
+	TH1 *h_ams = Experiments::GetMeasurementHistogram(Experiments::AMS02, get_ams_data_value(element), 0); // load AMS data for a given template 
+	TH1 *h_ams_new = (TH1D*) h_BR_he[0]->Clone("h_ams_new"); 
+	// TH1 *h_he_int = (TH1*) ave_hist( h_BR_he, nBRs);  
+	TH1 *h_he = Experiments::GetMeasurementHistogram(Experiments::AMS02, 18, 0);
+	TH1 *h_he_int = (TH1D*) h_BR_he[0]->Clone("h_ams_new");  
+
+	// create h_ams_new and h_he_int to match the bins  
+
+	for (int bin=1; bin <= h_ams_new->GetNbinsX(); ++bin){ 
+	   if (!strcmp(element, "B") || !strcmp(element, "C")){ 
+		h_ams_new->SetBinContent(bin, h_ams->GetBinContent(bin)); 
+		h_ams_new->SetBinError(bin, h_ams->GetBinError(bin));
+	   }
+	   if (!strcmp(element, "N") || !strcmp(element, "O")){ 
+		h_ams_new->SetBinContent(bin, h_ams->GetBinContent(bin-1)); 
+		h_ams_new->SetBinError(bin, h_ams->GetBinError(bin-1)); 
+	   }
+	}
+	if (!strcmp(element, "N") || !strcmp(element, "O")){
+		h_ams_new->SetBinContent(1, 0); 
+		h_ams_new->SetBinError(1, 0);
+	}
+ 
+	for (int bin=1; bin<=h_BR_he[0]->GetNbinsX(); ++bin) { 
+		h_he_int->SetBinContent(bin, h_he->GetBinContent(bin)); 
+		h_he_int->SetBinError(bin, h_he->GetBinError(bin)); 
+	}
+
+	// h_ams->Print("range"); 
+	// h_ams_new->Print("range"); 
+
+	// load ACE average 
+	TH1 *h_ace_ene_ave = HistTools::GraphToHist(get_ace_average_graph( element , &BRs[0], BRs.size() ), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
+	TH1 *h_ace_rig_ave = HistTools::TransformEnergyAndDifferentialFluxNew(h_ace_ene_ave, isotope, "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element, converted in rigidity
+	HistTools::SetStyle(h_ams_new, kBlue, kFullCircle, 1.4, 1, 1);
+	HistTools::SetStyle(h_ace_rig_ave, kBlack, kFullCircle, 1.4, 1, 1);
+
+	UShort_t namsbins = h_ams_new->GetNbinsX(); 
+	UShort_t nacebins = h_ace_rig_ave->GetNbinsX(); 
+	double R1 = h_ace_rig_ave->GetBinLowEdge(1);
+	double R2 = h_ams->GetBinLowEdge(namsbins+1);
+
+	int nnodes = 9; // combined template 
+	int nnodes_ams = 7; 
+
+	printf(" template = %s, %d \n", element, get_ams_data_value(element)); 
+
+	// load combined fit template 
+	TFile *file0 = new TFile(Form("data/ACE/compare/fit_%s_%dnodes.root", element, nnodes)); 
+
+	Spline *sp_comb = new Spline("sp_comb", nnodes, Spline::LogLog | Spline::PowerLaw);
+	TF1 *fsp_comb = sp_comb->GetTF1Pointer();  
+	TF1 *fit_comb = (TF1*) file0->Get("fit_both"); 
+
+	HistTools::CopyParameters(fit_comb, fsp_comb); // error 
+	double x1, x2;
+	fit_comb->GetRange(x1,x2);
+	fsp_comb->SetRange(x1,x2);
+
+	// load AMS He combined, modified spline  
+	TFile *file1 = new TFile(Form("data/amsfit/fit_result_node%d.root", nnodes_ams));
+
+	// load ACE BR 
+	TFile *file2 = new TFile(Form("data/ACE/fill/%s_fill.root", element));
+	TFile *file2a = new TFile(Form("data/ACE/fill/%s_fill2.root", element));  
+
+	TGraphErrors *g_ratio_time[7]; 
+	TGraphErrors *g_ratio_time_norm[7]; 
+
+	for (int i=0; i<7; ++i){
+		g_ratio_time[i] = (TGraphErrors*) file2a->Get(Form("g_ratio_time_%d", i)); 	
+		HistTools::SetStyle(g_ratio_time[i], kBlue, kFullCircle, 1.4, 1, 1);
+	}
+
+	// load AMS He Model by Rescaled C Template
+	TFile *file3 = new TFile(Form("data/ACE/extend2/fit_C_temp_he_%dnodes.root", nnodes));
+
+	TCanvas *c0 = new TCanvas("c0", "", 1600, 900); // fluxes & flux/template
+	c0->Divide(1, 2); 
+
+	TCanvas *c1 = new TCanvas("c1", "", 1600, 900); // He ratio, F(R,t)/<F(R)> & spectral indices 
+	c1->Divide(1, 2); 
+	
+	TCanvas *c2 = new TCanvas("c2", "", 1600, 900); // Modeling F(R,t)/<F(R)> 
+							// fit/data of F(R,t)/<F(R)> 
+	c2->Divide(1, 3); 				// spectral indices of F(R,t)/<F(R)>, here is defined by h_ratio (ACE) and h_ratio0 (AMS)
+
+	TCanvas *c3 = new TCanvas("c3", "", 1600, 900); // plot chi2/ndf vs. BR for both ACE & AMS F(R,t)/<F(R)> fits  
+	c3->Divide(2, 1);  
+
+	TCanvas *c4 = new TCanvas("c4", "", 1600, 900); // plot for F(R,t)/<F(R)> fit residuals for each ACE bin 
+	c4->Divide(1, 1); 
+
+	TCanvas *c4_2 = new TCanvas("c4_2", "", 1600, 900); // c4 but for each AMS bin 
+	c4_2->Divide(1, 1); 
+	
+	TCanvas *c5 = new TCanvas("c5", "", 1600, 900); // plot parameter [0] [1] vs. BR for the fit 
+	c5->Divide(1, 3); 
+
+	TH1 *h_a1 = new TH1D("", "", 3000, 0, 3000); 
+	TH1 *h_a2 = new TH1D("", "", 3000, 0, 3000);
+	TH1 *h_a3 = new TH1D("", "", 3000, 0, 3000);
+	TH1 *h_a4 = new TH1D("", "", 3000, 0, 3000);	
+	TH1 *h_a5 = new TH1D("", "", 3000, 0, 3000); 
+
+	vector<double> last_pars;
+	vector<double> last_pars2 = {0.5, 0.5};  
+
+	TGraph *g_chi2_ace = new TGraph(); 
+	TGraph *g_chi2_ams = new TGraph(); 
+	TGraph *g_chi2_ace2 = new TGraph(); 
+	TGraph *g_chi2_ams2 = new TGraph(); 
+	TGraphErrors *g_pars[2];
+
+	for (int ipar=0; ipar<2; ++ipar){
+		g_pars[ipar] = new TGraphErrors(); 
+	} 
+
+	TGraphErrors *g_ratio_ave = new TGraphErrors();
+	TGraphErrors *g_ratio_ave_norm; // normalized averaged ratio of data/template-1 vs. time  
+
+	TGraphErrors *g_residual_ace[7];
+	TGraphErrors *g_residual_norm_ace[7];
+	TGraphErrors *g_residual_ams[h_ams_new->GetNbinsX()]; 
+	TGraphErrors *g_residual_norm_ams[h_ams_new->GetNbinsX()];
+
+	for (int bin=0; bin <= h_ace_rig_ave->GetNbinsX(); ++bin){ 
+		if (bin%2==0){  
+			g_residual_ace[bin/2] = new TGraphErrors(nBRs);  
+			HistTools::SetStyle(g_residual_ace[bin/2], kPink, kFullCircle, 1.4, 1, 1);
+			HistTools::SetStyle(g_ratio_ave, kBlue+1, kFullCircle, 1.4, 1, 1);
+		} 
+	}  
+ 
+	for (int bin=0; bin <= h_ams_new->GetNbinsX(); ++bin){ 
+		g_residual_ams[bin] = new TGraphErrors(nBRs);  
+		HistTools::SetStyle(g_residual_ams[bin], kPink, kFullCircle, 1.4, 1, 1); 
+	}   
+ 
+	int iBR_true = 0;
+	for (int iBR=0; iBR<nBRs; ++iBR){
+
+		// AMS_He Monthly Spline 
+		Spline *sp_he = new Spline("sp_he", nnodes_ams, Spline::LogLog | Spline::PowerLaw);
+		TF1 *fsp_he = sp_he->GetTF1Pointer();  
+		TF1 *fit_he = (TF1*) file1->Get(Form("fsp_BR_he_%02d", iBR)); 
+
+		HistTools::CopyParameters(fit_he, fsp_he); // error 
+		fit_he->GetRange(x1,x2);
+		fsp_he->SetRange(x1,x2);
+
+		// AMS_He Integrated Spline  
+		Spline *sp_he_ave = new Spline("sp_he_ave", nnodes_ams, Spline::LogLog | Spline::PowerLaw);
+		TF1 *fsp_he_ave = sp_he_ave->GetTF1Pointer();  
+		TF1 *fit_he_ave = (TF1*) file1->Get("fsp_he"); 
+
+		HistTools::CopyParameters(fit_he_ave, fsp_he_ave); // error 
+		x1=0, x2=0;
+		fit_he_ave->GetRange(x1,x2);
+		fsp_he_ave->SetRange(x1,x2); 
+
+		// AMS_He Model by Rescaled C ACE+AMS Combined Template  
+		Spline *sp_he_temp = new Spline("sp_he_temp", nnodes, Spline::LogLog | Spline::PowerLaw);
+		TF1 *fsp_he_temp = sp_he_temp->GetTF1Pointer();  
+		TF1 *fit_he_temp = (TF1*) file3->Get("fsp_he"); 
+
+		HistTools::CopyParameters(fit_he_temp, fsp_he_temp); // error 
+		x1=0, x2=0; 
+		fit_he_temp->GetRange(x1,x2);
+		fsp_he_temp->SetRange(x1,x2);  
+
+		TF1 *fsp_he2 = HistTools::CombineTF1(fsp_he, fsp_he_ave, HistTools::Divide, "fsp_he2"); // He(R,t) Fit vs. <He(R)> Fit
+		TF1 *fspind_he = HistTools::GetSpectralIndex(fsp_he2, "fspind_he", R1, R2); 
+		fspind_he->SetRange(h_he_int->GetBinCenter(2), x2);
+
+		// AMS_He(R,t)/<He(R)>
+		TH1 *h_ratio0 = (TH1D*) h_BR_he[iBR]->Clone("h_ratio0"); 
+		h_ratio0->Divide(h_he_int); 
+
+		// refill AMS BR He to match the bins  
+		HistTools::SetStyle(h_BR_he[iBR], kBlue, kFullCircle, 1.1, 1, 1); 
+
+		TH1 *h_ace_BR = (TH1*) file2->Get(Form("h_rig_%s_BR%d", element, 2426+iBR_true)); 
+
+		// rescaled <AMS_C> by AMS He BR / <AMS_He>   
+		TH1 *h_ams_BR_fake = (TH1D*) h_ams_new->Clone("h_ams_BR_fake");
+
+		h_ams_BR_fake->Multiply(h_BR_he[iBR]); 
+		h_ams_BR_fake->Divide(h_he_int); 
+ 
+		// h_ams_BR_fake->Print("range");  
+
+		// rescaled combined fit 
+		TH1 *h_ratio = (TH1 *) h_ace_BR->Clone("h_ratio"); // ACE BR/Temp 		
+		h_ratio->Divide(fsp_comb); 
+
+		HistTools::SetStyle(h_ratio, kPink, kFullCircle, 1.4, 1, 1);
+
+		double ratio_sum=0; // compute average of h_ratio manually  
+		for(int nbin=0;nbin<14;++nbin){
+			ratio_sum += h_ratio->GetBinContent(nbin);
+			//printf("ratio_sum = %0.6f \n", ratio_sum);
+		}
+		double ratio_ave = ratio_sum/7;
+
+		// printf("%0.6f \n", ratio_ave);
+		//HistTools::PrintFunction(fsp_comb);
+			
+		double scale = 1./ratio_ave;
+		h_ratio->Scale(scale);	
+
+		// rescaled combined fit 
+		TF1 *rescaled_fit = HistTools::CombineTF1Const(fsp_comb, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", R1, R2); 
+
+		TH1 *h_ratio1 = (TH1D*) h_ace_BR->Clone("h_ratio1"); // spind model 
+		h_ratio1->Divide(fsp_comb); 
+
+		TH1 *h_ratio2 = (TH1D*) h_ams_BR_fake->Clone("h_ratio2"); // spind model 
+		h_ratio2->Divide(h_ams_new);
+   
+		// h_ratio2->Print("range");
+
+		// estimated AMS / resclaed combined fit
+		TH1 *h_ratio3 = (TH1D *) h_ams_BR_fake->Clone("h_ratio3");		
+
+		h_ratio3->Divide(rescaled_fit); 
+		HistTools::SetStyle(h_ratio3, kPink, kFullCircle, 1.4, 1, 1);
+
+		c0->cd(1);
+		gPad->SetGrid(); 
+		gPad->SetLogy();
+		gPad->SetLogx(); 	
+
+		TLegend *legend = new TLegend(0.62,0.75,0.9,0.9);
+		legend->AddEntry(h_ams, Form("Integrated AMS %s Flux", element), "p"); 
+		legend->AddEntry(h_ace_BR, Form("ACE %s BR Flux", element), "p"); 
+		legend->AddEntry(h_ams_BR_fake, Form("Estimated AMS %s BR Flux", element), "p"); 
+		legend->AddEntry(rescaled_fit, "rescaled combined template", "l"); 
+
+		h_a1->SetTitle(Form("%s BR-%d Model Rigidity Spectrum; ; ", element, 2426+iBR_true));
+		h_a1->SetXTitle(Unit::GetEnergyLabel("GV"));
+  		h_a1->SetYTitle(Unit::GetDifferentialFluxLabel("GV m"));
+
+		h_a1->GetYaxis()->SetRangeUser(1e-3, 1e1); 
+		// h_a1->GetXaxis()->SetRangeUser(0.01, 3000.); 
+
+		TAxis *axis1 = h_a1->GetXaxis(); 
+		axis1->SetLimits(0.7, 60.); 
+	
+		h_a1->Draw("E1X0"); 
+	
+		HistTools::SetStyle(h_ams, kPink-3, kFullCircle, 1.4, 1, 1); 
+		HistTools::SetStyle(h_ace_BR, kRed, kFullCircle, 1.4, 1, 1);
+		// HistTools::SetStyle(h_ams_BR_he, kBlue, kFullCircle, 1.4, 1, 1);
+		HistTools::SetStyle(h_ams_BR_fake, kBlue, kFullCircle, 1.4, 1, 1);
+
+		// fsp_he->Draw("SAME"); 
+		rescaled_fit->Draw("SAME"); 
+		h_ams->Draw("E1X0 SAME"); 
+		h_ace_BR->Draw("E1X0 SAME"); 
+		// h_ams_BR_he->Draw("E1X0 SAME"); 
+		h_ams_BR_fake->Draw("E1X0 SAME"); 
+
+		//fit->SetLineColor(kBlue); 
+		//fit->Draw("SAME"); 
+		legend->Draw("SAME");   
+
+		c0->cd(2); 
+		gPad->SetGrid(); 
+		gPad->SetLogx(); 
+
+		TAxis *axis2 = h_a2->GetXaxis(); 
+		axis2->SetLimits(0.7, 60.); 
+
+		h_a2->GetYaxis()->SetRangeUser(0.5, 1.5); 
+		h_a2->GetXaxis()->SetRangeUser(0.7, 60.); 
+
+		h_a2->SetTitle("");
+		h_a2->SetXTitle(Unit::GetEnergyLabel("GV"));
+		h_a2->SetYTitle(Form("Estimated BR Fluxes / Rescaled %s Model", element)); 
+		h_a2->SetTitleSize(0.3,"t"); 
+
+		h_a2->Draw("E1X0"); 
+		h_ratio->Draw("E1X0 SAME"); 
+		h_ratio3->Draw("E1X0 SAME"); 
+
+		if (iBR==0) { c0->Print(Form("./data/ACE/fill/fake_td_ams_v3/%s_flux_model.pdf(", element), "pdf"); } 
+		if (iBR>0 && iBR<nBRs-1) { c0->Print(Form("./data/ACE/fill/fake_td_ams_v3/%s_flux_model.pdf", element), "pdf"); } 
+		if (iBR==nBRs-1){
+			c0->Print(Form("./data/ACE/fill/fake_td_ams_v3/%s_flux_model.pdf)", element), "pdf"); 
+		} 
+
+		// plot the ratio of AMS_He_BR / <AMS_He>
+		c1->cd(1); 
+		gPad->SetGrid(); 
+		gPad->SetLogx(); 
+
+		h_a3->GetYaxis()->SetRangeUser(0.5, 1.5); 
+		h_a3->GetXaxis()->SetLimits(0.7, 60);		
+
+		TLegend *l1 = new TLegend(0.62,0.8,0.9,0.9); 
+		l1->AddEntry(h_ratio0, "AMS He(R,t)/<He(R)>", "PL"); 	
+
+		h_a3->Draw("E1X0"); 
+		h_a3->SetXTitle(Unit::GetEnergyLabel("GV"));
+		h_a3->SetTitle(Form("; ; BR-%d He(R,t)/<He(R)>", iBR_true+2426)); 
+		HistTools::SetStyle(h_ratio0, kBlue, kFullCircle, 1.4, 1, 1);
+		h_ratio0->Draw("E1X0 SAME"); 
+
+		// plot spectral indices
+		TGraphAsymmErrors *gspind_ace = HistTools::GetSpectralIndex(h_ace_BR, 5, 2); // get spectral indices 
+		TGraphAsymmErrors *gspind_ams = HistTools::GetSpectralIndex(h_ams_BR_fake, 4, 1); 
+
+		c1->cd(2); 
+		gPad->SetGrid(); 
+		gPad->SetLogx();  
+
+		TLegend *l_both = new TLegend(0.62,0.8,0.9,1.); 
+		l_both->AddEntry(gspind_ace, "ACE Spectral Indices", "PL");
+		l_both->AddEntry(gspind_ams, "AMS Spectral Indices", "PL"); 		
+	
+		gspind_ace->GetYaxis()->SetRangeUser(-3, 3); 
+		gspind_ace->GetXaxis()->SetLimits(0.7, 60);
+
+		HistTools::SetStyle(gspind_ace, kPink, kFullCircle, 1.4, 1, 1); 
+		gspind_ace->SetTitle(Form("; ; ACE %s Spectral Indices BR-%d", element, 2426+iBR_true));
+		gspind_ace->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
+		gspind_ace->Draw("APL"); 
+
+		//h_a4->Draw("E1X0"); 
+		HistTools::SetStyle(gspind_ams, kBlue, kFullCircle, 1.4, 1, 1); 
+		gspind_ams->SetTitle(Form("; ; AMS %s Spectral Indices", element)); 
+		gspind_ams->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
+		gspind_ams->GetXaxis()->SetTitleSize(1.5); 
+		gspind_ams->Draw("PL SAME"); 
+		// fspind->Draw("SAME"); 
+		l_both->Draw("SAME"); 
+
+		if (iBR==0) { c1->Print(Form("./data/ACE/fill/fake_td_ams_v3/fake_ams_spind_%s.pdf(", element), "pdf"); }
+		if (iBR>0 && iBR<nBRs-1) { c1->Print(Form("./data/ACE/fill/fake_td_ams_v3/fake_ams_spind_%s.pdf", element), "pdf"); }
+		if (iBR==nBRs-1){
+			// gspind_ace->Print("range");
+			// cout << " " << endl; 
+			// gspind_ams->Print("range"); 
+			c1->Print(Form("./data/ACE/fill/fake_td_ams_v3/fake_ams_spind_%s.pdf)", element), "pdf"); 
+		} 
+
+		// find spectral indices of h_ratio + h_ratio0 
+		TGraphAsymmErrors *gspind_ace2 = HistTools::GetSpectralIndex(h_ratio1, 5, 2); // get spectral indices 
+		TGraphAsymmErrors *gspind_ams2 = HistTools::GetSpectralIndex(h_ratio2, 4, 1); 
+
+		HistTools::SetStyle(gspind_ace2, kPink, kFullCircle, 1.4, 1, 1); 
+		HistTools::SetStyle(gspind_ams2, kBlue, kFullCircle, 1.4, 1, 1); 
+		HistTools::SetStyle(fspind_he, kBlack, kFullCircle, 0.8, 1, 1);
+
+		// fit to F(R,t)/<F(R)>
+		TF1 *fit_ratio = new TF1("f_ratio", "1+[0]*exp(-[1]*x)", 0.7, 60);
+		TF1 *fit_ratio2 = new TF1("f_ratio2", "1+[0]*exp(-[1]*log(x))", 0.7, 60);
+
+		double F1 = h_ratio1->GetBinContent(h_ratio1->FindBin(R1)), F2 = h_ratio0->GetBinContent(h_ratio0->GetNbinsX()); 
+		double A1 = log(abs(F1-1)), A2 = log(abs(F2-1)); 
+		TF1 *f1 = new TF1("f1","abs(sin(x)/x)*sqrt(x)",0,1);
+		double rho = f1->GetRandom();
+		double N = f1->GetRandom(); 
+		
+		// double rho = (R2-R1)/(A1-A2)
+		// double N = 0.5*(abs(F1-1)/exp(-R1/rho) + abs(F2-1)/exp(-R2/rho)); 
+		
+		last_pars = {N, rho}; 
+		last_pars2 = {N, rho};
+
+		printf(" rho = %0.4f, N = %0.20f \n ", rho, N); 
+		// printf(" rho = %0.4f, N = %0.20f, F1 = %0.4f, F2 = %0.4f, (F1-1)/exp(-R1/rho) = %0.6f, (F2-1)/exp(-R2/rho) = %0.6f \n", rho, N, F1, F2, (F1-1)/exp(-R1/rho), (F2-1)/exp(-R2/rho));
+
+		for (int ipar=0; ipar<fit_ratio->GetNpar(); ++ipar){ 
+			fit_ratio->SetParameter(ipar, last_pars[ipar]); 
+			fit_ratio2->SetParameter(ipar, last_pars2[ipar]); 
+		}   
+
+		TObjArray data; 
+		data.Add(h_ratio1);
+		data.Add(h_ratio0);
+
+		// fit AMS and ACE data at the same time
+		vector<double> rigmin, rigmax, chi2norm(2);
+		ROOT::Fit::Fitter fitter;
+		//HistTools::PrintFunction(fit);
+		FitTools::SetCommonFitterOptions(fitter);
+		FitTools::FitCombinedData(data, fit_ratio, "I", rigmin, rigmax, chi2norm, fitter, 3); 
+
+		vector<double> rigmin2, rigmax2, chi2norm2(2);
+		ROOT::Fit::Fitter fitter2;
+		FitTools::SetCommonFitterOptions(fitter2);
+		FitTools::FitCombinedData(data, fit_ratio2, "I", rigmin2, rigmax2, chi2norm2, fitter2, 3); 
+ 
+		for (int ipar=0; ipar<fit_ratio->GetNpar(); ++ipar){
+			g_pars[ipar]->SetPoint(iBR, UBRToTime(iBR_true+2426), fit_ratio->GetParameter(ipar)); 
+			g_pars[ipar]->SetPointError(iBR, 0, fit_ratio->GetParError(ipar));   
+		}  
+
+		TF1 *fspind_ratio = HistTools::GetSpectralIndex(fit_ratio, "fspind_ratio", R1, R2); 
+		TF1 *fspind_ratio2 = HistTools::GetSpectralIndex(fit_ratio2, "fspind_ratio2", R1, R2); 
+
+		//h_ams_BR_fake->Print("range"); 
+		c2->cd(1); 
+		gPad->SetGrid(); 
+		gPad->SetLogx();
+		gPad->SetBottomMargin(0.01); 
+
+		h_a4->GetYaxis()->SetRangeUser(0.5, 2.2); 
+		h_a4->GetXaxis()->SetLimits(0.7, 60); 
+	
+		TLegend *l2 = new TLegend(0.62,0.8,0.9,1.); 
+		l2->AddEntry(h_ratio1, Form("ACE %s(R,t)/<%s(R)>", element, element), "PL");
+		l2->AddEntry(h_ratio0, "AMS He(R,t)/<He(R)>", "PL");  
+		l2->AddEntry(fit_ratio, Form("1+%6.3fexp(-%6.3fR)", fit_ratio->GetParameter(0), fit_ratio->GetParameter(1)), "L"); 
+		l2->AddEntry(fit_ratio2, Form("1+%6.3fexp(-%6.3fln(R))", fit_ratio2->GetParameter(0), fit_ratio2->GetParameter(1)), "L"); 
+
+		h_a4->Draw("E1X0"); 
+		h_a4->SetXTitle(Unit::GetEnergyLabel("GV"));
+		h_a4->SetTitle(Form("; ; BR-%d %s(R,t)/<%s(R)>", iBR_true+2426, element, element));
+		// h_a4->SetTitleSize(0.5,"y"); 
+		HistTools::SetStyle(h_ratio1, kPink, kFullCircle, 1.4, 1, 1);
+		HistTools::SetStyle(h_ratio0, kBlue, kFullCircle, 1.4, 1, 1);
+		fit_ratio2->SetLineColor(kGreen); 
+		fit_ratio->Draw("SAME");
+		fit_ratio2->Draw("SAME"); 
+		h_ratio1->Draw("E1X0 SAME");
+		h_ratio0->Draw("E1X0 SAME");
+		l2->Draw("SAME"); 
+
+		TH1D *h_fitres[2];
+		TH1D *h_fitres2[2]; 
+		TLegend *l_chi2 = new TLegend(0.62,0.8,0.9,1.0); 
+
+		if (!strcmp(element, "N")){
+			last_pars = {par0_X[0]->GetY()[iBR], par1_X[0]->GetY()[iBR]};
+			for (int ipar=0; ipar<fit_ratio->GetNpar(); ++ipar){ 
+				fit_ratio->SetParameter(ipar, last_pars[ipar]); 
+			}
+		} 
+
+		if (!strcmp(element, "C")){
+			last_pars = {par0_X[3]->GetY()[iBR], par1_X[3]->GetY()[iBR]};   
+			for (int ipar=0; ipar<fit_ratio->GetNpar(); ++ipar){ 
+				fit_ratio->SetParameter(ipar, last_pars[ipar]); 
+			}			
+		} 
+
+		for (UShort_t i = 0; i < 2; ++i)
+		{
+  			TH1 *hist = HistTools::ToHist(data[i]);
+   			h_fitres[i] = (TH1D *)HistTools::GetResiduals(hist, fit_ratio, "_fitres", false, true, true, 5, 1, 0.68, &fitter);
+			HistTools::CopyStyle(hist, h_fitres[i]);
+
+   			UShort_t ndf  = hist->GetNbinsX();
+   			Double_t chi2 = chi2norm[i]*ndf; 
+   			// printf(" %d nodes ### %-34s   chi2/ndf=%6.2f/%-2u   chi2norm=%5.2f   prob.=%5.2f%%\n", nnodes, hist->GetTitle(), chi2, ndf, chi2norm[i], TMath::Prob(chi2, ndf)*1e2);
+
+			l_chi2->AddEntry(h_fitres[i], Form("1+[0]*exp(-[1]*R) chi2/ndf=%6.2f/%-2u", chi2, ndf), "P");  
+
+			if (i==0){ 
+				g_chi2_ace->SetPoint(iBR, UBRToTime(iBR_true+2426), chi2/ndf);
+				for (int bin=0; bin <= h_fitres[i]->GetNbinsX(); ++bin){ 
+					if (bin%2==0){ 
+						g_residual_ace[bin/2]->SetPoint(iBR, UBRToTime(iBR_true+2426), h_fitres[i]->GetBinContent(bin+1)); 
+
+						// printf("bin/2 = %d, iBR = %d, time = %10.4u, fitres = %10.4f \n", bin/2, iBR, UBRToTime(iBR_true+2426), h_fitres[0]->GetBinContent(bin+1)); 
+					} 
+				}   
+			} 
+
+			if (i==1){ 
+				g_chi2_ams->SetPoint(iBR, UBRToTime(iBR_true+2426), chi2/ndf);
+				for (int bin=0; bin <= h_ams_new->GetNbinsX()-1; ++bin){ 
+					g_residual_ams[bin]->SetPoint(iBR, UBRToTime(iBR_true+2426), h_fitres[i]->GetBinContent(bin+1));
+					// printf("bin = %d, iBR = %d, time = %10.4u, fitres = %10.4f \n", bin, iBR, UBRToTime(iBR_true+2426), h_fitres[1]->GetBinContent(bin+1)); 
+				}  
+			} 	
+		}	
+
+		for (UShort_t i = 0; i < 2; ++i)
+		{
+  			TH1 *hist = HistTools::ToHist(data[i]);
+   			h_fitres2[i] = (TH1D *)HistTools::GetResiduals(hist, fit_ratio2, "_fitres2", false, true, true, 5, 1, 0.68, &fitter2);
+			HistTools::CopyStyle(hist, h_fitres2[i]);
+
+   			UShort_t ndf  = hist->GetNbinsX();
+   			Double_t chi2 = chi2norm2[i]*ndf; 
+   			// printf(" %d nodes ### %-34s   chi2/ndf=%6.2f/%-2u   chi2norm=%5.2f   prob.=%5.2f%%\n", nnodes, hist->GetTitle(), chi2, ndf, chi2norm[i], TMath::Prob(chi2, ndf)*1e2); 
+
+			l_chi2->AddEntry(h_fitres2[i], Form("1+[0]*exp(-[1]*ln(R)) chi2/ndf=%6.2f/%-2u", chi2, ndf), "P"); 
+
+			if (i==0){ 
+				g_chi2_ace2->SetPoint(iBR, UBRToTime(iBR_true+2426), chi2/ndf);
+			} 
+
+			if (i==1){ 
+				g_chi2_ams2->SetPoint(iBR, UBRToTime(iBR_true+2426), chi2/ndf);
+			} 	
+		}
+
+		TH1 *h_comp1 = (TH1*) h_ace_BR->Clone("h_comp1");
+		h_comp1->Divide(rescaled_fit); 
+
+		double comp1_sum=0, dcomp1_sum=0; // compute average ratio of data/template-1 of ACE F(R,t)/<F(R)> manually 		
+
+		for(int nbin=0;nbin<h_ace_rig_ave->GetNbinsX();++nbin){
+			comp1_sum += h_comp1->GetBinContent(nbin); 
+			dcomp1_sum += h_comp1->GetBinError(nbin)*h_comp1->GetBinError(nbin); 
+			//printf("comp1_sum = %0.6f \n", comp1_sum);
+		}
+		double comp1_ave = comp1_sum/7; 
+		double dcomp1_ave = sqrt(dcomp1_sum)/7; 
+
+		g_ratio_ave->SetPoint(iBR, UBRToTime(iBR_true+2426), comp1_ave-1); 
+		g_ratio_ave->SetPointError(iBR, 0, dcomp1_ave); 
+
+		c2->cd(2);
+		gPad->SetGrid();
+		gPad->SetLogx(); 
+		gPad->SetTopMargin(0.01); 
+
+		h_a5->GetYaxis()->SetRangeUser(-0.2, 0.2); 
+		h_a5->GetXaxis()->SetLimits(0.7, 60); 
+
+		h_a5->Draw("E1X0"); 
+		h_a5->SetXTitle(Unit::GetEnergyLabel("GV"));
+		h_a5->SetTitle("; ; Data/Fit-1"); 
+
+		h_fitres2[0]->Draw("E1X0 SAME"); 
+		h_fitres2[1]->Draw("E1X0 SAME");
+
+		h_fitres[0]->Draw("E1X0 SAME");
+		h_fitres[1]->Draw("E1X0 SAME");
+
+		HistTools::SetStyle(h_fitres2[0], kGreen-1, kFullCircle, 1.4, 1, 1);
+		HistTools::SetStyle(h_fitres2[1], kGreen-1, kFullCircle, 1.4, 1, 1); 
+
+		l_chi2->Draw("SAME"); 		
+
+		c2->cd(3);
+		gPad->SetGrid();
+		gPad->SetLogx(); 
+
+		TLegend *l_both3 = new TLegend(0.62,0.7,0.8,1.0); 
+		l_both3->AddEntry(gspind_ace2, Form("ACE %s(R,t)/<%s(R)> Spectral Indices", element, element), "PL");
+		l_both3->AddEntry(gspind_ams2, Form("AMS %s(R,t)/<%s(R)> Spectral Indices", element, element), "PL"); 
+		// l_both2->AddEntry(fspind_he, "AMS He(R,t)_Fit/temp<He(R)>_Fit Spectral Indices", "L");  	
+		l_both3->AddEntry(fspind_ratio, "Spectral Index of 1+[0]*exp(-[1]*R) Fit to He(R,t)/<He(R)>", "L");	
+		l_both3->AddEntry(fspind_he, "AMS He(R,t)_Fit/<He(R)>_Fit Spectral Indices", "L");  
+		l_both3->AddEntry(fspind_ratio2, "Spectral Index of 1+[0]*exp(-[1]*ln(R)) Fit to He(R,t)/<He(R)>", "L"); 
+
+		gspind_ace2->GetYaxis()->SetRangeUser(-2, 1.3); 
+		TAxis *axis5 = gspind_ace2->GetXaxis(); 
+		axis5->SetLimits(0.7, 60.); 
+
+		gspind_ace2->SetTitle(Form("; ; Spectral Indices Model of %s F(R,t)/<F(R)> at BR-%d", element, 2426+iBR_true));
+		gspind_ace2->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
+		gspind_ace2->Draw("APL");  
+		fspind_ratio->Draw("SAME"); 
+		fspind_ratio2->Draw("SAME"); 
+		fspind_ratio2->SetLineColor(kGreen); 
+		fspind_he->Draw("SAME");
+		gspind_ams2->Draw("PL SAME"); 
+		gspind_ace2->Draw("PL SAME");
+		l_both3->Draw("SAME"); 
+
+		// break; 
+
+		if (iBR==0) c2->Print(Form("./data/ACE/fill/fake_td_ams_v3/spind_model_%s_temp.pdf(", element), "pdf"); 
+		if (iBR>0 && iBR<nBRs-1) c2->Print(Form("./data/ACE/fill/fake_td_ams_v3/spind_model_%s_temp.pdf", element), "pdf"); 
+		if (iBR==nBRs-1){ 
+			//gspind_ace2->Print("range");
+			cout << " " << endl; 
+			//gspind_ams2->Print("range");
+			cout << " " << endl; 
+			// h_ratio2->Print("range");
+			c2->Print(Form("./data/ACE/fill/fake_td_ams_v3/spind_model_%s_temp.pdf)", element), "pdf"); 
+		}
+
+	   	if (iBR+2426==2472-1) iBR_true += 3; 
+		else iBR_true ++; 
+	}
+			
+	c3->cd(1);
+	gPad->SetGrid(); 
+	HistTools::SetStyle(g_chi2_ace, kPink, kFullCircle, 1.4, 1, 1); 
+	HistTools::SetStyle(g_chi2_ace2, kBlue, kFullCircle, 1.4, 1, 1); 
+	TLegend *l_c3_1 = new TLegend(0.62,0.8,0.9,0.9); 
+	l_c3_1->AddEntry(g_chi2_ace, "1+[0]*exp(-[1]*R)", "PL"); 
+	l_c3_1->AddEntry(g_chi2_ace2, "1+[0]*exp(-[1]*ln(R))", "PL"); 
+	g_chi2_ace->SetTitle(Form("; ; ACE %s(R,t)/<%s(R)> Fitting Chi2/NDF", element, element)); 
+	g_chi2_ace->GetXaxis()->SetTimeDisplay(1);
+	g_chi2_ace->GetXaxis()->SetTimeFormat("%m-%y"); 
+	g_chi2_ace->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+	g_chi2_ace->GetXaxis()->SetTitleSize(0.7); 
+	g_chi2_ace->GetYaxis()->SetRangeUser(0., 4.5); 
+	g_chi2_ace->Draw("APL"); 
+	g_chi2_ace2->Draw("PL SAME"); 
+	l_c3_1->Draw("SAME");
+
+	c3->cd(2); 
+	gPad->SetGrid(); 
+	HistTools::SetStyle(g_chi2_ams, kPink, kFullCircle, 1.4, 1, 1); 
+	HistTools::SetStyle(g_chi2_ams2, kBlue, kFullCircle, 1.4, 1, 1); 
+	TLegend *l_c3_2 = new TLegend(0.62,0.8,0.9,0.9); 
+	l_c3_2->AddEntry(g_chi2_ams, "1+[0]*exp(-[1]*R)", "PL");
+	l_c3_2->AddEntry(g_chi2_ams2, "1+[0]*exp(-[1]*ln(R))", "PL");
+	g_chi2_ams->SetTitle(Form("; ; AMS %s(R,t)/<%s(R)> Fitting Chi2/NDF", element, element)); 
+	g_chi2_ams->GetXaxis()->SetTimeDisplay(1);
+	g_chi2_ams->GetXaxis()->SetTimeFormat("%m-%y");
+	g_chi2_ams->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+	g_chi2_ams->GetXaxis()->SetTitleSize(0.7);
+	g_chi2_ams->GetYaxis()->SetRangeUser(0., 2.2); 
+	g_chi2_ams->Draw("APL");
+	g_chi2_ams2->Draw("PL SAME");  
+	l_c3_2->Draw("SAME"); 
+
+	c3->Print(Form("./data/ACE/fill/fake_td_ams_v3/chi2_vs_BR_%s.png", element)); 
+
+	g_ratio_ave_norm = get_norm_graph( g_ratio_ave ); 
+
+	for (int iBR=0; iBR<nBRs; ++iBR){
+				Double_t x=0, y=0; 
+				g_ratio_ave_norm->GetPoint(iBR, x, y); 
+				g_ratio_ave_norm->SetPoint(iBR, x, y-1); 			 
+	}	
+
+	TGraphErrors *g_ave_residual_ace_rig = new TGraphErrors(); // time-averaged residual vs. rigidity
+	TGraphErrors *g_ave_residual_ams_rig = new TGraphErrors(); // time-averaged residual vs. rigidity 
+
+	for (int bin=0; bin <= h_ace_rig_ave->GetNbinsX(); ++bin){
+ 
+		if (bin%2==0) {  
+
+			g_ratio_time_norm[bin/2] = get_norm_graph( g_ratio_time[bin/2] ); 
+		
+			for (int iBR=0; iBR<g_ratio_time_norm[bin/2]->GetN(); ++iBR){
+				Double_t x=0, y=0; 
+				g_ratio_time_norm[bin/2]->GetPoint(iBR, x, y); 
+				g_ratio_time_norm[bin/2]->SetPoint(iBR, x, y-1); 			 
+			}
+
+			g_ave_residual_ace_rig->SetPoint(bin/2, h_ace_rig_ave->GetBinCenter(bin+1), g_residual_ace[bin/2]->GetMean(2) ); 
+			g_ave_residual_ace_rig->SetPointError(bin/2, 0, g_residual_ace[bin/2]->GetRMS(2) ); 
+
+			c4->cd(1);
+			gPad->SetGrid(); 
+
+			TLegend *l_comp1 = new TLegend(0.62, 0.8, 0.9, 1.0); 
+			l_comp1->AddEntry(g_ratio_ave_norm, "Normalized Averaged ACE Data/Template-1", "PL"); 
+			l_comp1->AddEntry(g_residual_ace[bin/2], Form("ACE Fitting Residuals (%0.4f GV)", h_ace_rig_ave->GetBinCenter(bin+1)), "PL"); 
+
+			g_residual_ace[bin/2]->SetTitle(Form(" ; ; ACE %s Data/Template-1 vs. Fitting Residuals", element));  
+			g_residual_ace[bin/2]->GetXaxis()->SetTimeDisplay(1);
+			g_residual_ace[bin/2]->GetXaxis()->SetTimeFormat("%m-%y");
+			g_residual_ace[bin/2]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+			g_residual_ace[bin/2]->GetXaxis()->SetTitleSize(0.7);
+			g_residual_ace[bin/2]->GetYaxis()->SetRangeUser(-0.25, 0.3);
+			g_residual_ace[bin/2]->Draw("APL");
+			// g_ratio_ave_norm->Draw("PL SAME"); 
+			g_ratio_time_norm[bin/2]->Draw("PL SAME"); 
+			l_comp1->Draw("SAME"); 		
+
+			if (bin==0) c4->Print(Form("./data/ACE/fill/fake_td_ams_v3/fitres_ace_vs_BR_%s.pdf(", element), "pdf"); 
+			if (bin>0 && bin<h_ace_rig_ave->GetNbinsX()-1) c4->Print(Form("./data/ACE/fill/fake_td_ams_v3/fitres_ace_vs_BR_%s.pdf", element), "pdf");  
+			if (bin==h_ace_rig_ave->GetNbinsX()-1){
+				c4->Print(Form("./data/ACE/fill/fake_td_ams_v3/fitres_ace_vs_BR_%s.pdf)", element), "pdf"); 
+			} 
+		} 
+	} 
+
+	for (int bin=0; bin <= h_ams_new->GetNbinsX()-1; ++bin){ 
+
+			g_ave_residual_ams_rig->SetPoint(bin, h_ams_new->GetBinCenter(bin+1), g_residual_ams[bin]->GetMean(2) ); 
+			g_ave_residual_ams_rig->SetPointError(bin, 0, g_residual_ams[bin]->GetRMS(2) ); 
+
+			c4_2->cd(1); 
+			gPad->SetGrid(); 
+
+			g_residual_ams[bin]->SetTitle(Form("AMS %s(R,t)/<%s(R)>; ; Fitting Residuals (%0.4f GV)", element, element, h_ams_new->GetBinCenter(bin+1)));  
+			g_residual_ams[bin]->GetXaxis()->SetTimeDisplay(1);
+			g_residual_ams[bin]->GetXaxis()->SetTimeFormat("%m-%y");
+			g_residual_ams[bin]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+			g_residual_ams[bin]->GetXaxis()->SetTitleSize(0.7);
+			g_residual_ams[bin]->GetYaxis()->SetRangeUser(-0.06, 0.1);  
+			// g_residual_ams[bin]->Print("range"); 
+			g_residual_ams[bin]->Draw("APL"); 
+
+			if (bin==0) c4_2->Print(Form("./data/ACE/fill/fake_td_ams_v3/fitres_ams_vs_BR_%s.pdf(", element), "pdf"); 
+			if (bin>0 && bin<h_ams_new->GetNbinsX()-1) c4_2->Print(Form("./data/ACE/fill/fake_td_ams_v3/fitres_ams_vs_BR_%s.pdf", element), "pdf");  
+			if (bin==h_ams_new->GetNbinsX()-1){
+				c4_2->Print(Form("./data/ACE/fill/fake_td_ams_v3/fitres_ams_vs_BR_%s.pdf)", element), "pdf"); 
+			} 
+	} 
 
 	for (int ipar=0; ipar<2; ++ipar){
 		c5->cd(ipar+1); 
@@ -2845,7 +3774,7 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 
 	// g_pars_ratio->Print("range"); 
 
-	c5->Print(Form("./data/ACE/fill/fake_td_ams_v2/pars_vs_BR_%s.png", element)); 
+	c5->Print(Form("./data/ACE/fill/fake_td_ams_v3/pars_vs_BR_%s.png", element)); 
 
 	TCanvas *c6 = new TCanvas("c6", "", 1600, 900); // plot time-averaged fit residuals to F(R,t)/<F(R)> vs. rigidity 
 	c6->Divide(1, 1);  
@@ -2856,9 +3785,9 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 
 	HistTools::CopyStyle( h_ace_rig_ave, g_ave_residual_ace_rig ); 
 	HistTools::CopyStyle( h_ams_new, g_ave_residual_ams_rig );
-	g_ave_residual_ace_rig->GetYaxis()->SetRangeUser(-0.085, 0.085); 
+	g_ave_residual_ace_rig->GetYaxis()->SetRangeUser(-0.15, 0.15); 
 	g_ave_residual_ace_rig->GetXaxis()->SetLimits(0.7, 60);
-	g_ave_residual_ace_rig->SetTitle(Form(" ; ; Time-averaged Fit Residuals of He(R,t)_Fit/<He(R)>_Fit vs. ACE %s Flux", element)); 
+	g_ave_residual_ace_rig->SetTitle(Form(" ; ; Time-averaged Fit Residuals of %s(R,t)/<%s(R)>", element, element)); 
 	g_ave_residual_ace_rig->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV")); 
 
 	TLegend *l_both4 = new TLegend(0.62,0.8,0.9,0.9); 
@@ -2869,10 +3798,10 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 	g_ave_residual_ams_rig->Draw("PLSAME"); 
 	l_both4->Draw("SAME"); 
 
-	c6->Print(Form("./data/ACE/fill/fake_td_ams_v2/time_ave_residual_vs_rig_%s.png", element)); 
+	c6->Print(Form("./data/ACE/fill/fake_td_ams_v3/time_ave_residual_vs_rig_%s.png", element)); 
 
 	return 0; 
-}
+} 
 
 // Plot All Element Averaged Flux over Energy Bins
 void ace_all_average(){
