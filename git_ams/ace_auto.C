@@ -1974,13 +1974,32 @@ void plot_fit_pars(){
 			c2->cd(1);  
 			gPad->SetGrid(); 
 
+			TF1 *f_rand = new TF1("f_rand","abs(sin(x)/x)*sqrt(x)",0,1); // random parameters 
+			double mrand = f_rand->GetRandom();
+			double nrand = f_rand->GetRandom(); 
+
+			double corr = par1_par0_sc->GetCorrelationFactor();
+
+			double corr_low=0, corr_up=0; 
+			// these two variables will contain the lower and upper value of the correlation, accounting for statistical uncertainty at a given confidence level defined below
+	
+			double cl = TMath::Erf(1/sqrt(2)); 
+			// confidence level corresponding to 1 sigma, roughly 0.68, which means ~68% probability
+
+			double corr_pvalue = HistTools::CorrelationZTest(corr, par1_par0_sc->GetN(), corr_low, corr_up, cl); 
+			// the p-value is a number that tells you how much is probable that the correlation factor you computed is different from zero simply by chance, and not by some physical reason
+
+			double corr_sign = TMath::ErfcInverse(corr_pvalue); 
+			// get the statistical significance of the correlation being different from zero: the significance is given in unit of sigma. Any number above 3 is very significant, i.e. we can claim that most probably the computed correlation factor is different from zero not simply by chance.
+
 			TF1 *f_corr1 = new TF1("f_corr1", "[0]*x+[1]", -1, 2);
+			f_corr1->SetParameters(10, 1.5); 
 			par1_par0_sc->Fit(f_corr1, "N"); 
 
 			TLegend *l_corr1 = new TLegend(0.62,0.8,0.9,0.9); 
-			l_corr1->AddEntry(f_corr1, Form("%0.4fx+%0.4f", f_corr1->GetParameter(0), f_corr1->GetParameter(1))); 
+			l_corr1->AddEntry(f_corr1, Form("%0.3fpm%0.3fx+(%0.3fpm%0.3f)", f_corr1->GetParameter(0), f_corr1->GetParError(0), f_corr1->GetParameter(1), f_corr1->GetParError(1))); 
 
-			par1_par0_sc->SetTitle(Form(" %s Flux 1+[0]*exp(-[1]*R) Fit (%0.2f GV); Par_%s[0]; Par_%s[1]", element, h_ace_rig->GetBinCenter(2*bin+1), element, element)); 
+			par1_par0_sc->SetTitle(Form(" %s Flux 1+[0]*exp(-[1]*R) Fit (Corr. F=%0.3f, %0.2f GV); Par_%s[0]; Par_%s[1]", element, corr, h_ace_rig->GetBinCenter(2*bin+1), element, element)); 
 			//par1_par0_sc->GetXaxis()->SetTitleSize(1.3);
 			HistTools::SetStyle(par1_par0_sc, kBlue, kFullCircle, 1.2, 1, 1);
 			par1_par0_sc->SetLineStyle(2); 
@@ -2003,13 +2022,20 @@ void plot_fit_pars(){
 			c2->cd(1);
 			gPad->SetGrid();
 
+			corr = par0_ACE_sc->GetCorrelationFactor(); 
+			corr_low=0, corr_up=0; 
+			cl = TMath::Erf(1/sqrt(2)); 
+			corr_pvalue = HistTools::CorrelationZTest(corr, par0_ACE_sc->GetN(), corr_low, corr_up, cl); 
+			corr_sign = TMath::ErfcInverse(corr_pvalue); 
+		
 			TF1 *f_corr2 = new TF1("f_corr2", "[0]*x+[1]", -1, 2);
+			f_corr2->SetParameters(10, 1); 
 			par0_ACE_sc->Fit(f_corr2, "N"); 
 
 			TLegend *l_corr2 = new TLegend(0.62,0.8,0.9,0.9); 
-			l_corr2->AddEntry(f_corr2, Form("%0.4fx+%0.4f", f_corr2->GetParameter(0), f_corr2->GetParameter(1)));
+			l_corr2->AddEntry(f_corr2, Form("%0.3fpm%0.3fx+(%0.3fpm%0.3f)", f_corr2->GetParameter(0), f_corr2->GetParError(0), f_corr2->GetParameter(1), f_corr2->GetParameter(1)));
 
-			par0_ACE_sc->SetTitle(Form(" %s Flux 1+[0]*exp(-[1]*R) Fit (%0.2f GV); ; Par_%s[0]", element, h_ace_rig->GetBinCenter(2*bin+1), element));
+			par0_ACE_sc->SetTitle(Form(" %s Flux 1+[0]*exp(-[1]*R) Fit (Corr. F=%0.3f, %0.2f GV); ; Par_%s[0]", element, corr, h_ace_rig->GetBinCenter(2*bin+1), element));
 			par0_ACE_sc->GetXaxis()->SetTitle(Form("ACE %s %s", element, Unit::GetDifferentialFluxLabel("GV m"))); 
 			//par0_ACE_sc->GetXaxis()->SetTitleSize(1.3);
 			HistTools::SetStyle(par0_ACE_sc, kRed, kFullCircle, 1.2, 1, 1);
@@ -2030,13 +2056,20 @@ void plot_fit_pars(){
 			c2->cd(1);
 			gPad->SetGrid(); 
 
+			corr = par1_ACE_sc->GetCorrelationFactor(); 
+			corr_low=0, corr_up=0; 
+			cl = TMath::Erf(1/sqrt(2)); 
+			corr_pvalue = HistTools::CorrelationZTest(corr, par1_ACE_sc->GetN(), corr_low, corr_up, cl); 
+			corr_sign = TMath::ErfcInverse(corr_pvalue); 
+
 			TF1 *f_corr3 = new TF1("f_corr3", "[0]*x+[1]", -1, 2);
+			f_corr3->SetParameters(2, 0.3); 
 			par1_ACE_sc->Fit(f_corr3, "N"); 
 
 			TLegend *l_corr3 = new TLegend(0.62,0.8,0.9,0.9); 
-			l_corr3->AddEntry(f_corr3, Form("%0.4fx+%0.4f", f_corr3->GetParameter(0), f_corr3->GetParameter(1)));
+			l_corr3->AddEntry(f_corr3, Form("%0.3fpm%0.3fx+(%0.3fpm%0.3f)", f_corr3->GetParameter(0), f_corr3->GetParError(0), f_corr3->GetParameter(1), f_corr3->GetParameter(1)));
 
-			par1_ACE_sc->SetTitle(Form(" %s Flux 1+[0]*exp(-[1]*R) Fit (%0.2f GV); ; Par_%s[1]", element, h_ace_rig->GetBinCenter(2*bin+1), element));  
+			par1_ACE_sc->SetTitle(Form(" %s Flux 1+[0]*exp(-[1]*R) Fit (Corr. F=%0.3f, %0.2f GV); ; Par_%s[1]", element, corr, h_ace_rig->GetBinCenter(2*bin+1), element));  
 			par1_ACE_sc->GetXaxis()->SetTitle(Form("ACE %s %s", element, Unit::GetDifferentialFluxLabel("GV m")));
 			//par1_ACE_sc->GetXaxis()->SetTitleSize(1.3);
 			HistTools::SetStyle(par1_ACE_sc, kRed, kFullCircle, 1.2, 1, 1);
