@@ -256,7 +256,7 @@ void ace_auto(const char *operation){
 		// gROOT->ProcessLine(".> data/ACE/fill/fill_all.txt"); 
 
 		for (int i=0; i<4;i++){
-			ace_fill( ACE_Element[i], ACE_Isotope[i] );
+			// ace_fill( ACE_Element[i], ACE_Isotope[i] );
 		}
 
 		// TCanvas *c0 = new TCanvas("c0", "Time-dependent Rescaling Factor", 1800, 900);
@@ -267,12 +267,12 @@ void ace_auto(const char *operation){
 		}
 
 		for (int i=0; i<4;i++){
-			// ace_fake_td_ams( ACE_Element[i], ACE_Isotope[i] );
+			ace_fake_td_ams( ACE_Element[i], ACE_Isotope[i] );
 			ace_fake_td_ams_v2( ACE_Element[i], ACE_Isotope[i] );
 		}
 
 		for (int i=0; i<4; ++i){	
-			// ace_rescale_BR( ACE_Element[i], ACE_Isotope[i] ); 
+			ace_rescale_BR( ACE_Element[i], ACE_Isotope[i] ); 
 			// ace_fake_td_ams_v3( ACE_Element[i], ACE_Isotope[i] ); 
 		}
 
@@ -510,7 +510,7 @@ TGraphErrors *ace_rescale_BR(const char *element, Particle::Type isotope){
 	TCanvas *c1 = new TCanvas("c1", "", 1600, 900); 
 	c1->Divide(1, 2);  
 
-	TFile *file1 = new TFile(Form("data/ACE/fill/%s_fill.root", element), "RECREATE");
+	TFile *file1 = new TFile(Form("data/ACE/fill/F1_%s.root", element), "RECREATE");
 
 	TGraphErrors *g_ratio_time[7]; 
 
@@ -560,8 +560,8 @@ TGraphErrors *ace_rescale_BR(const char *element, Particle::Type isotope){
 		h_rig->SetXTitle(Unit::GetEnergyLabel("GV"));
   		h_rig->SetYTitle(Unit::GetDifferentialFluxLabel("GV m"));
 
-		h_ene->Write(Form("h_kin_%s_BR%d", element, UTimeToBR(utime)));
-		h_rig->Write(Form("h_rig_%s_BR%d", element, UTimeToBR(utime))); 
+		// h_ene->Write(Form("h_kin_%s_BR%d", element, UTimeToBR(utime)));
+		// h_rig->Write(Form("h_rig_%s_BR%d", element, UTimeToBR(utime))); 
 
 		// rescale ACE BR to ACE Averaged Magnitude 
 		Spline *sp_comb = new Spline("sp_comb", nnodes, Spline::LogLog | Spline::PowerLaw);
@@ -672,7 +672,8 @@ TGraphErrors *ace_rescale_BR(const char *element, Particle::Type isotope){
 		if (k>0 && k<ace->GetEntries()) c1->Print(Form("./data/ACE/fill/compare_%s_flux_model.pdf", element), "pdf"); 
 		if (k==ace->GetEntries()-1) c1->Print(Form("./data/ACE/fill/compare_%s_flux_model.pdf)", element), "pdf"); 
 
-		h_ratio->Write(Form("h_ratio_%s_BR%d", element, UTimeToBR(utime))); 
+		h_rig->Write(Form("h_rig_%d", UTimeToBR(utime)));
+		h_ratio->Write(Form("h_ratio_BR%d", UTimeToBR(utime))); 		 
 
 	}
 
@@ -1198,6 +1199,8 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		g_residual_ams[bin] = new TGraphErrors(nBRs);  
 		HistTools::SetStyle(g_residual_ams[bin], kPink, kFullCircle, 1.4, 1, 1); 
 	}   
+
+	TFile *file = new TFile(Form("data/ACE/fill/F2_%s.root", element), "RECREATE");
  
 	int iBR_true = 0;
 	for (int iBR=0; iBR<nBRs; ++iBR){
@@ -1650,6 +1653,12 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 
 		// break; 
 
+		fit_ratio->Write(Form("fit_ratio_BR%d", 2426+iBR_true)); 
+		h_ratio1->Write(Form("h_ratio1_BR%d", 2426+iBR_true));
+		h_ratio2->Write(Form("h_ratio2_BR%d", 2426+iBR_true)); 
+		h_fitres[0]->Write(Form("h_fitres_ace_BR%d", 2426+iBR_true));
+		h_fitres[1]->Write(Form("h_fitres_ams_BR%d", 2426+iBR_true)); 
+
 		if (iBR==0) c2->Print(Form("./data/ACE/fill/fake_td_ams/spind_model_%s_temp.pdf(", element), "pdf"); 
 		if (iBR>0 && iBR<nBRs-1) c2->Print(Form("./data/ACE/fill/fake_td_ams/spind_model_%s_temp.pdf", element), "pdf"); 
 		if (iBR==nBRs-1){
@@ -1664,6 +1673,8 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 	   	if (iBR+2426==2472-1) iBR_true += 3; 
 		else iBR_true ++; 
 	}
+
+	file->Close(); 
 			
 	c3->cd(1);
 	gPad->SetGrid(); 
@@ -2397,7 +2408,9 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 		HistTools::SetStyle(g_residual_ams[bin], kPink, kFullCircle, 1.4, 1, 1); 
 	}   
 
-	gROOT->ProcessLine(Form(".> data/ACE/fill/fake_td_ams_v2/fit_pars_%s.dat", element));
+	gROOT->ProcessLine(Form(".> data/ACE/fill/fake_td_ams_v2/fit_pars_%s.dat", element)); 
+
+	TFile *file = new TFile(Form("data/ACE/fill/F3_%s.root", element), "RECREATE");
  
 	int iBR_true = 0;
 	for (int iBR=0; iBR<nBRs; ++iBR){
@@ -2842,6 +2855,12 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 
 		// break; 
 
+		fsp_he2->Write(Form("fsp_he2_BR%d", 2426+iBR_true)); 
+		h_ratio1->Write(Form("h_ratio1_BR%d", 2426+iBR_true));
+		h_ratio2->Write(Form("h_ratio2_BR%d", 2426+iBR_true)); 
+		h_fitres[0]->Write(Form("h_fitres_ace_BR%d", 2426+iBR_true));
+		h_fitres[1]->Write(Form("h_fitres_ams_BR%d", 2426+iBR_true)); 
+
 		if (iBR==0) c2->Print(Form("./data/ACE/fill/fake_td_ams_v2/spind_model_%s_temp.pdf(", element), "pdf"); 
 		if (iBR>0 && iBR<nBRs-1) c2->Print(Form("./data/ACE/fill/fake_td_ams_v2/spind_model_%s_temp.pdf", element), "pdf"); 
 		if (iBR==nBRs-1){
@@ -2856,6 +2875,8 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 	   	if (iBR+2426==2472-1) iBR_true += 3; 
 		else iBR_true ++; 
 	}
+
+	file->Close(); 
 			
 	c3->cd(1);
 	gPad->SetGrid(); 
@@ -3835,6 +3856,83 @@ void ace_fake_td_ams_v3(const char *element, Particle::Type isotope){
 
 	return 0; 
 } 
+
+/*
+
+void compare_fake_flux(){
+	
+	gStyle->SetOptStat(0);
+	const int nBRs = Experiments::Info[Experiments::AMS02].Dataset[1].nMeasurements; // read the number of BRs
+
+	TCanvas *c0 = new TCanvas("c0", "", 1600, 900); 
+	c0->Divide(1, 2);
+
+	TCanvas *c1 = new TCanvas("c1", "", 1600, 900); 
+	c1->Divide(1, 2);
+
+	TCanvas *c2 = new TCanvas("c2", "", 1600, 900);
+	c2->Divide(1, 2); 
+
+	TCanvas *c3 = new TCanvas("c3", "", 1600, 900);
+	c3->Divide(1, 2);
+
+	TH1 *h_p1f2_a = new TH1D("", "", 3000, 0, 3000); 
+
+	for (int iBR=0; iBR<nBRs; ++iBR){
+
+		// P1
+
+		c1->cd(1); 
+		gPad->SetGrid(); 
+		gPad->SetLogx();
+		gPad->SetBottomMargin(0.01); 
+
+		h_p1f2_a->GetYaxis()->SetRangeUser(0.5, 2.2); 
+		h_p1f2_a->GetXaxis()->SetLimits(0.7, 60); 
+	
+		TLegend *l2 = new TLegend(0.62,0.8,0.9,1.); 
+		l2->AddEntry(h_ratio1, Form("ACE %s(R,t)/<%s(R)>", element, element), "PL");
+		l2->AddEntry(h_ratio0, "AMS He(R,t)/<He(R)>", "PL");  
+		l2->AddEntry(fit_ratio, Form("1+%6.3fexp(-%6.3fR)", fit_ratio->GetParameter(0), fit_ratio->GetParameter(1)), "L"); 
+		l2->AddEntry(fit_ratio2, Form("1+%6.3fexp(-%6.3fln(R))", fit_ratio2->GetParameter(0), fit_ratio2->GetParameter(1)), "L"); 
+
+		h_p1f2_a->Draw("E1X0"); 
+		h_p1f2_a->SetXTitle(Unit::GetEnergyLabel("GV"));
+		h_p1f2_a->SetTitle(Form("; ; BR-%d %s(R,t)/<%s(R)>", iBR_true+2426, element, element));
+		// h_p1f1_a->SetTitleSize(0.5,"y"); 
+		HistTools::SetStyle(h_ratio1, kPink, kFullCircle, 1.4, 1, 1);
+		HistTools::SetStyle(h_ratio0, kBlue, kFullCircle, 1.4, 1, 1);
+		fit_ratio2->SetLineColor(kGreen); 
+		fit_ratio->Draw("SAME");
+		fit_ratio2->Draw("SAME"); 
+		h_ratio1->Draw("E1X0 SAME");
+		h_ratio0->Draw("E1X0 SAME");
+		l2->Draw("SAME"); 
+
+		c2->cd(2);
+		gPad->SetGrid();
+		gPad->SetLogx(); 
+		gPad->SetTopMargin(0.01); 
+
+		h_p1f1_b->GetYaxis()->SetRangeUser(-0.2, 0.2); 
+		h_p1f1_b->GetXaxis()->SetLimits(0.7, 60); 
+
+		h_p1f1_b->Draw("E1X0"); 
+		h_p1f1_b->SetXTitle(Unit::GetEnergyLabel("GV"));
+		h_p1f1_b->SetTitle("; ; Data/Fit-1"); 
+
+		h_fitres2[0]->Draw("E1X0 SAME"); 
+		h_fitres2[1]->Draw("E1X0 SAME");
+		h_fitres[0]->Draw("E1X0 SAME");
+		h_fitres[1]->Draw("E1X0 SAME");
+		l_chi2->Draw("SAME"); 
+	
+	} 
+
+	return 0; 
+}; 
+
+*/ 
 
 // Plot All Element Averaged Flux over Energy Bins
 void ace_all_average(){
