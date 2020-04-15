@@ -202,6 +202,7 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope); // make a fak
 void ace_fake_td_ams_v2(const char *element, Particle::Type isotope); // fake_td_ams but plot He(R,t) Fit vs. <He(R)> Fit
 void ace_fake_td_ams_v3(const char *element, Particle::Type isotope); // use O pars for C, B pars for N. 
 void plot_fit_pars(); // plot fit par_BCN vs. par_O  
+void compare_fake_flux( const char *element ); // plot F1, F2, F3 
 
 void ace_all_average(); // plot averaged flux over energy bins for all elements
 void ace_convert(const char *element, Particle::Type isotope); // convert h_ene into h_rig and also plot flux and normalized flux over time
@@ -1654,6 +1655,7 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		// break; 
 
 		fit_ratio->Write(Form("fit_ratio_BR%d", 2426+iBR_true)); 
+		fit_ratio2->Write(Form("fit_ratio2_BR%d", 2426+iBR_true)); 
 		h_ratio1->Write(Form("h_ratio1_BR%d", 2426+iBR_true));
 		h_ratio2->Write(Form("h_ratio2_BR%d", 2426+iBR_true)); 
 		h_fitres[0]->Write(Form("h_fitres_ace_BR%d", 2426+iBR_true));
@@ -3859,16 +3861,18 @@ void ace_fake_td_ams_v3(const char *element, Particle::Type isotope){
 
 /*
 
-void compare_fake_flux(){
+void compare_fake_flux( const char *element ){
 	
 	gStyle->SetOptStat(0);
 	const int nBRs = Experiments::Info[Experiments::AMS02].Dataset[1].nMeasurements; // read the number of BRs
+
+	TFile file_f2 = new TFile(Form("data/ACE/fill/%s_fill.root", element)); 
 
 	TCanvas *c0 = new TCanvas("c0", "", 1600, 900); 
 	c0->Divide(1, 2);
 
 	TCanvas *c1 = new TCanvas("c1", "", 1600, 900); 
-	c1->Divide(1, 2);
+	c1->Divide(3, 2);
 
 	TCanvas *c2 = new TCanvas("c2", "", 1600, 900);
 	c2->Divide(1, 2); 
@@ -3876,57 +3880,65 @@ void compare_fake_flux(){
 	TCanvas *c3 = new TCanvas("c3", "", 1600, 900);
 	c3->Divide(1, 2);
 
-	TH1 *h_p1f2_a = new TH1D("", "", 3000, 0, 3000); 
-
+	// P1
+	int iBR_true=0; 
 	for (int iBR=0; iBR<nBRs; ++iBR){
 
-		// P1
+		TH1 *h_f2a = new TH1D("", "", 3000, 0, 3000); 
+		TH1 *h_f2b = new TH1D("", "", 3000, 0, 3000); 
 
-		c1->cd(1); 
+		TF1 *fit_ratio = file_f2->Get(Form("fit_ratio_BR%d", 2426+iBR_true)); 
+		TH1 *h_ratio0 = file_f2->Get(Form("h_ratio0_BR%d", 2426+iBR_true)); 
+		TH1 *h_ratio1 = file_f2->Get(Form("h_ratio1_BR%d", 2426+iBR_true)); 
+
+		TH1 *h_fitres[2]; 
+
+		*h_fitres[0] = file_f2->Get(Form("h_fitres_ace_BR%d", 2426+iBR_true)); 
+		*h_fitres[1] = file_f2->Get(Form("h_fitres_ams_BR%d", 2426+iBR_true));
+
+		c1->cd(2); 
 		gPad->SetGrid(); 
 		gPad->SetLogx();
 		gPad->SetBottomMargin(0.01); 
 
-		h_p1f2_a->GetYaxis()->SetRangeUser(0.5, 2.2); 
-		h_p1f2_a->GetXaxis()->SetLimits(0.7, 60); 
+		h_f2a->GetYaxis()->SetRangeUser(0.5, 2.2); 
+		h_f2a->GetXaxis()->SetLimits(0.7, 60); 
 	
 		TLegend *l2 = new TLegend(0.62,0.8,0.9,1.); 
 		l2->AddEntry(h_ratio1, Form("ACE %s(R,t)/<%s(R)>", element, element), "PL");
 		l2->AddEntry(h_ratio0, "AMS He(R,t)/<He(R)>", "PL");  
 		l2->AddEntry(fit_ratio, Form("1+%6.3fexp(-%6.3fR)", fit_ratio->GetParameter(0), fit_ratio->GetParameter(1)), "L"); 
-		l2->AddEntry(fit_ratio2, Form("1+%6.3fexp(-%6.3fln(R))", fit_ratio2->GetParameter(0), fit_ratio2->GetParameter(1)), "L"); 
+		// l2->AddEntry(fit_ratio2, Form("1+%6.3fexp(-%6.3fln(R))", fit_ratio2->GetParameter(0), fit_ratio2->GetParameter(1)), "L"); 
 
-		h_p1f2_a->Draw("E1X0"); 
-		h_p1f2_a->SetXTitle(Unit::GetEnergyLabel("GV"));
-		h_p1f2_a->SetTitle(Form("; ; BR-%d %s(R,t)/<%s(R)>", iBR_true+2426, element, element));
-		// h_p1f1_a->SetTitleSize(0.5,"y"); 
+		h_f2a->Draw("E1X0"); 
+		h_f2a->SetXTitle(Unit::GetEnergyLabel("GV"));
+		h_f2a->SetTitle(Form("; ; BR-%d %s(R,t)/<%s(R)>", iBR_true+2426, element, element));
+		// h_f2a->SetTitleSize(0.5,"y"); 
 		HistTools::SetStyle(h_ratio1, kPink, kFullCircle, 1.4, 1, 1);
 		HistTools::SetStyle(h_ratio0, kBlue, kFullCircle, 1.4, 1, 1);
-		fit_ratio2->SetLineColor(kGreen); 
 		fit_ratio->Draw("SAME");
-		fit_ratio2->Draw("SAME"); 
-		h_ratio1->Draw("E1X0 SAME");
+		h_ratio1->Draw("E1X0 SAME"); 
 		h_ratio0->Draw("E1X0 SAME");
 		l2->Draw("SAME"); 
 
-		c2->cd(2);
+		c2->cd(5);
 		gPad->SetGrid();
 		gPad->SetLogx(); 
 		gPad->SetTopMargin(0.01); 
 
-		h_p1f1_b->GetYaxis()->SetRangeUser(-0.2, 0.2); 
-		h_p1f1_b->GetXaxis()->SetLimits(0.7, 60); 
+		h_f2b->GetYaxis()->SetRangeUser(-0.2, 0.2); 
+		h_f2b->GetXaxis()->SetLimits(0.7, 60); 
 
-		h_p1f1_b->Draw("E1X0"); 
-		h_p1f1_b->SetXTitle(Unit::GetEnergyLabel("GV"));
-		h_p1f1_b->SetTitle("; ; Data/Fit-1"); 
+		h_f2b->Draw("E1X0"); 
+		h_f2b->SetXTitle(Unit::GetEnergyLabel("GV"));
+		h_f2b->SetTitle("; ; Data/Fit-1"); 
 
-		h_fitres2[0]->Draw("E1X0 SAME"); 
-		h_fitres2[1]->Draw("E1X0 SAME");
 		h_fitres[0]->Draw("E1X0 SAME");
 		h_fitres[1]->Draw("E1X0 SAME");
 		l_chi2->Draw("SAME"); 
-	
+
+	   	if (iBR+2426==2472-1) iBR_true += 3; 
+		else iBR_true ++; 	
 	} 
 
 	return 0; 
