@@ -202,7 +202,7 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope); // make a fak
 void ace_fake_td_ams_v2(const char *element, Particle::Type isotope); // fake_td_ams but plot He(R,t) Fit vs. <He(R)> Fit
 void ace_fake_td_ams_v3(const char *element, Particle::Type isotope); // use O pars for C, B pars for N. 
 void plot_fit_pars(); // plot fit par_BCN vs. par_O  
-void compare_fake_flux( const char *element ); // plot F1, F2, F3 
+void compare_fake_flux( const char *element, Particle::Type isotope ); // plot F1, F2, F3 
 
 void ace_all_average(); // plot averaged flux over energy bins for all elements
 void ace_convert(const char *element, Particle::Type isotope); // convert h_ene into h_rig and also plot flux and normalized flux over time
@@ -574,18 +574,6 @@ TGraphErrors *ace_rescale_BR(const char *element, Particle::Type isotope){
 		fit_comb->GetRange(x1,x2);
 		fsp_comb->SetRange(x1,x2);
 
-/*
-		// Modify Nodes of The Spline 
-		NormSpline *ns = new NormSpline("f_norm_spline", R1, R2, fsp_comb); // normalized spline with first node and derivative free
-		TF1 *f_norm_spline = ns->GetTF1Pointer();
-		// ns->Print(); 
-		// set initial parameters: average value of current BR ACE flux, same first derivative and first Y node as template
-		f_norm_spline->SetParameters(rig_ave, fsp_comb->GetParameter(0), fsp_comb->GetParameter(8)); // replace 8 with appropriate index of first Y node
-		h_rig->Fit(f_norm_spline, "NQ"); // fit current BR ACE flux
-*/
-
-		// f_norm_spline->Print(); 
-
 		double *nodes = sp_comb->GetXNodes(); 
 
 		TLine *l1 = new TLine( nodes[0], 0, nodes[0], h_rig->GetMaximum()*2); 
@@ -620,14 +608,6 @@ TGraphErrors *ace_rescale_BR(const char *element, Particle::Type isotope){
 		TF1 *rescaled_fit = HistTools::CombineTF1Const(fsp_comb, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", R1, R2); 
 
 		// rescaled_fit->Print(); 
-
-		// h_ratio->Print("range"); 
-		for (int nbin=0; nbin<h_ratio->GetNbinsX(); ++nbin){
-			if (nbin%2==0){ 
-				g_ratio_time[nbin/2]->SetPoint(k, (UInt_t) utime, h_ratio->GetBinContent(nbin+1) ); 
-				g_ratio_time[nbin/2]->SetPointError(k, 0, h_ratio->GetBinError(nbin+1) ); 
-			} 
-		}
 		
 		c1->cd(1);
 		gPad->SetGrid(); 
@@ -673,6 +653,7 @@ TGraphErrors *ace_rescale_BR(const char *element, Particle::Type isotope){
 		if (k>0 && k<ace->GetEntries()) c1->Print(Form("./data/ACE/fill/compare_%s_flux_model.pdf", element), "pdf"); 
 		if (k==ace->GetEntries()-1) c1->Print(Form("./data/ACE/fill/compare_%s_flux_model.pdf)", element), "pdf"); 
 
+		rescaled_fit->Write(Form("rescaled_fit_BR%d", UTimeToBR(utime))); 
 		h_rig->Write(Form("h_rig_%d", UTimeToBR(utime)));
 		h_ratio->Write(Form("h_ratio_BR%d", UTimeToBR(utime))); 		 
 
@@ -1657,7 +1638,7 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		fit_ratio->Write(Form("fit_ratio_BR%d", 2426+iBR_true)); 
 		fit_ratio2->Write(Form("fit_ratio2_BR%d", 2426+iBR_true)); 
 		h_ratio1->Write(Form("h_ratio1_BR%d", 2426+iBR_true));
-		h_ratio2->Write(Form("h_ratio2_BR%d", 2426+iBR_true)); 
+		h_ratio0->Write(Form("h_ratio0_BR%d", 2426+iBR_true)); 
 		h_fitres[0]->Write(Form("h_fitres_ace_BR%d", 2426+iBR_true));
 		h_fitres[1]->Write(Form("h_fitres_ams_BR%d", 2426+iBR_true)); 
 
@@ -1676,6 +1657,8 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		else iBR_true ++; 
 	}
 
+	g_chi2_ace->Write("g_chi2_ace"); 
+	g_chi2_ams->Write("g_chi2_ams"); 
 	file->Close(); 
 			
 	c3->cd(1);
@@ -2859,7 +2842,7 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 
 		fsp_he2->Write(Form("fsp_he2_BR%d", 2426+iBR_true)); 
 		h_ratio1->Write(Form("h_ratio1_BR%d", 2426+iBR_true));
-		h_ratio2->Write(Form("h_ratio2_BR%d", 2426+iBR_true)); 
+		h_ratio0->Write(Form("h_ratio0_BR%d", 2426+iBR_true)); 
 		h_fitres[0]->Write(Form("h_fitres_ace_BR%d", 2426+iBR_true));
 		h_fitres[1]->Write(Form("h_fitres_ams_BR%d", 2426+iBR_true)); 
 
@@ -2878,6 +2861,8 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 		else iBR_true ++; 
 	}
 
+	g_chi2_ace->Write("g_chi2_ace"); 
+	g_chi2_ams->Write("g_chi2_ams"); 
 	file->Close(); 
 			
 	c3->cd(1);
@@ -3859,17 +3844,43 @@ void ace_fake_td_ams_v3(const char *element, Particle::Type isotope){
 	return 0; 
 } 
 
-/*
+void compare_fake_flux( const char *element, Particle::Type isotope ){
 
-void compare_fake_flux( const char *element ){
+	int nnodes = 7; 
+	TFile *file = new TFile(Form("data/ACE/compare/fit_%s_%dnodes.root", get_template(element), nnodes)); 
 	
 	gStyle->SetOptStat(0);
 	const int nBRs = Experiments::Info[Experiments::AMS02].Dataset[1].nMeasurements; // read the number of BRs
 
-	TFile file_f2 = new TFile(Form("data/ACE/fill/%s_fill.root", element)); 
+ 	Experiments::DataPath = "data";	
+   	int data_value[n_ele] = {0, 18, 23, 27, 31, 20, 43, 22}; // p, He, Li, Be, B, C, N, O
 
-	TCanvas *c0 = new TCanvas("c0", "", 1600, 900); 
-	c0->Divide(1, 2);
+	double *kin_bins = get_kin_bins(element);
+        double *SpallCorr = get_spall_corr(element);
+	double *SpallCorrUnc = get_spall_corr_unc(element);
+	double *EMed = get_EMed(element);
+
+	const UInt_t FirstACEBR = 2240;
+	vector<UInt_t> BRs;
+	// we stop at BR 2493, which ends on 2016/05/23, just 3 days before the end of the data taking period for AMS nuclei
+	for (UInt_t br=2426; br<=2493; ++br) { 
+		if (br != 2472 && br != 2473) BRs.push_back(br-FirstACEBR); 
+	}
+
+	TH1 *h_ams = Experiments::GetMeasurementHistogram(Experiments::AMS02, data_value[1], 0); // load AMS data for a given element
+	TH1 *h_ace_ene = HistTools::GraphToHist(get_ace_average_graph( element , &BRs[0], BRs.size() ), DBL_MIN, -DBL_MAX, true, 0.5, 0.);
+	TH1 *h_ace = HistTools::TransformEnergyAndDifferentialFluxNew(h_ace_ene, isotope, "MeV/n cm", "GV m", "_rig"); // load averaged ACE data for the same element, converted in rigidity
+
+	UShort_t namsbins = h_ams->GetNbinsX();
+	UShort_t nacebins = h_ace->GetNbinsX();
+	double R1 = h_ace->GetBinLowEdge(1);
+	double R2 = h_ams->GetBinLowEdge(namsbins+1);
+
+	TFile *file_f1 = new TFile(Form("data/ACE/fill/F1_%s.root", element)); 
+	TFile *file_f2 = new TFile(Form("data/ACE/fill/F2_%s.root", element)); 
+
+	//TCanvas *c0 = new TCanvas("c0", "", 1600, 900); 
+	//c0->Divide(1, 2);
 
 	TCanvas *c1 = new TCanvas("c1", "", 1600, 900); 
 	c1->Divide(3, 2);
@@ -3877,32 +3888,159 @@ void compare_fake_flux( const char *element ){
 	TCanvas *c2 = new TCanvas("c2", "", 1600, 900);
 	c2->Divide(1, 2); 
 
-	TCanvas *c3 = new TCanvas("c3", "", 1600, 900);
-	c3->Divide(1, 2);
+	//TCanvas *c3 = new TCanvas("c3", "", 1600, 900);
+	//c3->Divide(1, 2);
 
-	// P1
+	// P1F123
 	int iBR_true=0; 
 	for (int iBR=0; iBR<nBRs; ++iBR){
 
-		TH1 *h_f2a = new TH1D("", "", 3000, 0, 3000); 
-		TH1 *h_f2b = new TH1D("", "", 3000, 0, 3000); 
+	   //F1
+	   for (int k=0; k<1; ++k){
 
-		TF1 *fit_ratio = file_f2->Get(Form("fit_ratio_BR%d", 2426+iBR_true)); 
-		TH1 *h_ratio0 = file_f2->Get(Form("h_ratio0_BR%d", 2426+iBR_true)); 
-		TH1 *h_ratio1 = file_f2->Get(Form("h_ratio1_BR%d", 2426+iBR_true)); 
+		//TGraphErrors *g_chi2_ace = (TGraphErrors *) file_f1->Get("g_chi2_ace"); 
+		//TGraphErrors *g_chi2_ams = (TGraphErrors *) file_f1->Get("g_chi2_ams");
+
+		TH1* h_rig = (TH1*) file_f1->Get(Form("h_rig_%d", 2426+iBR_true));
+
+		TH1 *h_a = new TH1D("", "", 3000, 0, 3000); 
+		TH1 *h_b = new TH1D("", "", 3000, 0, 3000); 
+
+		// average of h_rig 
+		double rig_sum=0; // compute average of h_rig manually  
+		for(int nbin=0;nbin<14;++nbin){
+			rig_sum += h_rig->GetBinContent(nbin);
+			//printf("ratio_sum = %0.6f \n", ratio_sum);
+		}
+		double rig_ave = rig_sum/7; 
+
+		// rescale ACE BR to ACE Averaged Magnitude 
+		Spline *sp_comb = new Spline("sp_comb", nnodes, Spline::LogLog | Spline::PowerLaw);
+		TF1 *fsp_comb = sp_comb->GetTF1Pointer();  
+		TF1 *fit_comb = (TF1*) file->Get("fit_both"); 
+
+		HistTools::CopyParameters(fit_comb, fsp_comb); // error 
+		double x1, x2;
+		fit_comb->GetRange(x1,x2);
+		fsp_comb->SetRange(x1,x2);	
+
+		TH1 *h_ratio1 = (TH1 *) h_rig->Clone("h_ratio1");
+
+		h_ratio1->Divide(fsp_comb);
+
+		HistTools::SetStyle(h_rig, kRed, kFullCircle, 0.9, 1, 1);
+		HistTools::SetStyle(h_ratio1, kRed, kFullCircle, 0.9, 1, 1);
+
+		double ratio_sum=0; // compute average of h_ratio1 manually  
+		for(int nbin=0;nbin<14;++nbin){
+			ratio_sum += h_ratio1->GetBinContent(nbin);
+			//printf("ratio_sum = %0.6f \n", ratio_sum);
+		}
+		double ratio_ave = ratio_sum/7;
+
+		// printf("%d %0.6f \n", (UInt_t) utime, ratio_ave);
+		//HistTools::PrintFunction(fit_comb);
+			
+		double scale = 1./ratio_ave;
+		h_ratio1->Scale(scale);	
+
+		TH1 *h_rig_rescale = (TH1 *) h_rig->Clone("h_rig_rescale");
+		h_rig_rescale->Divide(fsp_comb); 
+		HistTools::SetStyle(h_rig_rescale, kRed, kFullCircle, 1.4, 1, 1);
+
+		// TF1 *rescaled_fit = HistTools::CombineTF1Const(fsp_comb, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", R1, R2); 
+
+/*
+		TObjArray data; 
+		data.Add(h_rig_rescale);
+		// data.Add(h_ratio0);
+
+		// fit AMS and ACE data at the same time
+		vector<double> rigmin, rigmax, chi2norm(2);
+		ROOT::Fit::Fitter fitter;
+		//HistTools::PrintFunction(fit);
+		FitTools::SetCommonFitterOptions(fitter);
+		FitTools::FitCombinedData(data, fsp_comb, "I", rigmin, rigmax, chi2norm, fitter, 3); 
+
+		TH1D *h_fitres[2]; 
+		for (UShort_t i = 0; i < 1; ++i)
+		{
+  			TH1 *hist = HistTools::ToHist(data[i]);
+   			h_fitres[i] = (TH1D *)HistTools::GetResiduals(hist, fsp_comb, "_fitres", false, true, true, 5, 1, 0.68, &fitter);
+			HistTools::CopyStyle(hist, h_fitres[i]);
+
+   			UShort_t ndf  = hist->GetNbinsX();
+   			Double_t chi2 = chi2norm[i]*ndf; 
+   			// printf(" %d nodes ### %-34s   chi2/ndf=%6.2f/%-2u   chi2norm=%5.2f   prob.=%5.2f%%\n", nnodes, hist->GetTitle(), chi2, ndf, chi2norm[i], TMath::Prob(chi2, ndf)*1e2);	
+		}
+
+*/
+		c1->cd(1);
+		gPad->SetGrid(); 
+		gPad->SetLogx();
+		gPad->SetMargin(0.12, 0.04, 0.1, 0.08);	
+
+		h_a->SetTitle(Form("F1; ; BR-%d %s(R,t)/<%s(R)>", 2426+iBR_true, element, element));
+		h_a->SetXTitle(Unit::GetEnergyLabel("GV"));
+
+		h_a->GetYaxis()->SetRangeUser(0.5, 2.2); 
+		h_a->GetXaxis()->SetLimits(0.7, 60); 	
+
+		TLegend *l2 = new TLegend(0.62,0.8,0.9,1.);
+		//l2->AddEntry(fsp_comb, "rescaled model", "l"); 
+		l2->AddEntry(h_rig, Form("ACE %s(R,t)/<%s(R)>", element, element), "p"); 
+	
+		h_a->Draw("E1X0");  
+		h_rig_rescale->Draw("E1X0 SAME"); 
+
+		//rescaled_fit->SetRange(0., 3.); 
+		//rescaled_fit->Draw("SAME"); 
+		l2->Draw("SAME"); 
+
+		c1->cd(4); 
+		gPad->SetGrid(); 
+		gPad->SetLogx();
+		gPad->SetMargin(0.12, 0.04, 0.08, 0.08); 
+
+		h_b->GetYaxis()->SetRangeUser(-0.2, 0.2); 
+		h_b->GetXaxis()->SetLimits(0.7, 60); 
+
+		h_b->SetTitle("");
+		h_b->GetXaxis()->SetTitleSize(0.05); 
+		h_b->SetXTitle(Unit::GetEnergyLabel("GV"));
+		h_b->SetYTitle("Data/Model-1"); 
+		//h_ratio1->GetXaxis()->SetRangeUser(0, 3.); 
+
+		//h_b->Draw("E1X0");
+		//HistTools::SetStyle(h_fitres[0], kRed, kFullCircle, 1.4, 1, 1);
+		//h_fitres[0]->Draw("HIST P SAME"); 
+
+	   }
+	 
+	   //F2
+	   for (int k=0; k<1; ++k){
+
+		TGraphErrors *g_chi2_ace = (TGraphErrors *) file_f2->Get("g_chi2_ace"); 
+		TGraphErrors *g_chi2_ams = (TGraphErrors *) file_f2->Get("g_chi2_ams");
+
+		TH1 *h_a = new TH1D("", "", 3000, 0, 3000); 
+		TH1 *h_b = new TH1D("", "", 3000, 0, 3000); 
+
+		TF1 *fit_ratio = (TF1*) file_f2->Get(Form("fit_ratio_BR%d", 2426+iBR_true)); 
+		TH1 *h_ratio0 = (TH1*) file_f2->Get(Form("h_ratio0_BR%d", 2426+iBR_true)); 
+		TH1 *h_ratio1 = (TH1*) file_f2->Get(Form("h_ratio1_BR%d", 2426+iBR_true)); 
 
 		TH1 *h_fitres[2]; 
-
-		*h_fitres[0] = file_f2->Get(Form("h_fitres_ace_BR%d", 2426+iBR_true)); 
-		*h_fitres[1] = file_f2->Get(Form("h_fitres_ams_BR%d", 2426+iBR_true));
+		h_fitres[0] = (TH1*) file_f2->Get(Form("h_fitres_ace_BR%d", 2426+iBR_true)); 
+		h_fitres[1] = (TH1*) file_f2->Get(Form("h_fitres_ams_BR%d", 2426+iBR_true));
 
 		c1->cd(2); 
 		gPad->SetGrid(); 
 		gPad->SetLogx();
-		gPad->SetBottomMargin(0.01); 
+		gPad->SetMargin(0.12, 0.04, 0.1, 0.08);	
 
-		h_f2a->GetYaxis()->SetRangeUser(0.5, 2.2); 
-		h_f2a->GetXaxis()->SetLimits(0.7, 60); 
+		h_a->GetYaxis()->SetRangeUser(0.5, 2.2); 
+		h_a->GetXaxis()->SetLimits(0.7, 60); 
 	
 		TLegend *l2 = new TLegend(0.62,0.8,0.9,1.); 
 		l2->AddEntry(h_ratio1, Form("ACE %s(R,t)/<%s(R)>", element, element), "PL");
@@ -3910,10 +4048,10 @@ void compare_fake_flux( const char *element ){
 		l2->AddEntry(fit_ratio, Form("1+%6.3fexp(-%6.3fR)", fit_ratio->GetParameter(0), fit_ratio->GetParameter(1)), "L"); 
 		// l2->AddEntry(fit_ratio2, Form("1+%6.3fexp(-%6.3fln(R))", fit_ratio2->GetParameter(0), fit_ratio2->GetParameter(1)), "L"); 
 
-		h_f2a->Draw("E1X0"); 
-		h_f2a->SetXTitle(Unit::GetEnergyLabel("GV"));
-		h_f2a->SetTitle(Form("; ; BR-%d %s(R,t)/<%s(R)>", iBR_true+2426, element, element));
-		// h_f2a->SetTitleSize(0.5,"y"); 
+		h_a->Draw("E1X0"); 
+		h_a->SetTitle(Form("F2; ; BR-%d %s(R,t)/<%s(R)>", iBR_true+2426, element, element));
+		h_a->SetXTitle(Unit::GetEnergyLabel("GV"));
+		// h_a->SetTitleSize(0.5,"y"); 
 		HistTools::SetStyle(h_ratio1, kPink, kFullCircle, 1.4, 1, 1);
 		HistTools::SetStyle(h_ratio0, kBlue, kFullCircle, 1.4, 1, 1);
 		fit_ratio->Draw("SAME");
@@ -3921,30 +4059,37 @@ void compare_fake_flux( const char *element ){
 		h_ratio0->Draw("E1X0 SAME");
 		l2->Draw("SAME"); 
 
-		c2->cd(5);
+		c1->cd(5);
 		gPad->SetGrid();
-		gPad->SetLogx(); 
-		gPad->SetTopMargin(0.01); 
+		gPad->SetLogx();  
+		gPad->SetMargin(0.12, 0.04, 0.2, 0.01);
 
-		h_f2b->GetYaxis()->SetRangeUser(-0.2, 0.2); 
-		h_f2b->GetXaxis()->SetLimits(0.7, 60); 
+		h_b->GetYaxis()->SetRangeUser(-0.2, 0.2); 
+		h_b->GetXaxis()->SetLimits(0.7, 60); 
 
-		h_f2b->Draw("E1X0"); 
-		h_f2b->SetXTitle(Unit::GetEnergyLabel("GV"));
-		h_f2b->SetTitle("; ; Data/Fit-1"); 
+		TLegend *l_chi2 = new TLegend(0.62,0.8,0.9,0.9); 
+		l_chi2->AddEntry(h_ratio1, Form("chi2=%0.4f", g_chi2_ace->GetY()[iBR]), "PL");
+		l_chi2->AddEntry(h_ratio0, Form("chi2=%0.4f", g_chi2_ams->GetY()[iBR]), "PL");  
+
+		h_b->Draw("E1X0"); 
+		h_b->SetTitle("; ; Data/Fit-1"); 
+		h_b->SetXTitle(Unit::GetEnergyLabel("GV"));
 
 		h_fitres[0]->Draw("E1X0 SAME");
 		h_fitres[1]->Draw("E1X0 SAME");
 		l_chi2->Draw("SAME"); 
+	   }
+
+		if (iBR==0) c1->Print(Form("./data/ACE/fill/compare_fake_%s_p1.pdf(", element), "pdf"); 
+		if (iBR>0 && nBRs-1) c1->Print(Form("./data/ACE/fill/compare_fake_%s_p1.pdf", element), "pdf");  
+		if (iBR==nBRs-1) c1->Print(Form("./data/ACE/fill/compare_fake_%s_p1.pdf)", element), "pdf"); 
 
 	   	if (iBR+2426==2472-1) iBR_true += 3; 
-		else iBR_true ++; 	
+		else iBR_true ++; 
 	} 
 
 	return 0; 
 }; 
-
-*/ 
 
 // Plot All Element Averaged Flux over Energy Bins
 void ace_all_average(){
