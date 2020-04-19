@@ -514,10 +514,25 @@ TGraphErrors *ace_rescale_BR(const char *element, Particle::Type isotope){
 	TFile *file1 = new TFile(Form("data/ACE/fill/F1_%s.root", element), "RECREATE");
 
 	TGraphErrors *g_ratio_time[7]; 
+	TGraphErrors *g_ratio_time_norm[7]; 
 
 	for (int i=0; i<7; ++i){
 		g_ratio_time[i] = new TGraphErrors(); 
 	}
+
+	TGraphErrors *g_flux_ace[7];
+	TGraphErrors *g_flux_ams[7]; 
+	TGraphErrors *g_residual_ace[7];
+	TGraphErrors *g_residual_norm_ace[7];
+	TGraphErrors *g_residual_ams[h_ams->GetNbinsX()]; 
+	TGraphErrors *g_residual_norm_ams[h_ams->GetNbinsX()];
+
+	for (int bin=0; bin <= h_ace->GetNbinsX(); ++bin){ 
+		if (bin%2==0){  
+			g_flux_ace[bin/2] = new TGraphErrors(); 
+			g_residual_ace[bin/2] = new TGraphErrors();  
+		} 
+	}  
 
 	for (int k=0; k<ace->GetEntries(); ++k){
 
@@ -605,6 +620,10 @@ TGraphErrors *ace_rescale_BR(const char *element, Particle::Type isotope){
 		double scale = 1./ratio_ave;
 		h_ratio->Scale(scale);	
 
+		TH1 *h_rig_rescale = (TH1 *) h_rig->Clone("h_rig_rescale");
+		h_rig_rescale->Divide(fsp_comb); 
+		HistTools::SetStyle(h_rig_rescale, kRed, kFullCircle, 1.4, 1, 1);
+
 		TF1 *rescaled_fit = HistTools::CombineTF1Const(fsp_comb, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", R1, R2); 
 		TF1 *fit_ratio = HistTools::CombineTF1Const(fsp_comb, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", R1, R2); 
 		fit_ratio = HistTools::CombineTF1(fit_ratio, fsp_comb, HistTools::Divide, "fit_ratio", R1, R2);  
@@ -612,7 +631,7 @@ TGraphErrors *ace_rescale_BR(const char *element, Particle::Type isotope){
 		// rescaled_fit->Print(); 
 
 		TObjArray data; 
-		data.Add(h_ratio);
+		data.Add(h_rig_rescale);
 		// data.Add(h_ratio0);
 
 		// fit AMS and ACE data at the same time
@@ -632,6 +651,20 @@ TGraphErrors *ace_rescale_BR(const char *element, Particle::Type isotope){
    			UShort_t ndf  = hist->GetNbinsX();
    			Double_t chi2 = chi2norm[i]*ndf; 
    			// printf(" %d nodes ### %-34s   chi2/ndf=%6.2f/%-2u   chi2norm=%5.2f   prob.=%5.2f%%\n", nnodes, hist->GetTitle(), chi2, ndf, chi2norm[i], TMath::Prob(chi2, ndf)*1e2);	
+			
+			if (i==0){ 
+				//g_chi2_ace->SetPoint(iBR, UBRToTime(iBR_true+2426), chi2/ndf);
+				for (int bin=0; bin <= h_fitres[i]->GetNbinsX(); ++bin){ 
+					if (bin%2==0){ 
+						g_ratio_time[bin/2]->SetPoint(k, utime, h_ratio->GetBinContent(bin+1));
+						g_ratio_time[bin/2]->SetPointError(k, 0, h_ratio->GetBinError(bin+1));
+						g_residual_ace[bin/2]->SetPoint(k, utime, h_fitres[i]->GetBinContent(bin+1));
+						// printf("bin/2 = %d, iBR = %d, time = %10.4u, fitres = %10.4f \n", bin/2, iBR, UBRToTime(iBR_true+2426), h_fitres[0]->GetBinContent(bin+1)); 
+					} 
+				}   
+			} 
+		
+		
 		}
 		
 		c1->cd(1);
@@ -681,7 +714,7 @@ TGraphErrors *ace_rescale_BR(const char *element, Particle::Type isotope){
 		rescaled_fit->Write(Form("rescaled_fit_BR%d", UTimeToBR(utime))); 
 		fit_ratio->Write(Form("fit_ratio_BR%d", UTimeToBR(utime))); 
 		h_rig->Write(Form("h_rig_%d", UTimeToBR(utime)));
-		h_ratio->Write(Form("h_ratio_BR%d", UTimeToBR(utime))); 
+		h_rig_rescale->Write(Form("h_ratio_BR%d", UTimeToBR(utime))); 
 		h_fitres[0]->Write(Form("h_fitres_ace_BR%d", UTimeToBR(utime)));		 
 
 	}
@@ -690,6 +723,42 @@ TGraphErrors *ace_rescale_BR(const char *element, Particle::Type isotope){
 
 	// gStyle->SetPalette(109); 
 
+	for (int bin=0; bin <= h_ace->GetNbinsX(); ++bin){
+ 
+		if (bin%2==0) {  
+
+			g_ratio_time_norm[bin/2] = get_norm_graph( g_ratio_time[bin/2] ); 
+		
+			for (int iBR=0; iBR<g_ratio_time[bin/2]->GetN(); ++iBR){
+				Double_t x=0, y=0; 
+				g_ratio_time_norm[bin/2]->GetPoint(iBR, x, y); 
+				g_ratio_time_norm[bin/2]->SetPoint(iBR, x, y-1); 			 
+			}
+
+			//c4->cd(1);
+			//gPad->SetGrid(); 
+
+			//TLegend *l_comp1 = new TLegend(0.62, 0.8, 0.9, 1.0); 
+			//l_comp1->AddEntry(g_ratio_ave_norm, "Normalized Averaged ACE Data/Template-1", "PL"); 
+			//l_comp1->AddEntry(g_residual_ace[bin/2], Form("ACE Fitting Residuals (%0.4f GV)", h_ace_rig_ave->GetBinCenter(bin+1)), "PL"); 
+
+			g_residual_ace[bin/2]->SetTitle(Form(" ; ; ACE %s Data/Template-1 vs. Fitting Residuals", element));  
+			g_residual_ace[bin/2]->GetXaxis()->SetTimeDisplay(1);
+			g_residual_ace[bin/2]->GetXaxis()->SetTimeFormat("%m-%y");
+			g_residual_ace[bin/2]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+			g_residual_ace[bin/2]->GetXaxis()->SetTitleSize(0.7);
+			g_residual_ace[bin/2]->GetYaxis()->SetRangeUser(-0.25, 0.3);
+			//g_residual_ace[bin/2]->Draw("APL");
+			// g_ratio_ave_norm->Draw("PL SAME"); 
+			//g_ratio_time_norm[bin/2]->Draw("PL SAME"); 
+			//l_comp1->Draw("SAME"); 		
+					
+
+			g_residual_ace[bin/2]->Write(Form("g_residual_ace_%d", bin/2)); 
+			g_ratio_time_norm[bin/2]->Write(Form("g_ratio_time_norm_%d", bin/2)); 
+		} 
+	} 
+ 
 	file1->Close();
 
 	TCanvas *c[7];
@@ -720,9 +789,8 @@ TGraphErrors *ace_rescale_BR(const char *element, Particle::Type isotope){
 		g_ratio_time[i]->Draw("APL");
 
 		// SetDirectory(file1);
-		g_ratio_time[i]->Print("range"); 
+		// g_ratio_time[i]->Print("range"); 
 		g_ratio_time[i]->Write(Form("g_ratio_time_%d", i));
-
 
 		// legend->Draw("SAME"); 
 		
@@ -1685,7 +1753,6 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 
 	g_chi2_ace->Write("g_chi2_ace"); 
 	g_chi2_ams->Write("g_chi2_ams"); 
-	file->Close(); 
 			
 	c3->cd(1);
 	gPad->SetGrid(); 
@@ -1772,6 +1839,9 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 			if (bin==h_ace_rig_ave->GetNbinsX()-1){
 				c4->Print(Form("./data/ACE/fill/fake_td_ams/fitres_ace_vs_BR_%s.pdf)", element), "pdf"); 
 			} 
+
+			g_residual_ace[bin/2]->Write(Form("g_residual_ace_%d", bin/2)); 
+
 		} 
 	} 
 
@@ -1797,6 +1867,8 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 			if (bin==h_ams_new->GetNbinsX()-1){
 				c4_2->Print(Form("./data/ACE/fill/fake_td_ams/fitres_ams_vs_BR_%s.pdf)", element), "pdf"); 
 			} 
+			
+			g_residual_ams[bin]->Write(Form("g_residual_ams_%d", bin)); 
 	} 
 
 	// TGraphErrors *g_mean_residual_ace = ave_grapherrors( g_residual_ace, 7 ); 
@@ -1804,6 +1876,8 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 
 	// g_ave_residual_ace_rig->Print("range");
 	// g_ave_residual_ams_rig->Print("range"); 
+
+	file->Close(); 
 
 	for (int ipar=0; ipar<2; ++ipar){
 		c5->cd(ipar+1); 
@@ -1836,7 +1910,7 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 	g_pars_ratio->SetTitle(Form(" ; ; [%d]/[%d]", 1, 0)); 
 	g_pars_ratio->Draw("AP"); 
 
-	g_pars_ratio->Print("range"); 
+	// g_pars_ratio->Print("range"); 
 
 	c5->Print(Form("./data/ACE/fill/fake_td_ams/pars_vs_BR_%s.png", element)); 
 
@@ -1858,7 +1932,7 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 	l_both4->AddEntry(g_ave_residual_ace_rig, "ACE", "PL");
 	l_both4->AddEntry(g_ave_residual_ams_rig, "AMS", "PL"); 
 
-	g_ave_residual_ace_rig->Draw("APL");
+	g_ave_residual_ace_rig->Draw("APL"); 
 	g_ave_residual_ams_rig->Draw("PLSAME"); 
 	l_both4->Draw("SAME"); 
 
@@ -2888,10 +2962,6 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 	   	if (iBR+2426==2472-1) iBR_true += 3; 
 		else iBR_true ++; 
 	}
-
-	g_chi2_ace->Write("g_chi2_ace"); 
-	g_chi2_ams->Write("g_chi2_ams"); 
-	file->Close(); 
 			
 	c3->cd(1);
 	gPad->SetGrid(); 
@@ -2978,6 +3048,8 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 			if (bin==h_ace_rig_ave->GetNbinsX()-1){
 				c4->Print(Form("./data/ACE/fill/fake_td_ams_v2/fitres_ace_vs_BR_%s.pdf)", element), "pdf"); 
 			} 
+
+			g_residual_ace[bin/2]->Write(Form("g_residual_ace_%d", bin/2)); 
 		} 
 	} 
 
@@ -3003,7 +3075,13 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 			if (bin==h_ams_new->GetNbinsX()-1){
 				c4_2->Print(Form("./data/ACE/fill/fake_td_ams_v2/fitres_ams_vs_BR_%s.pdf)", "He_fit"), "pdf"); 
 			} 
+
+			g_residual_ams[bin]->Write(Form("g_residual_ams_%d", bin)); 
 	} 
+
+	g_chi2_ace->Write("g_chi2_ace"); 
+	g_chi2_ams->Write("g_chi2_ams"); 
+	file->Close(); 
 
 	gROOT->ProcessLine(".>"); 
 
@@ -3915,7 +3993,7 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 	c1->Divide(3, 2);
 
 	TCanvas *c2 = new TCanvas("c2", "", 1600, 900);
-	c2->Divide(1, 2); 
+	c2->Divide(3, 2); 
 
 	//TCanvas *c3 = new TCanvas("c3", "", 1600, 900);
 	//c3->Divide(1, 2);
@@ -4019,7 +4097,7 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 		h_a->GetXaxis()->SetLimits(0.7, 60); 	
 
 		TLegend *l2 = new TLegend(0.62,0.8,0.9,1.);
-		//l2->AddEntry(fsp_comb, "rescaled model", "l"); 
+		l2->AddEntry(fit_ratio, Form("%0.4f", ratio_ave), "l"); 
 		l2->AddEntry(h_rig, Form("ACE %s(R,t)/<%s(R)>", element, element), "p"); 
 	
 		h_a->Draw("E1X0");  
@@ -4038,7 +4116,6 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 		h_b->GetXaxis()->SetLimits(0.7, 60); 
 
 		h_b->SetTitle("");
-		h_b->GetXaxis()->SetTitleSize(0.05); 
 		h_b->SetXTitle(Unit::GetEnergyLabel("GV"));
 		h_b->SetYTitle("Data/Model-1"); 
 		//h_ratio1->GetXaxis()->SetRangeUser(0, 3.); 
@@ -4204,6 +4281,131 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 	   if (iBR+2426==2472-1) iBR_true += 3; 
 		else iBR_true ++; 
 	} 
+
+	//P2F123
+	for (int bin=0; bin<7; ++bin){
+
+		//F1
+		for (int k=0; k<1; ++k){ 
+
+			TGraphErrors *g_residual_ace = (TGraphErrors *) file_f1->Get(Form("g_residual_ace_%d", bin)); 
+			TGraphErrors *g_ratio_time_norm = (TGraphErrors *) file_f1->Get(Form("g_ratio_time_norm_%d", bin)); 
+
+			c2->cd(1);
+			gPad->SetGrid();
+
+			TLegend *l_a = new TLegend(0.62, 0.8, 0.9, 0.9); 
+			l_a->AddEntry(g_ratio_time_norm, "Normalized Averaged ACE Data/Template-1", "PL"); 
+
+			g_ratio_time_norm->GetXaxis()->SetTimeDisplay(1);
+			g_ratio_time_norm->GetXaxis()->SetTimeFormat("%m-%y");
+			g_ratio_time_norm->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+		
+			HistTools::SetStyle(g_ratio_time_norm, kPink, kFullCircle, 0.5, 1, 1);
+			g_ratio_time_norm->Draw("APL"); 
+			l_a->Draw("SAME"); 
+
+			c2->cd(4);
+			gPad->SetGrid(); 
+
+			TLegend *l_b = new TLegend(0.62, 0.8, 0.9, 0.9); 
+			l_b->AddEntry(g_residual_ace, Form("ACE He_Fit Residuals (%0.4f GV)", h_ace->GetBinCenter(bin+1)), "PL"); 
+
+			g_residual_ace->SetTitle(Form(" ; ; ACE %s Data/Template-1 vs. Fitting Residuals", element));  
+			g_residual_ace->GetXaxis()->SetTimeDisplay(1);
+			g_residual_ace->GetXaxis()->SetTimeFormat("%m-%y");
+			g_residual_ace->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+			//g_residual_ace->GetXaxis()->SetTitleSize(0.7);
+			g_residual_ace->GetYaxis()->SetRangeUser(-0.5, 0.5);
+			HistTools::SetStyle(g_residual_ace, kPink, kFullCircle, 0.5, 1, 1); 
+			g_residual_ace->Draw("APL");
+			l_b->Draw("SAME"); 		
+
+		} 
+
+		//F2
+		for (int k=0; k<1; ++k){ 
+
+			TGraphErrors *g_residual_ace = (TGraphErrors *) file_f2->Get(Form("g_residual_ace_%d", bin)); 
+			// TGraphErrors *g_ratio_time_norm = (TGraphErrors *) file_f2->Get(Form("g_ratio_time_norm_%d", bin)); 
+
+			c2->cd(2);
+			gPad->SetGrid();
+
+			TLegend *l_a = new TLegend(0.62, 0.8, 0.9, 0.9); 
+			//l_a->AddEntry(g_ratio_time_norm, "Normalized Averaged ACE Data/Template-1", "PL"); 
+
+			//g_ratio_time_norm->GetXaxis()->SetTimeDisplay(1);
+			//g_ratio_time_norm->GetXaxis()->SetTimeFormat("%m-%y");
+			//g_ratio_time_norm->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+		
+			//HistTools::SetStyle(g_ratio_time_norm, kPink, kFullCircle, 0.5, 1, 1);
+			// g_ratio_time_norm->Draw("APL"); 
+			//l_a->Draw("SAME"); 
+
+			c2->cd(5);
+			gPad->SetGrid(); 
+
+			TLegend *l_b = new TLegend(0.62, 0.8, 0.9, 0.9); 
+			l_b->AddEntry(g_residual_ace, Form("ACE He_Fit Residuals (%0.4f GV)", h_ace->GetBinCenter(bin+1)), "PL"); 
+
+			g_residual_ace->SetTitle(Form(" ; ; ACE %s Data/Template-1 vs. Fitting Residuals", element));  
+			g_residual_ace->GetXaxis()->SetTimeDisplay(1);
+			g_residual_ace->GetXaxis()->SetTimeFormat("%m-%y");
+			g_residual_ace->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+			//g_residual_ace->GetXaxis()->SetTitleSize(0.7);
+			g_residual_ace->GetYaxis()->SetRangeUser(-0.5, 0.5);
+			HistTools::SetStyle(g_residual_ace, kPink, kFullCircle, 0.5, 1, 1); 
+			g_residual_ace->Draw("APL");
+			l_b->Draw("SAME"); 		
+	
+		} 
+
+		//F3
+		for (int k=0; k<1; ++k){ 
+
+			TGraphErrors *g_residual_ace = (TGraphErrors *) file_f3->Get(Form("g_residual_ace_%d", bin)); 
+			// TGraphErrors *g_ratio_time_norm = (TGraphErrors *) file_f3->Get(Form("g_ratio_time_norm_%d", bin)); 
+
+			c2->cd(3);
+			gPad->SetGrid();
+
+			TLegend *l_a = new TLegend(0.62, 0.8, 0.9, 0.9); 
+			//l_a->AddEntry(g_ratio_time_norm, "Normalized Averaged ACE Data/Template-1", "PL"); 
+
+			//g_ratio_time_norm->GetXaxis()->SetTimeDisplay(1);
+			//g_ratio_time_norm->GetXaxis()->SetTimeFormat("%m-%y");
+			//g_ratio_time_norm->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+		
+			// HistTools::SetStyle(g_ratio_time_norm, kPink, kFullCircle, 0.5, 1, 1);
+			// g_ratio_time_norm->Draw("APL"); 
+			//l_a->Draw("SAME"); 
+
+			c2->cd(6);
+			gPad->SetGrid(); 
+
+			TLegend *l_b = new TLegend(0.62, 0.8, 0.9, 0.9); 
+			l_b->AddEntry(g_residual_ace, Form("ACE He_Fit Residuals (%0.4f GV)", h_ace->GetBinCenter(bin+1)), "PL"); 
+
+			g_residual_ace->SetTitle(Form(" ; ; ACE %s Data/Template-1 vs. Fitting Residuals", element));  
+			g_residual_ace->GetXaxis()->SetTimeDisplay(1);
+			g_residual_ace->GetXaxis()->SetTimeFormat("%m-%y");
+			g_residual_ace->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+			//g_residual_ace->GetXaxis()->SetTitleSize(0.7);
+			g_residual_ace->GetYaxis()->SetRangeUser(-0.5, 0.5);
+			HistTools::SetStyle(g_residual_ace, kPink, kFullCircle, 0.5, 1, 1); 
+			g_residual_ace->Draw("APL");
+			l_b->Draw("SAME"); 	
+	
+		} 
+
+		if (bin==0) c2->Print(Form("./data/ACE/fill/compare_fake_%s_p2.pdf(", element), "pdf"); 
+		if (bin>0 && bin<7-1) c2->Print(Form("./data/ACE/fill/compare_fake_%s_p2.pdf", element), "pdf");  
+		if (bin==7-1){
+			c2->Print(Form("./data/ACE/fill/compare_fake_%s_p2.pdf)", element), "pdf"); 
+		} 
+
+	}
 
 	return 0; 
 }; 
