@@ -270,7 +270,9 @@ void ace_auto(const char *operation){
 			//ace_fake_td_ams( ACE_Element[i], ACE_Isotope[i] );
 			//ace_fake_td_ams_v2( ACE_Element[i], ACE_Isotope[i] );
 			//ace_fake_td_ams_v3( ACE_Element[i], ACE_Isotope[i] ); 
-			ace_fake_td_ams_v4( ACE_Element[i], ACE_Isotope[i] ); 
+			//ace_fake_td_ams_v4( ACE_Element[i], ACE_Isotope[i] ); 
+
+			compare_fake_flux( ACE_Element[i], ACE_Isotope[i] ); 
 		}
 
 		// TLegend *legend = new TLegend(0.1,0.6,0.28,0.9); 
@@ -4638,7 +4640,7 @@ void ace_fake_td_ams_v4(const char *element, Particle::Type isotope){
 
 		if (!strcmp(element, "B")){ 
 			fit_ratio->SetParameters(f_corr[0]->Eval(h_ace_BR->GetBinContent(best_bin[0]+2)), par1_X[0]->GetMean(2)); // F5 set par0 to the f_corr fit 
-			fit_ratio->SetParError(0, g_correrr[0]->GetEY()[h_correrr[0]->FindBin(h_ace_BR->GetBinContent(best_bin[0]+2))] );
+			fit_ratio->SetParError(0, g_correrr[0]->GetEY()[h_correrr[0]->FindBin(h_ace_BR->GetBinContent(best_bin[0]+2))-1] );
 			fit_ratio->SetParError(1, par1_X[0]->GetRMS(2));
 			//printf("h_correrr bin # = %d \n", h_correrr[0]->GetBinContent(h_correrr[0]->FindBin(h_ace_BR->GetBinContent(best_bin[0]+2)))); 
 			//h_ace_BR->Print("range");
@@ -4646,7 +4648,7 @@ void ace_fake_td_ams_v4(const char *element, Particle::Type isotope){
 		} 
 		if (!strcmp(element, "O")){
 			fit_ratio->SetParameters(f_corr[3]->Eval(h_ace_BR->GetBinContent(best_bin[3]+2)), par1_X[3]->GetMean(2)); // F5 set par0 to the f_corr fit   
-			//fit_ratio->SetParError(0, g_correrr[3]->GetEY()[h_correrr[3]->FindBin(h_ace_BR->GetBinContent(best_bin[3]+1))] );
+			fit_ratio->SetParError(0, g_correrr[3]->GetEY()[h_correrr[3]->FindBin(h_ace_BR->GetBinContent(best_bin[3]+1))-1] );
 			fit_ratio->SetParError(1, par1_X[3]->GetRMS(2));  
 			//printf("h_correrr bin = %0.4f \n", h_correrr[3]->GetBinError(h_correrr[3]->FindBin(h_ace_BR->GetBinContent(best_bin[3]+1)))); 
 			//h_ace_BR->Print("range");
@@ -4655,13 +4657,13 @@ void ace_fake_td_ams_v4(const char *element, Particle::Type isotope){
 		if (!strcmp(element, "N")){
 			fit_ratio->SetParameter(0, f_corr[0]->Eval(h_ace_BR->GetBinContent(best_bin[0]+2))); 
 			fit_ratio->SetParameter(1, par1_X[0]->GetMean(2)); 
-			//fit_ratio->SetParError(0, g_correrr[0]->GetEY()[h_correrr[0]->FindBin(h_ace_BR->GetBinContent(best_bin[0]+2))] ); 
+			fit_ratio->SetParError(0, g_correrr[0]->GetEY()[h_correrr[0]->FindBin(h_ace_BR->GetBinContent(best_bin[0]+2))-1] ); 
 			fit_ratio->SetParError(1, par1_X[0]->GetRMS(2));  
 		} 
 		if (!strcmp(element, "C")){
 			fit_ratio->SetParameter(0, f_corr[3]->Eval(h_ace_BR->GetBinContent(best_bin[3]+1))); 
 			fit_ratio->SetParameter(1, par1_X[3]->GetMean(2)); 	
-			//fit_ratio->SetParError(0, g_correrr[3]->GetEY()[h_correrr[3]->FindBin(h_ace_BR->GetBinContent(best_bin[3]+1))] ); 
+			fit_ratio->SetParError(0, g_correrr[3]->GetEY()[h_correrr[3]->FindBin(h_ace_BR->GetBinContent(best_bin[3]+1))-1] ); 
 			fit_ratio->SetParError(1, par1_X[3]->GetRMS(2));  
 		} 
 		// break; 
@@ -5084,29 +5086,28 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 	TFile *file_f2 = new TFile(Form("data/ACE/fill/F2_%s.root", element)); 
 	TFile *file_f3 = new TFile(Form("data/ACE/fill/F3_%s.root", element)); 
 	TFile *file_f4 = new TFile(Form("data/ACE/fill/F4_%s.root", element));
+	TFile *file_f5 = new TFile(Form("data/ACE/fill/F5_%s.root", element)); 
 
 	//TCanvas *c0 = new TCanvas("c0", "", 1600, 900); 
 	//c0->Divide(1, 2);
 
+	int i_skip = 5; 
+
 	TCanvas *c1 = new TCanvas("c1", "", 1600, 900); // P1
-	if (!strcmp(element, "B") || !strcmp(element, "O") ) c1->Divide(4, 2);
-	if (!strcmp(element, "C") || !strcmp(element, "N") ) c1->Divide(5, 2); 
+	c1->Divide(5, 2); 
 
 	TCanvas *c2 = new TCanvas("c2", "", 1600, 900); // P2-ACE
-	if (!strcmp(element, "B") || !strcmp(element, "O") ) c2->Divide(4, 2);
-	if (!strcmp(element, "C") || !strcmp(element, "N") ) c2->Divide(5, 2);  
+	c2->Divide(5, 2);  
 
 	TCanvas *c3 = new TCanvas("c3", "", 1600, 900); // P2-AMS
-	if (!strcmp(element, "B") || !strcmp(element, "O") ) c3->Divide(4, 2);
-	if (!strcmp(element, "C") || !strcmp(element, "N") ) c3->Divide(5, 2); 
+	c3->Divide(5, 2); 
 
 	TCanvas *c4 = new TCanvas("c4", "", 1600, 900); // P3
-	if (!strcmp(element, "B") || !strcmp(element, "O") ) c4->Divide(4, 1);
-	if (!strcmp(element, "C") || !strcmp(element, "N") ) c4->Divide(5, 1); 
+	c4->Divide(5, 1); 
 
 	TCanvas *c5 = new TCanvas("c5", "", 1600, 900); // P4
-	if (!strcmp(element, "B") || !strcmp(element, "O") ) c5->Divide(4, 2);
-	if (!strcmp(element, "C") || !strcmp(element, "N") ) c5->Divide(5, 2); 
+	c5->Divide(5, 2); 
+
 
 	// P1F123
 	int iBR_true=0; 
@@ -5204,8 +5205,7 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 		h_rig_rescale->Draw("E1X0 SAME"); 
 		l2->Draw("SAME"); 
 
-		if (!strcmp(element, "C") || !strcmp(element, "N")) c1->cd(5); 
-		else c1->cd(4); 
+		c1->cd(6); 
 		gPad->SetGrid(); 
 		gPad->SetLogx();
 		gPad->SetMargin(0.12, 0.04, 0.2, 0.01);
@@ -5266,8 +5266,7 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 		h_ratio0->Draw("E1X0 SAME");
 		l2->Draw("SAME"); 
 
-		if (!strcmp(element, "C") || !strcmp(element, "N")) c1->cd(6);
-		else c1->cd(5);
+		c1->cd(7);
 		gPad->SetGrid();
 		gPad->SetLogx();  
 		gPad->SetMargin(0.12, 0.04, 0.2, 0.01);
@@ -5355,9 +5354,7 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 		h_ratio0->Draw("E1X0 SAME");
 		l2->Draw("SAME"); 
 
-		if (!strcmp(element, "C") || !strcmp(element, "N")) c1->cd(7); 
-		else c1->cd(6);
-
+		c1->cd(8);
 		gPad->SetGrid();
 		gPad->SetLogx();  
 		gPad->SetMargin(0.12, 0.04, 0.2, 0.01);
@@ -5381,6 +5378,7 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 		l_chi2->Draw("SAME"); 
 	   }
 	
+	   //F4
 	   if (!strcmp(element, "C") || !strcmp(element, "N")){
 
 		TGraphErrors *g_chi2_ace = (TGraphErrors *) file_f4->Get("g_chi2_ace"); 
@@ -5422,7 +5420,7 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 		h_ratio0->Draw("E1X0 SAME");
 		l2->Draw("SAME"); 
 
-		c1->cd(8);
+		c1->cd(9);
 		gPad->SetGrid();
 		gPad->SetLogx();  
 		gPad->SetMargin(0.12, 0.04, 0.2, 0.01);
@@ -5447,6 +5445,72 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 
 	   }
 
+	   //F5
+	   for( int k=0; k<1; ++k ){
+
+	   	TGraphErrors *g_chi2_ace = (TGraphErrors *) file_f5->Get("g_chi2_ace"); 
+		TGraphErrors *g_chi2_ams = (TGraphErrors *) file_f5->Get("g_chi2_ams");  
+
+		TH1 *h_a = new TH1D("", "", 3000, 0, 3000); 
+		TH1 *h_b = new TH1D("", "", 3000, 0, 3000); 
+
+		TF1 *fit_ratio = (TF1*) file_f5->Get(Form("fit_ratio_BR%d", 2426+iBR_true)); 
+		TH1 *h_ratio0 = (TH1*) file_f5->Get(Form("h_ratio0_BR%d", 2426+iBR_true)); 
+		TH1 *h_ratio1 = (TH1*) file_f5->Get(Form("h_ratio1_BR%d", 2426+iBR_true)); 
+
+		TH1 *h_fitres[2]; 
+		h_fitres[0] = (TH1*) file_f5->Get(Form("h_fitres_ace_BR%d", 2426+iBR_true)); 
+		h_fitres[1] = (TH1*) file_f5->Get(Form("h_fitres_ams_BR%d", 2426+iBR_true));
+
+		c1->cd(5); 
+		gPad->SetGrid(); 
+		gPad->SetLogx();
+		gPad->SetMargin(0.12, 0.04, 0.1, 0.08);	
+
+		h_a->GetYaxis()->SetRangeUser(0.5, 2.2); 
+		h_a->GetXaxis()->SetLimits(0.7, 60); 
+	
+		TLegend *l2 = new TLegend(0.3,0.7,0.8,0.9); 
+		l2->AddEntry(h_ratio1, Form("ACE %s(R,t)/<%s(R)>", element, element), "PL");
+		l2->AddEntry(h_ratio0, "AMS He(R,t)/<He(R)>", "PL");  
+		l2->AddEntry(fit_ratio, Form("1+%0.2fpm%0.2fexp(-%0.2fpm%0.2fR)", fit_ratio->GetParameter(0), fit_ratio->GetParError(0), fit_ratio->GetParameter(1), fit_ratio->GetParError(1)), "L"); 
+		// l2->AddEntry(fit_ratio2, Form("1+%6.3fexp(-%6.3fln(R))", fit_ratio2->GetParameter(0), fit_ratio2->GetParameter(1)), "L"); 
+
+		h_a->Draw("E1X0"); 
+		h_a->SetTitle(Form("F5; ; BR-%d %s(R,t)/<%s(R)>", iBR_true+2426, element, element));
+		h_a->SetXTitle(Unit::GetEnergyLabel("GV"));
+		// h_a->SetTitleSize(0.5,"y"); 
+		HistTools::SetStyle(h_ratio1, kBlack, kFullCircle, 0.8, 1, 1);
+		HistTools::SetStyle(h_ratio0, kBlack, kFullSquare, 0.8, 1, 1);
+		fit_ratio->Draw("SAME");
+		h_ratio1->Draw("E1X0 SAME"); 
+		h_ratio0->Draw("E1X0 SAME");
+		l2->Draw("SAME"); 
+
+		c1->cd(10);
+		gPad->SetGrid();
+		gPad->SetLogx();  
+		gPad->SetMargin(0.12, 0.04, 0.2, 0.01);
+
+		h_b->GetYaxis()->SetRangeUser(-0.2, 0.2); 
+		h_b->GetXaxis()->SetLimits(0.7, 60); 
+
+		TLegend *l_chi2 = new TLegend(0.62,0.8,0.9,0.9); 
+		l_chi2->AddEntry(h_ratio1, Form("chi2=%0.4f", g_chi2_ace->GetY()[iBR]), "PL");
+		l_chi2->AddEntry(h_ratio0, Form("chi2=%0.4f", g_chi2_ams->GetY()[iBR]), "PL");  
+
+		h_b->Draw("E1X0"); 
+		h_b->SetTitle("; ; Data/Fit-1"); 
+		h_b->SetXTitle(Unit::GetEnergyLabel("GV"));
+
+		HistTools::SetStyle(h_fitres[0], kBlack, kFullCircle, 0.8, 1, 1);
+		HistTools::SetStyle(h_fitres[1], kBlack, kFullSquare, 0.8, 1, 1);
+
+		h_fitres[0]->Draw("E1X0 SAME");
+		h_fitres[1]->Draw("E1X0 SAME");
+		l_chi2->Draw("SAME"); 
+	
+	   }
 
 	   if (iBR==0) c1->Print(Form("./data/ACE/fill/compare_fake_%s_p1.pdf(", element), "pdf"); 
 	   if (iBR>0 && nBRs-1) c1->Print(Form("./data/ACE/fill/compare_fake_%s_p1.pdf", element), "pdf");  
@@ -5493,8 +5557,7 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 			
 			l_a->Draw("SAME"); 
 
-			if (!strcmp(element, "C") || !strcmp(element, "N")) c2->cd(5);
-			else c2->cd(4);
+			c2->cd(6);
 			gPad->SetGrid(); 
 			gPad->SetMargin(0.12, 0.04, 0.2, 0.01);
 
@@ -5547,8 +5610,7 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 			TGraph *g_ratio_ace_fiterr = (TGraph *) g_ratio_ace_fit->Clone();
 			g_ratio_ace_fiterr->Draw("LX SAME");
 
-			if (!strcmp(element, "C") || !strcmp(element, "N")) c2->cd(6); 
-			else c2->cd(5);
+			c2->cd(7);
 			gPad->SetGrid(); 
 			gPad->SetMargin(0.12, 0.04, 0.2, 0.01);
 
@@ -5599,8 +5661,7 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 			TGraph *g_ratio_ace_fiterr = (TGraph *) g_ratio_ace_fit->Clone();
 			g_ratio_ace_fiterr->Draw("LX SAME");
 
-			if (!strcmp(element, "C") || !strcmp(element, "N")) c2->cd(7); 
-			else c2->cd(6);
+			c2->cd(8);
 			gPad->SetGrid(); 
 			gPad->SetMargin(0.12, 0.04, 0.2, 0.01);
 
@@ -5619,6 +5680,7 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 	
 		} 
 
+		//F4
 	 	if (!strcmp(element, "C") || !strcmp(element, "N")){
 
 			TGraphErrors *g_residual_ace = (TGraphErrors *) file_f4->Get(Form("g_residual_ace_%d", bin)); 
@@ -5650,7 +5712,7 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 			TGraph *g_ratio_ace_fiterr = (TGraph *) g_ratio_ace_fit->Clone();
 			g_ratio_ace_fiterr->Draw("LX SAME");
 
-			c2->cd(8);
+			c2->cd(9);
 			gPad->SetGrid(); 
 			gPad->SetMargin(0.12, 0.04, 0.2, 0.01);
 
@@ -5673,6 +5735,56 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 		if (bin==7-1){
 			c2->Print(Form("./data/ACE/fill/compare_fake_%s_p2_ace.pdf)", element), "pdf"); 
 		} 
+
+		//F5
+		for (int k=0; k<1; ++k){ 
+
+			TGraphErrors *g_residual_ace = (TGraphErrors *) file_f5->Get(Form("g_residual_ace_%d", bin)); 
+			TGraphErrors *g_ratio_ace = (TGraphErrors *) file_f5->Get(Form("g_ratio_ace_%d", bin)); 
+			TGraphErrors *g_ratio_ace_fit = (TGraphErrors *) file_f5->Get(Form("g_ratio_ace_fit_%d", bin));
+
+			c2->cd(5);
+			gPad->SetGrid();
+			gPad->SetMargin(0.12, 0.04, 0.1, 0.08);
+
+			TLegend *l_a = new TLegend(0.62, 0.8, 0.9, 0.9); 
+			l_a->AddEntry(g_ratio_ace, "ACE Data/Template", "PL"); 
+			l_a->AddEntry(g_ratio_ace_fit, "Fit", "PL"); 
+
+			g_ratio_ace->SetTitle(Form("F5; ; ACE %s Data/Template", element));  
+			g_ratio_ace->GetXaxis()->SetTimeDisplay(1);
+			g_ratio_ace->GetXaxis()->SetTimeFormat("%m-%y");
+			g_ratio_ace->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+			g_ratio_ace->GetYaxis()->SetLimits(0.2, 2.2); 
+		
+			HistTools::SetStyle(g_ratio_ace, kPink, kFullCircle, 0.8, 1, 1); 
+			g_ratio_ace->Draw("AP"); 
+			HistTools::SetStyle(g_ratio_ace_fit, kGreen-3, kFullSquare, 0.6, 1, 1);
+			g_ratio_ace_fit->SetLineColor(kGreen); 
+			g_ratio_ace_fit->SetFillStyle(1001); 
+			g_ratio_ace_fit->Draw("3 SAME"); 
+			l_a->Draw("SAME"); 
+
+			TGraph *g_ratio_ace_fiterr = (TGraph *) g_ratio_ace_fit->Clone();
+			g_ratio_ace_fiterr->Draw("LX SAME");
+
+			c2->cd(10);
+			gPad->SetGrid(); 
+			gPad->SetMargin(0.12, 0.04, 0.2, 0.01);
+
+			TLegend *l_b = new TLegend(0.42, 0.8, 0.9, 0.9); 
+			l_b->AddEntry(g_residual_ace, Form("ACE He_Fit Residuals (%0.4f GV)", h_ace->GetBinCenter(bin+1)), "PL"); 
+
+			g_residual_ace->SetTitle(Form(" ; ; ACE %s Fitting Residuals", element));  
+			g_residual_ace->GetXaxis()->SetTimeDisplay(1);
+			g_residual_ace->GetXaxis()->SetTimeFormat("%m-%y");
+			g_residual_ace->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+			//g_residual_ace->GetXaxis()->SetTitleSize(0.7);
+			g_residual_ace->GetYaxis()->SetRangeUser(-0.3, 0.3);
+			HistTools::SetStyle(g_residual_ace, kPink, kFullCircle, 0.8, 1, 1); 
+			g_residual_ace->Draw("APL");
+			l_b->Draw("SAME"); 
+		}
 
 	}
 
@@ -5756,8 +5868,7 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 			TGraph *g_ratio_ams_fiterr = (TGraph *) g_ratio_ams_fit->Clone();
 			g_ratio_ams_fiterr->Draw("LX SAME");
 
-			if (!strcmp(element, "C") || !strcmp(element, "N")) c3->cd(6); 
-			else c3->cd(5);
+			c3->cd(7);
 			gPad->SetGrid(); 
 			gPad->SetMargin(0.13, 0.04, 0.2, 0.01);
 
@@ -5809,8 +5920,7 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 			TGraph *g_ratio_ams_fiterr = (TGraph *) g_ratio_ams_fit->Clone();
 			g_ratio_ams_fiterr->Draw("LX SAME");
 
-			if (!strcmp(element, "C") || !strcmp(element, "N")) c3->cd(7); 
-			else c3->cd(6);
+			c3->cd(8);
 			gPad->SetGrid(); 
 			gPad->SetMargin(0.13, 0.04, 0.2, 0.01);
 
@@ -5829,6 +5939,7 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 	
 		} 
 
+		//F4
 	 	if (!strcmp(element, "C") || !strcmp(element, "N")){
 
 			TGraphErrors *g_residual_ams = (TGraphErrors *) file_f4->Get(Form("g_residual_ams_%d", bin)); 
@@ -5860,7 +5971,7 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 			TGraph *g_ratio_ams_fiterr = (TGraph *) g_ratio_ams_fit->Clone();
 			g_ratio_ams_fiterr->Draw("LX SAME");
 
-			c3->cd(8);
+			c3->cd(9);
 			gPad->SetGrid(); 
 			gPad->SetMargin(0.13, 0.04, 0.2, 0.01);
 
@@ -5883,6 +5994,56 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 		if (bin==h_BR_he[0]->GetNbinsX()-1){
 			c3->Print(Form("./data/ACE/fill/compare_fake_%s_p2_ams.pdf)", element), "pdf"); 
 		} 
+
+		//F5
+		for (int k=0; k<1; ++k){ 
+
+			TGraphErrors *g_residual_ams = (TGraphErrors *) file_f5->Get(Form("g_residual_ams_%d", bin)); 
+			TGraphErrors *g_ratio_ams = (TGraphErrors *) file_f5->Get(Form("g_ratio_ams_%d", bin)); 
+			TGraphErrors *g_ratio_ams_fit = (TGraphErrors *) file_f5->Get(Form("g_ratio_ams_fit_%d", bin)); 
+
+			c3->cd(5);
+			gPad->SetGrid();
+			gPad->SetMargin(0.13, 0.04, 0.1, 0.08);
+
+			TLegend *l_a = new TLegend(0.62, 0.8, 0.9, 0.9); 
+			l_a->AddEntry(g_ratio_ams, "AMS Data/Template", "PL"); 
+			l_a->AddEntry(g_ratio_ams_fit, "Fit", "PL"); 
+
+			g_ratio_ams->SetTitle(Form("F5; ; AMS %s Data/Template", element));
+			g_ratio_ams->GetXaxis()->SetTimeDisplay(1);
+			g_ratio_ams->GetXaxis()->SetTimeFormat("%m-%y");
+			g_ratio_ams->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+			//g_ratio_ams->GetYaxis()->SetLimits(0.2, 2.2); 
+		
+			HistTools::SetStyle(g_ratio_ams, kBlue, kFullCircle, 0.8, 1, 1);
+			g_ratio_ams->Draw("AP"); 	
+			HistTools::SetStyle(g_ratio_ams_fit, kGreen-3, kFullSquare, 0.6, 1, 1);
+			g_ratio_ams_fit->SetLineColor(kGreen); 
+			g_ratio_ams_fit->SetFillStyle(1001); 
+			g_ratio_ams_fit->Draw("3 SAME");
+			l_a->Draw("SAME"); 
+
+			TGraph *g_ratio_ams_fiterr = (TGraph *) g_ratio_ams_fit->Clone();
+			g_ratio_ams_fiterr->Draw("LX SAME");
+
+			c3->cd(10);
+			gPad->SetGrid(); 
+			gPad->SetMargin(0.13, 0.04, 0.2, 0.01);
+
+			TLegend *l_b = new TLegend(0.42, 0.8, 0.9, 0.9); 
+			l_b->AddEntry(g_residual_ams, Form("AMS He_Fit Residuals (%0.3f GV)", h_ams->GetBinCenter(bin+1)), "PL"); 
+
+			g_residual_ams->SetTitle(Form(" ; ; AMS %s Fitting Residuals", element));  
+			g_residual_ams->GetXaxis()->SetTimeDisplay(1);
+			g_residual_ams->GetXaxis()->SetTimeFormat("%m-%y");
+			g_residual_ams->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+			//g_residual_ams->GetXaxis()->SetTitleSize(0.7);
+			g_residual_ams->GetYaxis()->SetRangeUser(-0.1, 0.1);
+			HistTools::SetStyle(g_residual_ams, kBlue, kFullCircle, 0.8, 1, 1); 
+			g_residual_ams->Draw("APL");
+			l_b->Draw("SAME"); 
+		}
 
 	}
 
@@ -5980,6 +6141,34 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 			l_both4->Draw("SAME"); 
 		}
 
+		//F5
+		for (int k=0; k<1; ++k){ 
+
+			TGraphErrors *g_ave_residual_ace_rig = (TGraphErrors *) file_f5->Get("g_ave_residual_ace_rig"); 
+			TGraphErrors *g_ave_residual_ams_rig = (TGraphErrors *) file_f5->Get("g_ave_residual_ams_rig"); 
+
+			c4->cd(5); 
+			gPad->SetGrid(); 
+			gPad->SetLogx();
+			gPad->SetMargin(0.14, 0.1, 0.1, 0.1);	 
+
+			HistTools::SetStyle(g_ave_residual_ace_rig, kBlack, kFullCircle, 1.1, 1, 1); 
+			HistTools::SetStyle(g_ave_residual_ams_rig, kBlack, kFullSquare, 1.1, 1, 1); 
+
+			g_ave_residual_ace_rig->GetYaxis()->SetRangeUser(-0.15, 0.15); 
+			g_ave_residual_ace_rig->GetXaxis()->SetLimits(0.7, 60);
+			g_ave_residual_ace_rig->SetTitle(Form("F5; ; Time-averaged Fit Residuals of %s(R,t)/<%s(R)>", element, element)); 
+			g_ave_residual_ace_rig->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV")); 
+
+			TLegend *l_both4 = new TLegend(0.62,0.8,0.9,0.9); 
+			l_both4->AddEntry(g_ave_residual_ace_rig, "ACE", "PL");
+			l_both4->AddEntry(g_ave_residual_ams_rig, "AMS", "PL"); 
+
+			g_ave_residual_ace_rig->Draw("APL");
+			g_ave_residual_ams_rig->Draw("PLSAME"); 
+			l_both4->Draw("SAME"); 
+		}
+
 		c4->Print(Form("./data/ACE/fill/compare_fake_%s_p3.png", element)); 
 		
 	}
@@ -6008,8 +6197,7 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 			g_chi2_ace->Draw("APL"); 
 			l_c5_1->Draw("SAME");
 
-			if (!strcmp(element, "C") || !strcmp(element, "N")) c5->cd(6); 
-			else c5->cd(5); 
+			c5->cd(7); 
 			gPad->SetGrid(); 
 			HistTools::SetStyle(g_chi2_ams, kPink, kFullCircle, 1., 1, 1); 
 			TLegend *l_c5_2 = new TLegend(0.62,0.8,0.9,0.9); 
@@ -6045,8 +6233,7 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 			g_chi2_ace->Draw("APL"); 
 			l_c5_1->Draw("SAME");
 
-			if (!strcmp(element, "C") || !strcmp(element, "N")) c5->cd(7); 
-			else c5->cd(6); 
+			c5->cd(8); 
 			gPad->SetGrid(); 
 			HistTools::SetStyle(g_chi2_ams, kPink, kFullCircle, 1., 1, 1); 
 			TLegend *l_c5_2 = new TLegend(0.62,0.8,0.9,0.9); 
@@ -6061,6 +6248,7 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 			l_c5_2->Draw("SAME"); 
 		}
 
+		//F4
 	 	if (!strcmp(element, "C") || !strcmp(element, "N")){
 
 			TGraphErrors *g_chi2_ace = (TGraphErrors*) file_f4->Get("g_chi2_ace"); 
@@ -6080,7 +6268,7 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 			g_chi2_ace->Draw("APL"); 
 			l_c5_1->Draw("SAME");
 
-			c5->cd(8); 
+			c5->cd(9); 
 			gPad->SetGrid(); 
 			HistTools::SetStyle(g_chi2_ams, kPink, kFullCircle, 1., 1, 1); 
 			TLegend *l_c5_2 = new TLegend(0.62,0.8,0.9,0.9); 
@@ -6091,6 +6279,42 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 			g_chi2_ams->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
 			g_chi2_ams->GetXaxis()->SetTitleSize(0.7);
 			g_chi2_ams->GetYaxis()->SetRangeUser(0., 2.2); 
+			g_chi2_ams->Draw("APL"); 
+			l_c5_2->Draw("SAME"); 			
+
+		}
+
+		//F5
+		for (int k=0; k<1; ++k){
+
+			TGraphErrors *g_chi2_ace = (TGraphErrors*) file_f5->Get("g_chi2_ace"); 
+			TGraphErrors *g_chi2_ams = (TGraphErrors*) file_f5->Get("g_chi2_ams"); 
+
+			c5->cd(5); 
+			gPad->SetGrid(); 
+			HistTools::SetStyle(g_chi2_ace, kPink, kFullCircle, 1., 1, 1); 
+			TLegend *l_c5_1 = new TLegend(0.62,0.8,0.9,0.9); 
+			l_c5_1->AddEntry(g_chi2_ace, "He(R,t)_Fit/<He(R)>_Fit", "PL"); 
+			g_chi2_ace->SetTitle(Form("F4; ; ACE %s(R,t)/<%s(R)> Fitting Chi2/NDF", element, element)); 
+			g_chi2_ace->GetXaxis()->SetTimeDisplay(1);
+			g_chi2_ace->GetXaxis()->SetTimeFormat("%m-%y"); 
+			g_chi2_ace->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+			g_chi2_ace->GetXaxis()->SetTitleSize(0.7); 
+			g_chi2_ace->GetYaxis()->SetRangeUser(0., 4.5); 
+			g_chi2_ace->Draw("APL"); 
+			l_c5_1->Draw("SAME");
+
+			c5->cd(10); 
+			gPad->SetGrid(); 
+			HistTools::SetStyle(g_chi2_ams, kPink, kFullCircle, 1., 1, 1); 
+			TLegend *l_c5_2 = new TLegend(0.62,0.8,0.9,0.9); 
+			l_c5_2->AddEntry(g_chi2_ams, "He(R,t)_Fit/<He(R)>_Fit", "PL");
+			g_chi2_ams->SetTitle(Form("; ; AMS %s(R,t)/<%s(R)> Fitting Chi2/NDF", element, element)); 
+			g_chi2_ams->GetXaxis()->SetTimeDisplay(1);
+			g_chi2_ams->GetXaxis()->SetTimeFormat("%m-%y");
+			g_chi2_ams->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+			g_chi2_ams->GetXaxis()->SetTitleSize(0.7);
+			g_chi2_ams->GetYaxis()->SetRangeUser(0., 10.); 
 			g_chi2_ams->Draw("APL"); 
 			l_c5_2->Draw("SAME"); 			
 
