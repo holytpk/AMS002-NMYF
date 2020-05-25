@@ -2303,6 +2303,47 @@ void plot_fit_pars(){
 	} 
 	file1->Close(); 
 
+	for (int i=0; i<4; ++i){  
+
+		// load ACE BR 
+		TFile *file2 = new TFile(Form("data/ACE/fill/%s_fill.root", ACE_Element[i]));
+
+		gROOT->ProcessLine(Form(".> data/ACE/fill/fake_td_ams_v4/compare_par0_%s.dat", ACE_Element[i]));
+
+		int iBR_true = 0;
+		for (int iBR=0; iBR<nBRs; ++iBR){
+
+			TH1 *h_ace_BR = (TH1*) file2->Get(Form("h_rig_%s_BR%d", ACE_Element[i], 2426+iBR_true)); 
+			TGraph *g_compare_par0 = new TGraph(); // compare par0 from each energy bin f_corr. 
+
+			for (int bin=0; bin<7; ++bin){
+
+				h_ace_BR->GetBinContent(2*bin+1); 
+				g_compare_par0->SetPoint(bin, bin, f_corr2[i][bin]->Eval( h_ace_BR->GetBinContent(2*bin+1) )  ); 
+				//printf("corr = %0.8f \n", f_corr2[i][bin]->Eval( h_ace_BR->GetBinContent(2*bin+1)) );  
+				printf( "ACE_Flux=%0.4f, par0=%0.4f \n", h_ace_BR->GetBinContent(2*bin+1), f_corr2[i][bin]->Eval( h_ace_BR->GetBinContent(2*bin+1) ) ); 
+			} 
+	
+			TCanvas *c_comp_par0 = new TCanvas("","",1600,900); 
+			c_comp_par0->Divide(1, 1);
+	
+			c_comp_par0->cd(1); 	
+			HistTools::SetStyle(g_compare_par0, kBlue, kFullCircle, 0.9, 1, 1); 
+			//g_compare_par0->Print(); 	
+			g_compare_par0->Draw("AP"); 
+
+			printf( "BR=%d, RMS=%0.4f \n \n", 2426+iBR_true, g_compare_par0->GetRMS(2) ); 
+
+			if (iBR==0) c_comp_par0->Print(Form("./data/ACE/fill/fake_td_ams_v4/compare_par0_%s.pdf(", ACE_Element[i]), "pdf"); 
+			if (iBR>0 && iBR<nBRs-1) c_comp_par0->Print(Form("./data/ACE/fill/fake_td_ams_v4/compare_par0_%s.pdf", ACE_Element[i]), "pdf"); 
+			if (iBR==nBRs-1) c_comp_par0->Print(Form("./data/ACE/fill/fake_td_ams_v4/compare_par0_%s.pdf)", ACE_Element[i]), "pdf"); 
+	
+	   		if (iBR+2426==2472-1) iBR_true += 3; 
+			else iBR_true ++; 
+		}
+		gROOT->ProcessLine(".>");
+	} 
+
 	c0->Print("data/ACE/fill/fake_td_ams_v2/plot_fit_pars.png");
 
 	TGraphErrors *par0_X[4]; // X stands for an element 
@@ -4647,7 +4688,7 @@ void ace_fake_td_ams_v4(const char *element, Particle::Type isotope){
 			//h_correrr[0]->Print("range");    
 		} 
 		if (!strcmp(element, "O")){
-			fit_ratio->SetParameters(f_corr[3]->Eval(h_ace_BR->GetBinContent(best_bin[3]+2)), par1_X[3]->GetMean(2)); // F5 set par0 to the f_corr fit   
+			fit_ratio->SetParameters(f_corr[3]->Eval(h_ace_BR->GetBinContent(best_bin[3]+1)), par1_X[3]->GetMean(2)); // F5 set par0 to the f_corr fit   
 			fit_ratio->SetParError(0, g_correrr[3]->GetEY()[h_correrr[3]->FindBin(h_ace_BR->GetBinContent(best_bin[3]+1))-1] );
 			fit_ratio->SetParError(1, par1_X[3]->GetRMS(2));  
 			//printf("h_correrr bin = %0.4f \n", h_correrr[3]->GetBinError(h_correrr[3]->FindBin(h_ace_BR->GetBinContent(best_bin[3]+1)))); 
@@ -5473,7 +5514,7 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 		TLegend *l2 = new TLegend(0.3,0.7,0.8,0.9); 
 		l2->AddEntry(h_ratio1, Form("ACE %s(R,t)/<%s(R)>", element, element), "PL");
 		l2->AddEntry(h_ratio0, "AMS He(R,t)/<He(R)>", "PL");  
-		l2->AddEntry(fit_ratio, Form("1+%0.2fpm%0.2fexp(-%0.2fpm%0.2fR)", fit_ratio->GetParameter(0), fit_ratio->GetParError(0), fit_ratio->GetParameter(1), fit_ratio->GetParError(1)), "L"); 
+		l2->AddEntry(fit_ratio, Form("1+%0.2fpm%0.3fexp(-%0.2fpm%0.2fR)", fit_ratio->GetParameter(0), fit_ratio->GetParError(0), fit_ratio->GetParameter(1), fit_ratio->GetParError(1)), "L"); 
 		// l2->AddEntry(fit_ratio2, Form("1+%6.3fexp(-%6.3fln(R))", fit_ratio2->GetParameter(0), fit_ratio2->GetParameter(1)), "L"); 
 
 		h_a->Draw("E1X0"); 
@@ -5511,6 +5552,8 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 		l_chi2->Draw("SAME"); 
 	
 	   }
+
+	   // break; 
 
 	   if (iBR==0) c1->Print(Form("./data/ACE/fill/compare_fake_%s_p1.pdf(", element), "pdf"); 
 	   if (iBR>0 && nBRs-1) c1->Print(Form("./data/ACE/fill/compare_fake_%s_p1.pdf", element), "pdf");  
@@ -5730,12 +5773,6 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 			l_b->Draw("SAME"); 
 		}
 
-		if (bin==0) c2->Print(Form("./data/ACE/fill/compare_fake_%s_p2_ace.pdf(", element), "pdf"); 
-		if (bin>0 && bin<7-1) c2->Print(Form("./data/ACE/fill/compare_fake_%s_p2_ace.pdf", element), "pdf");  
-		if (bin==7-1){
-			c2->Print(Form("./data/ACE/fill/compare_fake_%s_p2_ace.pdf)", element), "pdf"); 
-		} 
-
 		//F5
 		for (int k=0; k<1; ++k){ 
 
@@ -5785,6 +5822,12 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 			g_residual_ace->Draw("APL");
 			l_b->Draw("SAME"); 
 		}
+
+		if (bin==0) c2->Print(Form("./data/ACE/fill/compare_fake_%s_p2_ace.pdf(", element), "pdf"); 
+		if (bin>0 && bin<7-1) c2->Print(Form("./data/ACE/fill/compare_fake_%s_p2_ace.pdf", element), "pdf");  
+		if (bin==7-1){
+			c2->Print(Form("./data/ACE/fill/compare_fake_%s_p2_ace.pdf)", element), "pdf"); 
+		} 
 
 	}
 
@@ -5989,12 +6032,6 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 			l_b->Draw("SAME"); 
 		}
 
-		if (bin==0) c3->Print(Form("./data/ACE/fill/compare_fake_%s_p2_ams.pdf(", element), "pdf"); 
-		if (bin>0 && bin<h_BR_he[0]->GetNbinsX()-1) c3->Print(Form("./data/ACE/fill/compare_fake_%s_p2_ams.pdf", element), "pdf");  
-		if (bin==h_BR_he[0]->GetNbinsX()-1){
-			c3->Print(Form("./data/ACE/fill/compare_fake_%s_p2_ams.pdf)", element), "pdf"); 
-		} 
-
 		//F5
 		for (int k=0; k<1; ++k){ 
 
@@ -6045,6 +6082,11 @@ void compare_fake_flux( const char *element, Particle::Type isotope ){
 			l_b->Draw("SAME"); 
 		}
 
+		if (bin==0) c3->Print(Form("./data/ACE/fill/compare_fake_%s_p2_ams.pdf(", element), "pdf"); 
+		if (bin>0 && bin<h_BR_he[0]->GetNbinsX()-1) c3->Print(Form("./data/ACE/fill/compare_fake_%s_p2_ams.pdf", element), "pdf");  
+		if (bin==h_BR_he[0]->GetNbinsX()-1){
+			c3->Print(Form("./data/ACE/fill/compare_fake_%s_p2_ams.pdf)", element), "pdf"); 
+		} 
 	}
 
 	//P3F23
