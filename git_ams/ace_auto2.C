@@ -322,11 +322,11 @@ void ace_auto(const char *operation){
 				//ace_rescale_BR( ACE_Element[i], ACE_Isotope[i] ); 
 				//ace_rescale_BR_averaged( ACE_Element[i], ACE_Isotope[i] ); 
 				//ace_fake_td_ams( ACE_Element[i], ACE_Isotope[i] );
-				//ace_fake_td_ams_v2( ACE_Element[i], ACE_Isotope[i] );
+				ace_fake_td_ams_v2( ACE_Element[i], ACE_Isotope[i] );
 				//ace_fake_td_ams_v3( ACE_Element[i], ACE_Isotope[i] ); 
 				//ace_fake_td_ams_v4( ACE_Element[i], ACE_Isotope[i] ); 
 
-				compare_fake_flux( ACE_Element[i], ACE_Isotope[i] ); 
+				//compare_fake_flux( ACE_Element[i], ACE_Isotope[i] ); 
 			} 
 		}
 		//compare_fake_flux( ACE_Element[7], ACE_Isotope[7] ); 
@@ -902,7 +902,7 @@ void ace_rescale_BR_averaged(const char *element, Particle::Type isotope){
 	double R1 = h_rig_ave->GetBinLowEdge(1);
 	double R2 = h_ams->GetBinLowEdge(namsbins+1);
 
-	int nnodes = 7;
+	int nnodes = 7; 
 
 	TFile *file = new TFile(Form("data/ACE/compare/fit_%s_%dnodes.root", get_template(element), nnodes)); 
 
@@ -1845,6 +1845,7 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		gspind_ace2->Draw("PL SAME");
 		l_both3->Draw("SAME");   
 
+		rescaled_fit->Write(Form("rescaled_fit_BR%d", 2426+iBR_true)); 
 		fit_ratio->Write(Form("fit_ratio_BR%d", 2426+iBR_true)); 
 		//fit_ratio2->Write(Form("fit_ratio2_BR%d", 2426+iBR_true)); 
 		h_ratio1->Write(Form("h_ratio1_BR%d", 2426+iBR_true));
@@ -3254,10 +3255,11 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 		l_both3->Draw("SAME"); 
 
 		// break; 
-
+		rescaled_fit->Write(Form("rescaled_fit_BR%d", 2426+iBR_true)); 
 		fit_he->Write(Form("fit_he_BR%d", 2426+iBR_true)); 
 		//fsp_he2->Write(Form("fsp_he2_BR%d", 2426+iBR_true)); 
 		fit_he_ave->Write(Form("fit_he_ave_BR%d", 2426+iBR_true)); 
+		fit_ratio->Write(Form("fit_ratio_BR%d", 2426+iBR_true)); 
 		h_ratio1->Write(Form("h_ratio1_BR%d", 2426+iBR_true));
 		h_ratio0->Write(Form("h_ratio0_BR%d", 2426+iBR_true)); 
 		h_fitres[0]->Write(Form("h_fitres_ace_BR%d", 2426+iBR_true));
@@ -4141,6 +4143,7 @@ void ace_fake_td_ams_v3(const char *element, Particle::Type isotope){
 
 		// break; 
 
+		rescaled_fit->Write(Form("rescaled_fit_BR%d", 2426+iBR_true)); 
 		fit_he->Write(Form("fit_he_BR%d", 2426+iBR_true)); 
 		//fsp_he2->Write(Form("fsp_he2_BR%d", 2426+iBR_true)); 
 		fit_ratio->Write(Form("fit_ratio_BR%d", 2426+iBR_true)); 
@@ -5009,6 +5012,7 @@ void ace_fake_td_ams_v4(const char *element, Particle::Type isotope){
 
 		// break; 
 
+		rescaled_fit->Write(Form("rescaled_fit_BR%d", 2426+iBR_true)); 
 		fit_he->Write(Form("fit_he_BR%d", 2426+iBR_true)); 
 		//fsp_he2->Write(Form("fsp_he2_BR%d", 2426+iBR_true)); 
 		fit_ratio->Write(Form("fit_ratio_BR%d", 2426+iBR_true)); 
