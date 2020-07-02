@@ -27,10 +27,10 @@ const int nBRs = Experiments::Info[Experiments::AMS02].Dataset[1].nMeasurements;
 const int nNMs_useful = 15;
 const char *NM_useful[nNMs_useful+1] = { "OULU", "PSNM", "MXCO", "HRMS", "JUNG", "JUNG1", "NEWK", "KIEL2", "APTY", "FSMT", "NAIN", "PWNK", "THUL", "SOPB", "SOPO" };
 
-const int nNMs_Koldob = 6;
-const char *NM_Koldob[nNMs_Koldob+1] = { "OULU", "HRMS", "MOSC", "APTY", "NEWK", "INVK", "ATHN" }; // add ATHN for analysis 
-const double R_cutoff[nNMs_Koldob+1] = { 0.8, 4.58, 2.43, 0.65, 2.4, 0.3, 8.53 }; 
-const int NM_tubes[nNMs_Koldob+1] = { 9, 12, 24, 18, 9, 18, 6 }; 
+const int nNMs_Koldob = 7;
+const char *NM_Koldob[nNMs_Koldob] = { "OULU", "HRMS", "MOSC", "APTY", "NEWK", "INVK", "ATHN" }; // add ATHN for analysis 
+const double R_cutoff[nNMs_Koldob] = { 0.8, 4.58, 2.43, 0.65, 2.4, 0.3, 8.53 }; 
+const int NM_tubes[nNMs_Koldob] = { 9, 12, 24, 18, 9, 18, 6 }; 
 
 const double Rcut[nNMs_useful+1] = { 0.81, 16.80, 8.28, 4.58, 4.49, 4.49, 2.40, 2.36, 0.65, 0.30, 0.30, 0.30, 0.30, 0.10, 0.10 }; // Rigidity Cutoff in GV
 const double alt[nNMs_useful+1] = { 15.0, 2565.0, 2274.0, 26.0, 3570.0, 3475.0, 50.0, 54.0, 181.0, 180.0, 46.0, 53.0, 26.0, 2820.0, 2820.0 }; // NM altitude
@@ -241,7 +241,7 @@ void nm_auto(){
 
 	gStyle->SetPalette(109); 
 
-	int F34 = 3;   
+	int F34 = 4;   
 
 	gROOT->ProcessLine(Form(".> data/nm/reproduce2/F%d_k_BR_mean.txt", F34)); 
 
@@ -260,7 +260,7 @@ void nm_auto(){
 		k_sf1[i]->GetXaxis()->SetTimeDisplay(1);
   		k_sf1[i]->GetXaxis()->SetTimeFormat("%m-%y");
 		k_sf1[i]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
-		k_sf1[i]->GetYaxis()->SetRangeUser(0.8, 1.2); 
+		k_sf1[i]->GetYaxis()->SetRangeUser(0.965, 1.035); 
 		k_sf1[i]->SetTitle("Yield Function Mi13; ; Estimated NM Scaling Factor (Normalized)"); 
 		 
 		// PRINT_GRAPH(k_sf[i]); 
@@ -286,7 +286,7 @@ void nm_auto(){
 		k_sf2[i]->GetXaxis()->SetTimeDisplay(1);
   		k_sf2[i]->GetXaxis()->SetTimeFormat("%m-%y");
 		k_sf2[i]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
-		k_sf2[i]->GetYaxis()->SetRangeUser(0.8, 1.2); 
+		k_sf2[i]->GetYaxis()->SetRangeUser(0.965, 1.035); 
 		k_sf2[i]->SetTitle("Yield Function Ma16; ; Estimated NM Scaling Factor (Normalized)"); 
 		 
 		// PRINT_GRAPH(k_sf2[i]); 
@@ -298,8 +298,8 @@ void nm_auto(){
 
 	} 
 
-	k_sf1[nNMs_Koldob-1] = (TGraphErrors*) nm_reproduce1("ATHN","N_t","Mi13");
-	k_sf2[nNMs_Koldob-1] = (TGraphErrors*) nm_reproduce1("ATHN","N_t","Ma16"); 
+	//k_sf1[nNMs_Koldob] = (TGraphErrors*) nm_reproduce1("ATHN","k_norm","Mi13");
+	//k_sf2[nNMs_Koldob] = (TGraphErrors*) nm_reproduce1("ATHN","k_norm","Ma16"); 
 	//nm_reproduce1("ATHN", "N_t", "CM12"); 
 	//nm_reproduce1("ATHN", "N_t", "CD00");
 
@@ -454,7 +454,7 @@ void nm_auto(){
 			k_sf1_ratio->GetXaxis()->SetTimeDisplay(1);
   			k_sf1_ratio->GetXaxis()->SetTimeFormat("%m-%y");
 			k_sf1_ratio->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
-			k_sf1_ratio->GetYaxis()->SetRangeUser(0.985, 1.015);		
+			k_sf1_ratio->GetYaxis()->SetRangeUser(0.8, 1.2);		
 
 			k_sf1_ratio->Draw("A PL"); 
 
@@ -475,7 +475,7 @@ void nm_auto(){
 			k_sf2_ratio->GetXaxis()->SetTimeDisplay(1);
   			k_sf2_ratio->GetXaxis()->SetTimeFormat("%m-%y");
 			k_sf2_ratio->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
-			k_sf2_ratio->GetYaxis()->SetRangeUser(0.985, 1.015);			
+			k_sf2_ratio->GetYaxis()->SetRangeUser(0.8, 1.2);			
 			k_sf2_ratio->Draw("A PL");  
 
 			c01->Print(Form("./data/nm/reproduce2/F%d_k_sf_ratio_%s_Mi13.png", F34, NM_Koldob[i]));
@@ -585,7 +585,7 @@ void nm_plot_k(){
 
 	Debug::Enable(Debug::ALL); 
 
-	int F34 = 3; 
+	int F34 = 4; 
 
 	TFile *file_k = new TFile(Form("data/nm/reproduce2/F%d_k_sf.root", F34)); 
 
@@ -598,12 +598,13 @@ void nm_plot_k(){
 	TGraphErrors *k_ave1 = new TGraphErrors();
 	TGraphErrors *k_ave2 = new TGraphErrors(); 
 
-	for (int i=0; i<nNMs_Koldob; i++){
+	for (int i=0; i<nNMs_Koldob; ++i){
 
-	   if (i!=1){
-			k_sf1[i] = (TGraphErrors*) file_k->Get(Form("k_sf1_%s", NM_Koldob[i])); 
-			k_sf2[i] = (TGraphErrors*) file_k->Get(Form("k_sf2_%s", NM_Koldob[i])); 
-	   }
+	  // if (i!=1){
+		k_sf1[i] = (TGraphErrors*) file_k->Get(Form("k_sf1_%s", NM_Koldob[i])); 
+		k_sf2[i] = (TGraphErrors*) file_k->Get(Form("k_sf2_%s", NM_Koldob[i])); 
+
+	  // }
 	}
 
 	for (int iBR=0; iBR<nBRs; iBR++){
@@ -612,17 +613,17 @@ void nm_plot_k(){
 
 		Double_t ave1=0, sum1=0, ave2=0, sum2=0; 
 
-		for (int i=0; i<nNMs_Koldob; i++){
+		for (int i=0; i<nNMs_Koldob; ++i){
 		
 			k_sf1[i]->GetPoint(iBR, x1, y1); 
-			k_sf2[i]->GetPoint(iBR, x2, y2); 
+			k_sf2[i]->GetPoint(iBR, x2, y2);  
 
 			sum1 += y1; 
 			sum2 += y2; 
 
 			//printf("i = %d, x1 = %f, y1 = %f, sum1 = %f \n", iBR, x1, y1, sum1);  
 
-		}
+		} 
 		
 		ave1 = sum1/nNMs_Koldob;
 		ave2 = sum2/nNMs_Koldob;
@@ -656,7 +657,7 @@ void nm_plot_k(){
 		
 	for (int i=0; i<nNMs_Koldob; i++){
 
-	   if (i!=1){
+	   // if (i!=1){
 
 			k_sf1[i] = (TGraphErrors*) file_k->Get(Form("k_sf1_%s", NM_Koldob[i])); 
 			k_sf2[i] = (TGraphErrors*) file_k->Get(Form("k_sf2_%s", NM_Koldob[i])); 
@@ -705,6 +706,7 @@ void nm_plot_k(){
 			gPad->SetGrid(); 
 
 			k_sf1[i]->Draw("A PL"); 
+			k_sf1[i]->Print("range"); 
 			HistTools::SetStyle(k_sf1_kol[i], kBlack, kFullCircle, 0.7, 1, 1); 
 			k_sf1_kol[i]->Draw("PL SAME"); 
 			//k_sf1_kol[i]->Print("range"); 
@@ -719,7 +721,7 @@ void nm_plot_k(){
 			k_sf1_ratio->GetXaxis()->SetTimeDisplay(1);
   			k_sf1_ratio->GetXaxis()->SetTimeFormat("%m-%y");
 			k_sf1_ratio->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
-			k_sf1_ratio->GetYaxis()->SetRangeUser(0.985, 1.015);		
+			k_sf1_ratio->GetYaxis()->SetRangeUser(0.5, 1.5);		
 
 			k_sf1_ratio->Draw("A PL"); 
 
@@ -740,12 +742,12 @@ void nm_plot_k(){
 			k_sf2_ratio->GetXaxis()->SetTimeDisplay(1);
   			k_sf2_ratio->GetXaxis()->SetTimeFormat("%m-%y");
 			k_sf2_ratio->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
-			k_sf2_ratio->GetYaxis()->SetRangeUser(0.985, 1.015);			
+			k_sf2_ratio->GetYaxis()->SetRangeUser(0.5, 1.5);			
 			k_sf2_ratio->Draw("A PL");  
 
 			c01->Print(Form("./data/nm/reproduce2/F%d_k_sf_ratio_%s_Mi13.png", F34, NM_Koldob[i]));
 			c02->Print(Form("./data/nm/reproduce2/F%d_k_sf_ratio_%s_Ma16.png", F34, NM_Koldob[i]));
-		} 
+		// } 
 
 	   }
 
@@ -1060,13 +1062,25 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 
 	TCanvas *c3 = new TCanvas("c3", "R_sum", 1800, 900); 
 
+	int nnodes = 7; 
+	TFile *file0 = new TFile(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[3], nnodes)); // O temp 
+
+	Spline *sp_comb = new Spline("sp_comb", nnodes, Spline::LogLog | Spline::PowerLaw);
+	TF1 *fsp_comb = sp_comb->GetTF1Pointer();  
+	TF1 *fit_comb = (TF1*) file0->Get("fit_both"); 
+
+	HistTools::CopyParameters(fit_comb, fsp_comb); // error 
+	double x1, x2;
+	fit_comb->GetRange(x1,x2);
+	fsp_comb->SetRange(x1,x2);
+
 	TFile *fit_result = new TFile(Form("data/amsfit/fit_result_node%d.root", nnodes_ams));
 	TFile *nm_data = new TFile(Form("./data/nm/NM-%s.root", NM));
 	TGraph *N_nm = (TGraph*) nm_data->Get("g_ave"); 
 
 	TGraph *k_sf = new TGraph(); // k = N_t/N_nm, scaling factor of NM stations 
 
-	int F34 = 3;  
+	int F34 = 4;  
 
 	int iBR_true=0; 
 	for (int i=0; i<nBRs; i++){
@@ -1110,8 +1124,42 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 			// if (i==nBRs-1) HistTools::PrintFunction(fit_ams);   
 		}  
 
+		TF1 *f_BR_p_low = HistTools::CombineTF1Const(fsp_comb, f_BR_p[i]->Eval(2.)/fsp_comb->Eval(2.), HistTools::MultiplyConst, "rescaled_fit", 0.1, 3e3); 
+		TF1 *f_BR_he_low = HistTools::CombineTF1Const(fsp_comb, f_BR_he[i]->Eval(2.)/fsp_comb->Eval(2.), HistTools::MultiplyConst, "rescaled_fit", 0.1, 3e3);
+
+/* TEST THE EXTRAPOLATION 
+		f_BR_he[i]->SetRange(0.1, 3e3); 
+		f_BR_he[i]->Draw(); 
+		f_BR_he_low->SetLineColor(kGreen); 
+		f_BR_he_low->Draw("SAME"); 
+
+		TLegend *l_he = new TLegend(0.9,0.7,0.7,0.9); 
+		l_he->AddEntry(f_BR_he[i], "He Flux", "l"); 
+		l_he->AddEntry(f_BR_he_low, "Rescaled O Temp", "l"); 
+		l_he->Draw("SAME"); 
+
+		f_BR_p[i]->SetRange(0.1, 3e3); 
+		f_BR_p[i]->Draw(); 
+		f_BR_p_low->SetLineColor(kGreen); 
+		f_BR_p_low->Draw("SAME"); 
+
+		TLegend *l_p = new TLegend(0.9,0.7,0.7,0.9); 
+		l_p->AddEntry(f_BR_he[i], "Proton Flux", "l"); 
+		l_p->AddEntry(f_BR_he_low, "Rescaled O Temp", "l"); 
+		l_p->Draw("SAME"); 
+
+		gPad->SetLogy();
+		gPad->SetLogx(); 
+
+		//double xmin, xmax; 
+		//f_BR_he[i]->GetRange(xmin, xmax); 
+		//printf(" (%0.4f, %0.4f) \n", xmin, xmax); 
+*/
+
 		fe->SetProtonFlux(f_BR_p[i]); 
+		fe->SetProtonFluxLow(f_BR_p_low); 
 		fe->AddElementFlux(f_BR_he[i], A[1]); 
+		fe->AddElementFluxLow(f_BR_he_low); 
 
 		for(int k=4; k<n_ele; ++k){
 
@@ -1120,7 +1168,7 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 
 			TFile *file_ratio = new TFile(Form("data/ACE/fill/F%d_%s.root", F34, ACE_Element[k])); // load ratio of F(R,t)/<F(R,t) fit
 
-			int nnodes = 7; 
+			nnodes = 7; 
 
 			// load F3/F4 rescaled fit
 			//Spline *sp_res = new Spline("sp_res", nnodes, Spline::LogLog | Spline::PowerLaw);
@@ -1261,6 +1309,8 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 	double k_BR_std = get_k_BR_mean( k_sf, "std" );  
 
 	printf("(%s, %s) k_BR_mean = %f, k_BR_std = %f \n", NM, option2, k_BR_mean, k_BR_std);  
+
+	file0->Close(); 
 
 	if (!strcmp(option1, "k_norm")) return k_norm; 
 	if (!strcmp(option1, "k_sf")) return k_sf; 
