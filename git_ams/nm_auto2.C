@@ -24,6 +24,8 @@ const int n_ele = 24; // number of ACE elements
 const int n_total = 28; // number of total elements 
 const int nBRs = Experiments::Info[Experiments::AMS02].Dataset[1].nMeasurements;  
 
+const int F34 = 3; 
+
 const int nNMs_useful = 15;
 const char *NM_useful[nNMs_useful+1] = { "OULU", "PSNM", "MXCO", "HRMS", "JUNG", "JUNG1", "NEWK", "KIEL2", "APTY", "FSMT", "NAIN", "PWNK", "THUL", "SOPB", "SOPO" };
 
@@ -216,6 +218,7 @@ TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_
 void nm_auto(); 
 void nm_all_N_t(); 
 void nm_FY(); 
+void nm_plot_dis(const char *NM, const char *YF); 
 TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2); // reproduce the results from Koldobisky, Mi13/Ma16. option1 = "k_norm", "k_sf" or "N_t", option2 = "Mi13" "Ma16"  
 TGraph *nm_reproduce2(const char *NM, const char *option1, const char *option2); // reproduce the results from Koldobisky, but separate each contribution for p, He & elements above He 
 										 // option 2 = "p" "He" "above" ""(all)
@@ -241,7 +244,7 @@ void nm_auto(){
 
 	gStyle->SetPalette(109); 
 
-	int F34 = 4;   
+	// int F34 = 3;   
 
 	gROOT->ProcessLine(Form(".> data/nm/reproduce2/F%d_k_BR_mean.txt", F34)); 
 
@@ -392,7 +395,7 @@ void nm_auto(){
 	TGraphErrors *k_sf1_kol[nNMs_Koldob]; // Mi13
 	TGraphErrors *k_sf2_kol[nNMs_Koldob]; // Ma16 
 
-	for (int i=0; i<nNMs_Koldob; i++){
+	for (int i=0; i<nNMs_Koldob-1; i++){
 
 	   if (i!=1){
 
@@ -581,13 +584,187 @@ void nm_auto(){
 
 }
 
+// plot F3, F4 & Koldob 
+void nm_plot_F34(const char *NM, int f34){
+
+	Debug::Enable(Debug::ALL); 
+
+	// int F34 = 3; 
+
+	TCanvas *c0 = new TCanvas("c0", "", 1800, 900); 
+	c0->Divide(1, 2); 
+
+	gSystem->mkdir(Form("data/nm/reproduce2/F%d_Analysis", f34), true);
+
+	TFile *file_k = new TFile(Form("data/nm/reproduce2/F%d_k_sf.root", f34)); 
+	
+	TFile *file_reproduce1 = new TFile(Form("data/nm/reproduce2_F%d_%s_%s.root", f34, NM, "Mi13")); 
+	TFile *file_reproduce2 = new TFile(Form("data/nm/reproduce2_F%d_%s_%s.root", f34, NM, "Ma16"));
+
+	TFile *file_nm = new TFile(Form("./data/nm/NM-%s.root", NM));
+	TGraphErrors *N_nm = (TGraphErrors *) file_nm->Get("g_ave"); 
+	
+	TGraphErrors *N_t1 = (TGraphErrors *) file_reproduce1->Get("N_t"); 
+	TGraphErrors *N_t2 = (TGraphErrors *) file_reproduce2->Get("N_t"); 
+
+	TGraphErrors *k_sf1 = (TGraphErrors*) file_k->Get(Form("k_sf1_%s", NM)); 
+	TGraphErrors *k_sf2 = (TGraphErrors*) file_k->Get(Form("k_sf2_%s", NM)); 
+
+	c0->cd(1); 
+	
+	N_t1->Draw(); 
+	N_t2->Draw("SAME"); 
+	N_nm->Draw("SAME");
+
+	c0->Print(Form("data/nm/reproduce2/F%d_Analysis/F%d_N_t_%s.png", f34, f34, NM)); 
+
+}
+
+void nm_plot_F34_auto(){
+
+
+
+} 
+
+// check discrepancy 
+void nm_plot_dis(const char *NM, const char *YF){
+
+	int f34 = 3; 
+	int nnodes = 7; 
+
+	TF1 *fyfp;
+	TF1 *fyfhe; 
+
+	if (!strcmp(YF, "Mi13")){
+		fyfp = NeutronMonitors::YieldFunctions::CreateFunction("fyfp", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mishev13H1, Particle::PROTON, Energy::RIGIDITY);
+		fyfhe = NeutronMonitors::YieldFunctions::CreateFunction("fyfhe", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mishev13He4, Particle::HELIUM4, Energy::RIGIDITY); 
+	}else if (!strcmp(YF, "Ma16")){
+		fyfp = NeutronMonitors::YieldFunctions::CreateFunction("fyfp", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mangeard16H1, Particle::PROTON, Energy::RIGIDITY);
+		fyfhe = NeutronMonitors::YieldFunctions::CreateFunction("fyfhe", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mangeard16He4, Particle::HELIUM4, Energy::RIGIDITY); 
+	}else if (!strcmp(YF, "CM12")){
+		fyfp = NeutronMonitors::YieldFunctions::CreateFunction("fyfp", 0.1, 3e3, NeutronMonitors::YieldFunctions::CaballeroLopezMoraal12H1, Particle::PROTON, Energy::RIGIDITY);
+		fyfhe = NeutronMonitors::YieldFunctions::CreateFunction("fyfhe", 0.1, 3e3, NeutronMonitors::YieldFunctions::CaballeroLopezMoraal12He4, Particle::HELIUM4, Energy::RIGIDITY); 
+	}else if (!strcmp(YF, "CD00")){
+		fyfp = NeutronMonitors::YieldFunctions::CreateFunction("fyfp", 0.1, 3e3, NeutronMonitors::YieldFunctions::ClemDorman00H1, Particle::PROTON, Energy::RIGIDITY);
+		fyfhe = NeutronMonitors::YieldFunctions::CreateFunction("fyfhe", 0.1, 3e3, NeutronMonitors::YieldFunctions::ClemDorman00He4, Particle::HELIUM4, Energy::RIGIDITY); 
+	}
+
+	TCanvas *c4 = new TCanvas("c4", "", 1800, 900); 
+	c4->Divide(2, 1); 
+
+	for (int k=0; k<1; ++k){
+
+		int iBR_true=0; 
+		for (int i=0; i<nBRs; i++){
+
+			TFile *file_ratio = new TFile(Form("data/ACE/fill/F%d_%s.root", f34, ACE_Element[k])); // load ratio of F(R,t)/<F(R,t) fit
+
+			// load F3/F4 rescaled fit  
+			TF1 *fit_res = (TF1*) file_ratio->Get(Form("rescaled_fit_BR%d", 2426+iBR_true)); 
+			
+			// load F3/F3 F(R,t)/<F(R,t)> ratio 
+			TF1 *fit_ratio = (TF1*) file_ratio->Get(Form("fit_ratio_BR%d", 2426+iBR_true));	
+
+			TF1 *f_fit = HistTools::CombineTF1(fit_ratio, fit_res, HistTools::Multiply, "f_fit", 0.1, 3e3);
+
+			// discrepancy vs. sensitivity check
+
+			TF1 *f_yf_divide = HistTools::CombineTF1(f_fit, fyfp, HistTools::Multiply, "f_fit", 0.1, 3e3); 
+			f_yf_divide = HistTools::CombineTF1Const(f_yf_divide, 1/f_yf_divide->Integral(0.1, 3e3), HistTools::MultiplyConst, "f_yf_divide", 0.1, 3e3);
+
+			TF1 *f_yf_divide2 = HistTools::CombineTF1(f_fit, fyfhe, HistTools::Multiply, "f_fit", 0.1, 3e3); 
+			f_yf_divide2 = HistTools::CombineTF1Const(f_yf_divide2, 1/f_yf_divide2->Integral(0.1, 3e3), HistTools::MultiplyConst, "f_yf_divide_he", 0.1, 3e3);
+			
+			c4->cd(1); 
+			gPad->SetLogy();
+			gPad->SetLogx(); 
+			gPad->SetMargin(0.12, 0.04, 0.1, 0.08);	
+
+			f_yf_divide->Draw();   
+			printf("k=%d, iBR=%d, f_yf(2)=%0.4f \n", k, i, f_yf_divide->Eval(2));  
+			f_yf_divide->SetTitle(Form("%s Proton Discrepancy vs. Sensitivity (F%d);%s; Y*F/Integral BR%d", ACE_Element[k], f34, Unit::GetEnergyLabel("GV"), iBR_true+2426));  
+
+			c4->cd(2); 
+			gPad->SetLogy();
+			gPad->SetLogx(); 
+			gPad->SetMargin(0.12, 0.04, 0.1, 0.08);	
+
+			f_yf_divide2->Draw(); 
+			f_yf_divide2->SetTitle(Form("%s Helium Discrepancy vs. Sensitivity (F%d);%s; Y*F/Integral BR%d", ACE_Element[k], f34, Unit::GetEnergyLabel("GV"), iBR_true+2426));
+
+			if (i==0) c4->Print(Form("data/nm/reproduce2/F%d_discrepency/YF_divide_%s_%s.pdf(", f34, ACE_Element[k], YF), "pdf"); 	
+			if (i>0 && i<nBRs-1) c4->Print(Form("data/nm/reproduce2/F%d_discrepency/YF_divide_%s_%s.pdf", f34, ACE_Element[k], YF), "pdf"); 	
+			if (i==nBRs-1) c4->Print(Form("data/nm/reproduce2/F%d_discrepency/YF_divide_%s_%s.pdf)", f34, ACE_Element[k], YF), "pdf");  
+
+	   		if (i+2426==2472-1) iBR_true += 3; 
+			else iBR_true ++; 
+		} 
+	}
+
+	f34 = 4; 
+
+	for (int k=0; k<1; ++k){
+
+		int iBR_true=0; 
+		for (int i=0; i<nBRs; i++){
+
+			TFile *file_ratio = new TFile(Form("data/ACE/fill/F%d_%s.root", f34, ACE_Element[k])); // load ratio of F(R,t)/<F(R,t) fit
+
+			// load F3/F4 rescaled fit  
+			TF1 *fit_res = (TF1*) file_ratio->Get(Form("rescaled_fit_BR%d", 2426+iBR_true)); 
+			
+			// load F3/F3 F(R,t)/<F(R,t)> ratio 
+			TF1 *fit_ratio = (TF1*) file_ratio->Get(Form("fit_ratio_BR%d", 2426+iBR_true));	
+
+			TF1 *f_fit = HistTools::CombineTF1(fit_ratio, fit_res, HistTools::Multiply, "f_fit", 0.1, 3e3);
+
+			// discrepancy vs. sensitivity check
+
+			TF1 *f_yf_divide = HistTools::CombineTF1(f_fit, fyfp, HistTools::Multiply, "f_fit", 0.1, 3e3); 
+			f_yf_divide = HistTools::CombineTF1Const(f_yf_divide, 1/f_yf_divide->Integral(0.1, 3e3), HistTools::MultiplyConst, "f_yf_divide", 0.1, 3e3);
+
+			TF1 *f_yf_divide2 = HistTools::CombineTF1(f_fit, fyfhe, HistTools::Multiply, "f_fit", 0.1, 3e3); 
+			f_yf_divide2 = HistTools::CombineTF1Const(f_yf_divide2, 1/f_yf_divide2->Integral(0.1, 3e3), HistTools::MultiplyConst, "f_yf_divide_he", 0.1, 3e3);
+			
+			c4->cd(1); 
+			gPad->SetLogy();
+			gPad->SetLogx(); 
+			gPad->SetMargin(0.12, 0.04, 0.1, 0.08);	
+
+			f_yf_divide->Draw();   
+			printf("k=%d, iBR=%d, f_yf(2)=%0.4f \n", k, i, f_yf_divide->Eval(2));  
+			f_yf_divide->SetTitle(Form("%s Proton Discrepancy vs. Sensitivity (F%d);%s; Y*F/Integral BR%d", ACE_Element[k], f34, Unit::GetEnergyLabel("GV"), iBR_true+2426));  
+
+			c4->cd(2); 
+			gPad->SetLogy();
+			gPad->SetLogx(); 
+			gPad->SetMargin(0.12, 0.04, 0.1, 0.08);	
+
+			f_yf_divide2->Draw(); 
+			f_yf_divide2->SetTitle(Form("%s Helium Discrepancy vs. Sensitivity (F%d);%s; Y*F/Integral BR%d", ACE_Element[k], f34, Unit::GetEnergyLabel("GV"), iBR_true+2426));
+
+			if (i==0) c4->Print(Form("data/nm/reproduce2/F%d_discrepency/YF_divide_%s_%s.pdf(", f34, ACE_Element[k], YF), "pdf"); 	
+			if (i>0 && i<nBRs-1) c4->Print(Form("data/nm/reproduce2/F%d_discrepency/YF_divide_%s_%s.pdf", f34, ACE_Element[k], YF), "pdf"); 	
+			if (i==nBRs-1) c4->Print(Form("data/nm/reproduce2/F%d_discrepency/YF_divide_%s_%s.pdf)", f34, ACE_Element[k], YF), "pdf");  
+
+	   		if (i+2426==2472-1) iBR_true += 3; 
+			else iBR_true ++;
+		}
+	}
+}
+
 void nm_plot_k(){
 
 	Debug::Enable(Debug::ALL); 
 
-	int F34 = 4; 
+	// int F34 = 3; 
+
+	gSystem->mkdir(Form("data/nm/reproduce2/F%d_Analysis", F34), true);
 
 	TFile *file_k = new TFile(Form("data/nm/reproduce2/F%d_k_sf.root", F34)); 
+
+	TGraphErrors *N_t1[nNMs_Koldob]; 
+	TGraphErrors *N_t2[nNMs_Koldob]; 
 
 	TGraphErrors *k_sf1[nNMs_Koldob]; // Mi13
 	TGraphErrors *k_sf2[nNMs_Koldob]; // Ma16
@@ -598,14 +775,11 @@ void nm_plot_k(){
 	TGraphErrors *k_ave1 = new TGraphErrors();
 	TGraphErrors *k_ave2 = new TGraphErrors(); 
 
-	for (int i=0; i<nNMs_Koldob; ++i){
+	TFile *file_nm[nNMs_Koldob];
+	TGraph *N_nm[nNMs_Koldob];  
 
-	  // if (i!=1){
-		k_sf1[i] = (TGraphErrors*) file_k->Get(Form("k_sf1_%s", NM_Koldob[i])); 
-		k_sf2[i] = (TGraphErrors*) file_k->Get(Form("k_sf2_%s", NM_Koldob[i])); 
-
-	  // }
-	}
+	TCanvas *c0 = new TCanvas("c0", "Comparison of Three Models", 2400, 1800); 
+	c0->Divide(1, 2); 
 
 	for (int iBR=0; iBR<nBRs; iBR++){
 
@@ -623,7 +797,7 @@ void nm_plot_k(){
 
 			//printf("i = %d, x1 = %f, y1 = %f, sum1 = %f \n", iBR, x1, y1, sum1);  
 
-		} 
+		}  
 		
 		ave1 = sum1/nNMs_Koldob;
 		ave2 = sum2/nNMs_Koldob;
@@ -655,7 +829,7 @@ void nm_plot_k(){
 
 	} 
 		
-	for (int i=0; i<nNMs_Koldob; i++){
+	for (int i=0; i<nNMs_Koldob-1; i++){
 
 	   // if (i!=1){
 
@@ -663,7 +837,7 @@ void nm_plot_k(){
 			k_sf2[i] = (TGraphErrors*) file_k->Get(Form("k_sf2_%s", NM_Koldob[i])); 
 
 			k_sf1_kol[i] = new TGraphErrors(Form("./data/nm/reproduce/SF1-KOL-%s.dat", NM_Koldob[i]), "%lg %lg", ""); // Mi13
-			k_sf2_kol[i] = new TGraphErrors(Form("./data/nm/reproduce/SF2-KOL-%s.dat", NM_Koldob[i]), "%lg %lg", ""); // Ma16
+			k_sf2_kol[i] = new TGraphErrors(Form("./data/nm/reproduce/SF2-KOL-%s.dat", NM_Koldob[i]), "%lg %lg", ""); // Ma16 
 
 			// convert x points to unix time
 			for (int iBR=0; iBR<nBRs; iBR++){
@@ -706,7 +880,7 @@ void nm_plot_k(){
 			gPad->SetGrid(); 
 
 			k_sf1[i]->Draw("A PL"); 
-			k_sf1[i]->Print("range"); 
+			//k_sf1[i]->Print("range"); 
 			HistTools::SetStyle(k_sf1_kol[i], kBlack, kFullCircle, 0.7, 1, 1); 
 			k_sf1_kol[i]->Draw("PL SAME"); 
 			//k_sf1_kol[i]->Print("range"); 
@@ -745,8 +919,8 @@ void nm_plot_k(){
 			k_sf2_ratio->GetYaxis()->SetRangeUser(0.5, 1.5);			
 			k_sf2_ratio->Draw("A PL");  
 
-			c01->Print(Form("./data/nm/reproduce2/F%d_k_sf_ratio_%s_Mi13.png", F34, NM_Koldob[i]));
-			c02->Print(Form("./data/nm/reproduce2/F%d_k_sf_ratio_%s_Ma16.png", F34, NM_Koldob[i]));
+			//c01->Print(Form("data/nm/reproduce2/F%d_Analysis/F%d_k_sf_ratio_%s_Mi13.png", F34, F34, NM_Koldob[i]));
+			//c02->Print(Form("data/nm/reproduce2/F%d_Analysis/F%d_k_sf_ratio_%s_Ma16.png", F34, F34, NM_Koldob[i]));
 		// } 
 
 	   }
@@ -844,9 +1018,7 @@ void nm_plot_k(){
 	k_ave2_ratio->Draw("PL SAME");
 	legend4->Draw("SAME"); 
 	
-	c1->Print(Form("./data/nm/reproduce2/F%d_k_sf_ave_ratio.png", F34));
-
-
+	//c1->Print(Form("data/nm/reproduce2/F%d_Analysis/F%d_k_sf_ave_ratio.png", F34, F34));
 }
 
 // plot all N(t) in one canvas
@@ -1022,13 +1194,15 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 
 	gSystem->mkdir("data/nm/reproduce2", true);
 
+	gSystem->mkdir(Form("data/nm/reproduce2/F%d_Analysis", F34), true);
+
 	int nnodes_ams = 6; 	
 	double n_tubes = (double) get_NM_tubes(NM)/6; 
 	double R_cutoff = get_Rcutoff(NM); 
 
 	// printf("n_tubes (%s, %s) = %2.2f \n", NM, option2, n_tubes); 
 
-	TGraph *N_t = new TGraph(); 
+	TGraph *N_t = new TGraph();
 
 	Experiments::DataPath = "data"; 
 
@@ -1080,7 +1254,9 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 
 	TGraph *k_sf = new TGraph(); // k = N_t/N_nm, scaling factor of NM stations 
 
-	int F34 = 4;  
+	// int F34 = 3;  
+
+	gSystem->mkdir(Form("data/nm/reproduce2/F%d_discrepency", F34), true);
 
 	int iBR_true=0; 
 	for (int i=0; i<nBRs; i++){
@@ -1157,44 +1333,58 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 */
 
 		fe->SetProtonFlux(f_BR_p[i]); 
-		fe->SetProtonFluxLow(f_BR_p_low); 
+		if (F34==3) fe->SetProtonFluxLow(f_BR_p[i]); 
+		else if (F34==4) fe->SetProtonFluxLow(f_BR_p_low); 
 		fe->AddElementFlux(f_BR_he[i], A[1]); 
-		fe->AddElementFluxLow(f_BR_he_low); 
+		if (F34==3) fe->AddElementFluxLow(f_BR_he[i]); 
+		else if (F34==4) fe->AddElementFluxLow(f_BR_he_low); 
 
 		for(int k=4; k<n_ele; ++k){
 
-		   if (k==22) continue;
+		   if (k==22){
+	
+			// load ACE BR 
+			TFile *file2 = new TFile(Form("data/ACE/fill/%s_fill.root", ACE_Element[k]));
+			TH1 *h_ace_BR = (TH1*) file2->Get(Form("h_rig_%s_BR%d", ACE_Element[k], 2426+iBR_true)); 
+
+			// rescaled combined fit 
+			TH1 *h_ratio;
+			h_ratio = (TH1*) h_ace_BR->Clone("h_ratio"); // ACE Ave/Temp 	
+			h_ratio->Divide(fsp_comb); 
+
+			// HistTools::SetStyle(h_ratio, kPink, kFullCircle, 1.4, 1, 1);
+
+			double ratio_sum=0; // compute average of h_ratio manually  
+			for(int nbin=0;nbin<14;++nbin){
+				ratio_sum += h_ratio->GetBinContent(nbin);
+				//printf("ratio_sum = %0.6f \n", ratio_sum);
+			}
+			double ratio_ave = ratio_sum/7;	
+
+			// rescaled combined fit 
+			f_fit[k] = HistTools::CombineTF1Const(fsp_comb, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", 0.1, 3e3); 
+			fe->AddElementFluxAbove(f_fit[k], A[k]); 
+
+			file2->Close(); 
+
+		   }
 		   else{
 
 			TFile *file_ratio = new TFile(Form("data/ACE/fill/F%d_%s.root", F34, ACE_Element[k])); // load ratio of F(R,t)/<F(R,t) fit
 
 			nnodes = 7; 
 
-			// load F3/F4 rescaled fit
-			//Spline *sp_res = new Spline("sp_res", nnodes, Spline::LogLog | Spline::PowerLaw);
-			//TF1 *fsp_res = sp_res->GetTF1Pointer();  
+			// load F3/F4 rescaled fit  
 			TF1 *fit_res = (TF1*) file_ratio->Get(Form("rescaled_fit_BR%d", 2426+iBR_true)); 
 			
 			// load F3/F3 F(R,t)/<F(R,t)> ratio 
-			//Spline *sp_ratio = new Spline("sp_ratio", nnodes, Spline::LogLog | Spline::PowerLaw);
-			//TF1 *fsp_ratio = sp_ratio->GetTF1Pointer();  
-			TF1 *fit_ratio = (TF1*) file_ratio->Get(Form("fit_ratio_BR%d", 2426+iBR_true));	
-
-			//c3->cd(1); 
-
-			//fsp_ratio->Draw(); 	
-			//fsp_res->Draw("SAME"); 
-			//fsp_res->SetLineColor(kGreen);  
-
-			//if (k==0) c3->Print(Form("data/nm/reproduce2/fsp_rescaled_fit_BR%d.pdf(", 2426+iBR_true), "pdf"); 	
-			//if (k>0 && k<n_ele-1) c3->Print(Form("data/nm/reproduce2/fsp_rescaled_fit_BR%d.pdf", 2426+iBR_true), "pdf"); 	
-			//if (k==nBRs-1) c3->Print(Form("data/nm/reproduce2/fsp_rescaled_fit_BR%d.pdf)", 2426+iBR_true), "pdf"); 	
+			TF1 *fit_ratio = (TF1*) file_ratio->Get(Form("fit_ratio_BR%d", 2426+iBR_true));		
 
 			f_fit[k] = HistTools::CombineTF1(fit_ratio, fit_res, HistTools::Multiply, "f_fit", 0.1, 3e3);
 
 			// printf("f_fit at 2GV = %0.4f %0.4f %0.4f \n", f_fit[k]->Eval(2.), fit_res->Eval(2.), fit_ratio->Eval(2.)); 
 			
-			fe->AddElementFluxAbove(f_fit[k], A[1]);  
+			fe->AddElementFluxAbove(f_fit[k], A[k]);  
 
 			file_ratio->Close(); 
 		   }
@@ -1228,16 +1418,16 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 				 
 		}		
 
-		//printf("Time = %d, N_t = %10.4f,  f/f_check = %10.4f (good if =1) \n", UBRToTime(i+2426), f->Integral(0.1, l_max), f->Integral(0.1, l_max)/f_check);  
+		// printf("Time = %d, N_t = %10.4f,  f/f_check = %10.4f (good if =1) \n", UBRToTime(i+2426), f->Integral(0.1, l_max), f->Integral(0.1, l_max)/f_check);  
 
-		N_t->SetPoint(i, UBRToTime(i+2426), n_tubes*f->Integral(R_cutoff, l_max)); // this internally makes a loop in the range Rmin to Rmax, and calls FunctorExample::operator() at every step, computing the integral as the sum of all the steps  
+		N_t->SetPoint(i, UBRToTime(iBR_true+2426), n_tubes*f->Integral(R_cutoff, l_max)); // this internally makes a loop in the range Rmin to Rmax, and calls FunctorExample::operator() at every step, computing the integral as the sum of all the steps  
 
 		// break; 
 
 	   	if (i+2426==2472-1) iBR_true += 3; 
 		else iBR_true ++; 
 
-	} 
+	}  
 
 	// N_t->Print("range"); 
 
@@ -1310,11 +1500,19 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 
 	printf("(%s, %s) k_BR_mean = %f, k_BR_std = %f \n", NM, option2, k_BR_mean, k_BR_std);  
 
+	TFile *file_reproduce = new TFile(Form("data/nm/reproduce2/F%d_Analysis/_F%d_%s_%s.root", F34, F34, NM, option2), "recreate"); 
+
+	k_norm->Write("k_norm");
+	k_sf->Write("k_sf"); 
+	N_t->Write("N_t"); 
+
 	file0->Close(); 
+	file_reproduce->Close(); 
 
 	if (!strcmp(option1, "k_norm")) return k_norm; 
 	if (!strcmp(option1, "k_sf")) return k_sf; 
 	if (!strcmp(option1, "N_t")) return N_t; 
+	//if (!strcmp(option1, "YF_divide")) return YF_divide; 
 
 }	
 

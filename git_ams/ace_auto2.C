@@ -307,9 +307,9 @@ void ace_auto(const char *operation){
 		for (int i=0; i<4;i++){
 			//ace_rescale_BR( ACE_Element[i], ACE_Isotope[i] ); 
 			//ace_rescale_BR_averaged( ACE_Element[i], ACE_Isotope[i] ); 
-			//ace_fake_td_ams( ACE_Element[i], ACE_Isotope[i] );
-			//ace_fake_td_ams_v2( ACE_Element[i], ACE_Isotope[i] );
-			//ace_fake_td_ams_v3( ACE_Element[i], ACE_Isotope[i] ); 
+			ace_fake_td_ams( ACE_Element[i], ACE_Isotope[i] );
+			ace_fake_td_ams_v2( ACE_Element[i], ACE_Isotope[i] );
+			ace_fake_td_ams_v3( ACE_Element[i], ACE_Isotope[i] ); 
 			//ace_fake_td_ams_v4( ACE_Element[i], ACE_Isotope[i] ); 
 
 			//compare_fake_flux( ACE_Element[i], ACE_Isotope[i] ); 
@@ -322,7 +322,7 @@ void ace_auto(const char *operation){
 				//ace_rescale_BR( ACE_Element[i], ACE_Isotope[i] ); 
 				//ace_rescale_BR_averaged( ACE_Element[i], ACE_Isotope[i] ); 
 				//ace_fake_td_ams( ACE_Element[i], ACE_Isotope[i] );
-				ace_fake_td_ams_v2( ACE_Element[i], ACE_Isotope[i] );
+				//ace_fake_td_ams_v2( ACE_Element[i], ACE_Isotope[i] );
 				//ace_fake_td_ams_v3( ACE_Element[i], ACE_Isotope[i] ); 
 				//ace_fake_td_ams_v4( ACE_Element[i], ACE_Isotope[i] ); 
 
