@@ -218,6 +218,8 @@ TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_
 void nm_auto(); 
 void nm_all_N_t(); 
 void nm_FY(); 
+void nm_plot_F34(const char *NM); 
+void nm_plot_F34_auto(); 
 void nm_plot_dis(const char *NM, const char *YF); 
 TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2); // reproduce the results from Koldobisky, Mi13/Ma16. option1 = "k_norm", "k_sf" or "N_t", option2 = "Mi13" "Ma16"  
 TGraph *nm_reproduce2(const char *NM, const char *option1, const char *option2); // reproduce the results from Koldobisky, but separate each contribution for p, He & elements above He 
@@ -585,44 +587,162 @@ void nm_auto(){
 }
 
 // plot F3, F4 & Koldob 
-void nm_plot_F34(const char *NM, int f34){
+void nm_plot_F34(const char *NM){
 
 	Debug::Enable(Debug::ALL); 
 
-	// int F34 = 3; 
+	int f3 = 3; 
+	int f4 = 4; 
 
 	TCanvas *c0 = new TCanvas("c0", "", 1800, 900); 
-	c0->Divide(1, 2); 
+	c0->Divide(2, 2); 
 
-	gSystem->mkdir(Form("data/nm/reproduce2/F%d_Analysis", f34), true);
-
-	TFile *file_k = new TFile(Form("data/nm/reproduce2/F%d_k_sf.root", f34)); 
+	TFile *file_f3 = new TFile(Form("data/nm/reproduce2/F%d_k_sf.root", f3)); 
+	TFile *file_f4 = new TFile(Form("data/nm/reproduce2/F%d_k_sf.root", f4)); 
 	
-	TFile *file_reproduce1 = new TFile(Form("data/nm/reproduce2_F%d_%s_%s.root", f34, NM, "Mi13")); 
-	TFile *file_reproduce2 = new TFile(Form("data/nm/reproduce2_F%d_%s_%s.root", f34, NM, "Ma16"));
+	TFile *file_reproduce1[2]; // i for F3 or F4
+	for (int i=0; i<2; ++i) file_reproduce1[i] = new TFile(Form("data/nm/reproduce2/F%d_Analysis/F%d_%s_%s.root", f3, f3, NM, "Mi13")); 
+	TFile *file_reproduce2[2];
+	for (int i=0; i<2; ++i) file_reproduce2[i] = new TFile(Form("data/nm/reproduce2/F%d_Analysis/F%d_%s_%s.root", f4, f4, NM, "Ma16")); 
+
+	TFile *file_kol1 = new TFile(Form("data/nm/reproduce/KOL_%s_%s.root", NM, "Mi13")); 
+	TFile *file_kol2 = new TFile(Form("data/nm/reproduce/KOL_%s_%s.root", NM, "Ma16")); 
 
 	TFile *file_nm = new TFile(Form("./data/nm/NM-%s.root", NM));
 	TGraphErrors *N_nm = (TGraphErrors *) file_nm->Get("g_ave"); 
+
+	TGraphErrors *N_t1[2], *N_t2[2]; 
 	
-	TGraphErrors *N_t1 = (TGraphErrors *) file_reproduce1->Get("N_t"); 
-	TGraphErrors *N_t2 = (TGraphErrors *) file_reproduce2->Get("N_t"); 
+	N_t1[0] = (TGraphErrors *) file_reproduce1[0]->Get("N_t"); 
+	N_t2[0] = (TGraphErrors *) file_reproduce2[0]->Get("N_t"); 
 
-	TGraphErrors *k_sf1 = (TGraphErrors*) file_k->Get(Form("k_sf1_%s", NM)); 
-	TGraphErrors *k_sf2 = (TGraphErrors*) file_k->Get(Form("k_sf2_%s", NM)); 
+	N_t1[1] = (TGraphErrors *) file_reproduce1[1]->Get("N_t"); 
+	N_t2[1] = (TGraphErrors *) file_reproduce2[1]->Get("N_t");
 
-	c0->cd(1); 
+	TGraphErrors *N_kol1 = (TGraphErrors *) file_kol1->Get("N_t");
+	TGraphErrors *N_kol2 = (TGraphErrors *) file_kol2->Get("N_t");	
+
+	TGraphErrors *k_sf1[2], *k_sf2[2]; 
+
+	k_sf1[0] = (TGraphErrors*) file_f3->Get(Form("k_sf1_%s", NM)); 
+	k_sf2[0] = (TGraphErrors*) file_f3->Get(Form("k_sf2_%s", NM)); 
+
+	k_sf1[1] = (TGraphErrors*) file_f4->Get(Form("k_sf1_%s", NM)); 
+	k_sf2[1] = (TGraphErrors*) file_f4->Get(Form("k_sf2_%s", NM)); 
+
+	TGraphErrors *N_ratio1[3], *N_ratio2[3]; // F3, F4, Koldob vs. Observed 
+
+	N_ratio1[0] = new TGraphErrors(); 
+	N_ratio2[0] = new TGraphErrors(); 
+	N_ratio1[1] = new TGraphErrors(); 
+	N_ratio2[1] = new TGraphErrors();
+	N_ratio1[2] = new TGraphErrors(); 
+	N_ratio2[2] = new TGraphErrors();  
+
+	N_ratio1[0]->GetXaxis()->SetTimeDisplay(1);
+  	N_ratio1[0]->GetXaxis()->SetTimeFormat("%m-%y");
+	N_ratio1[0]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+	N_ratio2[0]->GetXaxis()->SetTimeDisplay(1);
+  	N_ratio2[0]->GetXaxis()->SetTimeFormat("%m-%y");
+	N_ratio2[0]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+
+	for (int iBR=0; iBR<N_t1[0]->GetN(); ++iBR){
+
+		N_ratio1[0]->SetPoint(iBR, N_t1[0]->GetX()[iBR], N_t1[0]->GetY()[iBR]/N_nm->GetY()[iBR]); 
+		N_ratio2[0]->SetPoint(iBR, N_t2[0]->GetX()[iBR], N_t2[0]->GetY()[iBR]/N_nm->GetY()[iBR]); 
+		N_ratio1[1]->SetPoint(iBR, N_t1[1]->GetX()[iBR], N_t1[1]->GetY()[iBR]/N_nm->GetY()[iBR]); 
+		N_ratio2[1]->SetPoint(iBR, N_t2[1]->GetX()[iBR], N_t2[1]->GetY()[iBR]/N_nm->GetY()[iBR]);
+		N_ratio1[2]->SetPoint(iBR, N_kol1->GetX()[iBR], N_kol1->GetY()[iBR]/N_nm->GetY()[iBR]); 
+		N_ratio2[2]->SetPoint(iBR, N_kol2->GetX()[iBR], N_kol2->GetY()[iBR]/N_nm->GetY()[iBR]);
+	}	
+
+	c0->cd(1);
+	gPad->SetGrid();  
+
+	TLegend *l1 = new TLegend(0.8,0.8,0.9,0.9); 
+	l1->AddEntry(N_t1[0], "F3", "pl"); 
+	l1->AddEntry(N_t1[1], "F4", "pl"); 
+	l1->AddEntry(N_kol1, "KOL", "pl"); 
 	
-	N_t1->Draw(); 
-	N_t2->Draw("SAME"); 
-	N_nm->Draw("SAME");
+	HistTools::SetStyle(N_t1[0], kBlue, kFullCircle, 0.8, 1, 1); 
+	HistTools::SetStyle(N_t1[1], kPink, kFullCircle, 0.8, 1, 1); 
+	HistTools::SetStyle(N_kol1, kBlack, kFullCircle, 0.8, 1, 1); 
 
-	c0->Print(Form("data/nm/reproduce2/F%d_Analysis/F%d_N_t_%s.png", f34, f34, NM)); 
+	N_t1[0]->SetTitle(Form("Mi13; ;%s Estimated Count Rate", NM));  
+	N_t1[0]->Draw("APL"); 
+	N_t1[0]->GetYaxis()->SetRangeUser(0.75*N_t1[0]->GetMean(2), 1.25*N_t1[0]->GetMean(2)); 
+	N_t1[1]->Draw("PL SAME"); 
+	N_kol1->Draw("PL SAME");
+	l1->Draw("SAME");   
+
+	c0->cd(2);
+	gPad->SetGrid();
+
+	TLegend *l2 = new TLegend(0.8,0.8,0.9,0.9); 
+	l2->AddEntry(N_t2[0], "F3", "pl"); 
+	l2->AddEntry(N_t2[1], "F4", "pl"); 
+	l2->AddEntry(N_kol2, "KOL", "pl"); 
+
+	HistTools::SetStyle(N_t2[0], kBlue, kFullCircle, 0.8, 1, 1); 
+	HistTools::SetStyle(N_t2[1], kPink, kFullCircle, 0.8, 1, 1); 
+	HistTools::SetStyle(N_kol2, kBlack, kFullCircle, 0.8, 1, 1);
+ 
+	N_t2[0]->SetTitle(Form("Ma16; ;%s Estimated Count Rate", NM)); 
+	N_t2[0]->Draw("APL"); 
+	N_t2[0]->GetYaxis()->SetRangeUser(0.75*N_t2[0]->GetMean(2), 1.25*N_t2[0]->GetMean(2)); 
+	N_t2[1]->Draw("PL SAME"); 
+	N_kol2->Draw("PL SAME"); 
+	l2->Draw("SAME");
+	
+	c0->cd(3);
+	gPad->SetGrid(); 
+
+	TLegend *l3 = new TLegend(0.8,0.8,0.9,0.9); 
+	l3->AddEntry(N_ratio1[0], "F3", "pl"); 
+	l3->AddEntry(N_ratio1[1], "F4", "pl"); 
+	l3->AddEntry(N_ratio1[2], "KOL", "pl"); 
+
+	HistTools::SetStyle(N_ratio1[0], kBlue, kFullCircle, 0.8, 1, 1); 
+	HistTools::SetStyle(N_ratio1[1], kPink, kFullCircle, 0.8, 1, 1); 
+	HistTools::SetStyle(N_ratio1[2], kBlack, kFullCircle, 0.8, 1, 1);
+
+	N_ratio1[0]->SetTitle("Mi13; ; Estimated Count Rate/Observed Count Rate"); 
+	N_ratio1[0]->Draw("APL"); 
+	N_ratio1[0]->GetYaxis()->SetRangeUser(0.75*N_ratio1[0]->GetMean(2), 1.25*N_ratio1[0]->GetMean(2)); 
+	N_ratio1[1]->Draw("PL SAME");
+	N_ratio1[2]->Draw("PL SAME"); 
+	l3->Draw("SAME"); 
+
+	c0->cd(4);
+	gPad->SetGrid();
+
+	TLegend *l4 = new TLegend(0.8,0.8,0.9,0.9); 
+	l4->AddEntry(N_ratio2[0], "F3", "pl"); 
+	l4->AddEntry(N_ratio2[1], "F4", "pl"); 
+	l4->AddEntry(N_ratio2[2], "KOL", "pl"); 
+
+	HistTools::SetStyle(N_ratio2[0], kBlue, kFullCircle, 0.8, 1, 1); 
+	HistTools::SetStyle(N_ratio2[1], kPink, kFullCircle, 0.8, 1, 1); 
+	HistTools::SetStyle(N_ratio2[2], kBlack, kFullCircle, 0.8, 1, 1);
+
+	N_ratio2[0]->SetTitle("Ma16; ; Estimated Count Rate/Observed Count Rate");
+	N_ratio2[0]->Draw("APL");
+	N_ratio2[0]->GetYaxis()->SetRangeUser(0.75*N_ratio2[0]->GetMean(2), 1.25*N_ratio2[0]->GetMean(2)); 
+	N_ratio2[1]->Draw("PL SAME"); 
+	N_ratio2[2]->Draw("PL SAME"); 
+	l4->Draw("SAME"); 
+
+	c0->Print(Form("data/nm/reproduce2/plot_N_t_%s.png", NM)); 
 
 }
 
-void nm_plot_F34_auto(){
+void nm_plot_F34_auto(){ 
 
+	for (int k=0; k<nNMs_Koldob; ++k){
+	
+		nm_plot_F34(Form("%s", NM_Koldob[k]));
 
+	} 
 
 } 
 
@@ -681,7 +801,7 @@ void nm_plot_dis(const char *NM, const char *YF){
 			gPad->SetMargin(0.12, 0.04, 0.1, 0.08);	
 
 			f_yf_divide->Draw();   
-			printf("k=%d, iBR=%d, f_yf(2)=%0.4f \n", k, i, f_yf_divide->Eval(2));  
+			printf("k=%d, iBR=%d, integral(f_yf)=%0.4f \n", k, i, f_yf_divide->Integral(0.1, 3e3));  
 			f_yf_divide->SetTitle(Form("%s Proton Discrepancy vs. Sensitivity (F%d);%s; Y*F/Integral BR%d", ACE_Element[k], f34, Unit::GetEnergyLabel("GV"), iBR_true+2426));  
 
 			c4->cd(2); 
@@ -1500,7 +1620,7 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 
 	printf("(%s, %s) k_BR_mean = %f, k_BR_std = %f \n", NM, option2, k_BR_mean, k_BR_std);  
 
-	TFile *file_reproduce = new TFile(Form("data/nm/reproduce2/F%d_Analysis/_F%d_%s_%s.root", F34, F34, NM, option2), "recreate"); 
+	TFile *file_reproduce = new TFile(Form("data/nm/reproduce2/F%d_Analysis/F%d_%s_%s.root", F34, F34, NM, option2), "recreate"); 
 
 	k_norm->Write("k_norm");
 	k_sf->Write("k_sf"); 
