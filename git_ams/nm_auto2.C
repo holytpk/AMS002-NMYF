@@ -24,7 +24,7 @@ const int n_ele = 24; // number of ACE elements
 const int n_total = 28; // number of total elements 
 const int nBRs = Experiments::Info[Experiments::AMS02].Dataset[1].nMeasurements;  
 
-const int F34 = 3; 
+const int F34 = 4; 
 
 const int nNMs_useful = 15;
 const char *NM_useful[nNMs_useful+1] = { "OULU", "PSNM", "MXCO", "HRMS", "JUNG", "JUNG1", "NEWK", "KIEL2", "APTY", "FSMT", "NAIN", "PWNK", "THUL", "SOPB", "SOPO" };
@@ -195,6 +195,21 @@ string name_isotope[24][10] = {
       { "Co56", "Co57", "Co58", "Co59", "Co60" },
       { "Ni56", "Ni58", "Ni59", "Ni60", "Ni61", "Ni62", "Ni63", "Ni64" },
 };
+
+int choose_BO(const char *element){
+
+	int temp = 0; 
+	int pri = 3; //O, pri 
+	int sec = 0; //B, sec or mix 
+
+	for (int i=0; i<n_total; i++){
+		if (!strcmp(element, Form("%s", Element[i]))) temp = i_temp[i]; 
+	}
+
+	if (temp==1) return pri;
+	else if (temp==0 || temp==2) return sec; 
+	  
+} 
 
 int isotope_size[24] = { 2, 3, 2, 3, 2, 3, 3, 3, 2, 5, 4, 7, 4, 8, 4, 9, 6, 7, 4, 5, 4, 7, 5, 8 }; // change when compare_isotope[][] is changed 
 
@@ -670,7 +685,7 @@ void nm_plot_F34(const char *NM){
 
 	N_t1[0]->SetTitle(Form("Mi13; ;%s Estimated Count Rate", NM));  
 	N_t1[0]->Draw("APL"); 
-	N_t1[0]->GetYaxis()->SetRangeUser(0.75*N_t1[0]->GetMean(2), 1.25*N_t1[0]->GetMean(2)); 
+	N_t1[0]->GetYaxis()->SetRangeUser(0.9*N_t1[0]->GetMean(2), 1.15*N_t1[0]->GetMean(2)); 
 	N_t1[1]->Draw("PL SAME"); 
 	N_kol1->Draw("PL SAME");
 	l1->Draw("SAME");   
@@ -689,7 +704,7 @@ void nm_plot_F34(const char *NM){
  
 	N_t2[0]->SetTitle(Form("Ma16; ;%s Estimated Count Rate", NM)); 
 	N_t2[0]->Draw("APL"); 
-	N_t2[0]->GetYaxis()->SetRangeUser(0.75*N_t2[0]->GetMean(2), 1.25*N_t2[0]->GetMean(2)); 
+	N_t2[0]->GetYaxis()->SetRangeUser(0.9*N_t2[0]->GetMean(2), 1.15*N_t2[0]->GetMean(2)); 
 	N_t2[1]->Draw("PL SAME"); 
 	N_kol2->Draw("PL SAME"); 
 	l2->Draw("SAME");
@@ -708,7 +723,7 @@ void nm_plot_F34(const char *NM){
 
 	N_ratio1[0]->SetTitle("Mi13; ; Estimated Count Rate/Observed Count Rate"); 
 	N_ratio1[0]->Draw("APL"); 
-	N_ratio1[0]->GetYaxis()->SetRangeUser(0.75*N_ratio1[0]->GetMean(2), 1.25*N_ratio1[0]->GetMean(2)); 
+	N_ratio1[0]->GetYaxis()->SetRangeUser(0.9*N_ratio1[0]->GetMean(2), 1.15*N_ratio1[0]->GetMean(2)); 
 	N_ratio1[1]->Draw("PL SAME");
 	N_ratio1[2]->Draw("PL SAME"); 
 	l3->Draw("SAME"); 
@@ -727,7 +742,7 @@ void nm_plot_F34(const char *NM){
 
 	N_ratio2[0]->SetTitle("Ma16; ; Estimated Count Rate/Observed Count Rate");
 	N_ratio2[0]->Draw("APL");
-	N_ratio2[0]->GetYaxis()->SetRangeUser(0.75*N_ratio2[0]->GetMean(2), 1.25*N_ratio2[0]->GetMean(2)); 
+	N_ratio2[0]->GetYaxis()->SetRangeUser(0.9*N_ratio2[0]->GetMean(2), 1.15*N_ratio2[0]->GetMean(2)); 
 	N_ratio2[1]->Draw("PL SAME"); 
 	N_ratio2[2]->Draw("PL SAME"); 
 	l4->Draw("SAME"); 
@@ -772,20 +787,48 @@ void nm_plot_dis(const char *NM, const char *YF){
 	TCanvas *c4 = new TCanvas("c4", "", 1800, 900); 
 	c4->Divide(2, 1); 
 
-	for (int k=0; k<1; ++k){
+	for (int k=0; k<24; ++k){ 
 
 		int iBR_true=0; 
 		for (int i=0; i<nBRs; i++){
 
-			TFile *file_ratio = new TFile(Form("data/ACE/fill/F%d_%s.root", f34, ACE_Element[k])); // load ratio of F(R,t)/<F(R,t) fit
+			TFile *file0 = new TFile(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[choose_BO(ACE_Element[k])], nnodes)); // BO temp 
 
-			// load F3/F4 rescaled fit  
-			TF1 *fit_res = (TF1*) file_ratio->Get(Form("rescaled_fit_BR%d", 2426+iBR_true)); 
-			
-			// load F3/F3 F(R,t)/<F(R,t)> ratio 
-			TF1 *fit_ratio = (TF1*) file_ratio->Get(Form("fit_ratio_BR%d", 2426+iBR_true));	
+			Spline *sp_comb = new Spline("sp_comb", nnodes, Spline::LogLog | Spline::PowerLaw);
+			TF1 *fsp_comb = sp_comb->GetTF1Pointer();  
+			TF1 *fit_comb = (TF1*) file0->Get("fit_both"); 
+			HistTools::CopyParameters(fit_comb, fsp_comb); // error 
+			double x1, x2;
+			fit_comb->GetRange(x1,x2);
+			fsp_comb->SetRange(x1,x2);
 
-			TF1 *f_fit = HistTools::CombineTF1(fit_ratio, fit_res, HistTools::Multiply, "f_fit", 0.1, 3e3);
+			// load ACE BR 
+			TFile *file2 = new TFile(Form("data/ACE/fill/%s_fill.root", ACE_Element[k]));
+			TH1 *h_ace_BR = (TH1*) file2->Get(Form("h_rig_%s_BR%d", ACE_Element[k], 2426+iBR_true)); 
+
+			// rescaled combined fit 
+			TH1 *h_ratio;
+			h_ratio = (TH1*) h_ace_BR->Clone("h_ratio"); // ACE Ave/Temp 	
+			h_ratio->Divide(fsp_comb); 
+
+			// HistTools::SetStyle(h_ratio, kPink, kFullCircle, 1.4, 1, 1);
+
+			double ratio_sum=0; // compute average of h_ratio manually  
+			for(int nbin=0;nbin<14;++nbin){
+				ratio_sum += h_ratio->GetBinContent(nbin);
+				//printf("ratio_sum = %0.6f \n", ratio_sum);
+			}
+			double ratio_ave = ratio_sum/7;	
+
+			// rescaled combined fit 
+			TF1 *f_fit = HistTools::CombineTF1Const(fsp_comb, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", 0.1, 3e3); 
+			if (k!=22){
+				// load F3/F3 F(R,t)/<F(R,t)> ratio 
+				TFile *file_ratio = new TFile(Form("data/ACE/fill/F%d_%s.root", F34, ACE_Element[k])); // load ratio of F(R,t)/<F(R,t) fit
+				TF1 *fit_ratio = (TF1*) file_ratio->Get(Form("fit_ratio_BR%d", 2426+iBR_true));	
+				f_fit = HistTools::CombineTF1(f_fit, fit_ratio, HistTools::Multiply, "f_fit", 0.1, 3e3);
+				file_ratio->Close(); 
+			} 
 
 			// discrepancy vs. sensitivity check
 
@@ -800,9 +843,10 @@ void nm_plot_dis(const char *NM, const char *YF){
 			gPad->SetLogx(); 
 			gPad->SetMargin(0.12, 0.04, 0.1, 0.08);	
 
-			f_yf_divide->Draw();   
-			printf("k=%d, iBR=%d, integral(f_yf)=%0.4f \n", k, i, f_yf_divide->Integral(0.1, 3e3));  
-			f_yf_divide->SetTitle(Form("%s Proton Discrepancy vs. Sensitivity (F%d);%s; Y*F/Integral BR%d", ACE_Element[k], f34, Unit::GetEnergyLabel("GV"), iBR_true+2426));  
+			f_yf_divide->Draw(); 
+			f_yf_divide->SetRange(0.8, 3e3); 
+			//printf("k=%d, iBR=%d, integral(f_yf)=%0.4f, f_yf(2)=%0.8f \n", k, i, f_yf_divide->Integral(0.1, 3e3), f_yf_divide->Eval(2));  
+			f_yf_divide->SetTitle(Form("F_%s*Y_p Proton Discrepancy vs. Sensitivity (F%d);%s; Y*F/Integral BR%d", ACE_Element[k], f34, Unit::GetEnergyLabel("GV"), iBR_true+2426));  
 
 			c4->cd(2); 
 			gPad->SetLogy();
@@ -810,58 +854,8 @@ void nm_plot_dis(const char *NM, const char *YF){
 			gPad->SetMargin(0.12, 0.04, 0.1, 0.08);	
 
 			f_yf_divide2->Draw(); 
-			f_yf_divide2->SetTitle(Form("%s Helium Discrepancy vs. Sensitivity (F%d);%s; Y*F/Integral BR%d", ACE_Element[k], f34, Unit::GetEnergyLabel("GV"), iBR_true+2426));
-
-			if (i==0) c4->Print(Form("data/nm/reproduce2/F%d_discrepency/YF_divide_%s_%s.pdf(", f34, ACE_Element[k], YF), "pdf"); 	
-			if (i>0 && i<nBRs-1) c4->Print(Form("data/nm/reproduce2/F%d_discrepency/YF_divide_%s_%s.pdf", f34, ACE_Element[k], YF), "pdf"); 	
-			if (i==nBRs-1) c4->Print(Form("data/nm/reproduce2/F%d_discrepency/YF_divide_%s_%s.pdf)", f34, ACE_Element[k], YF), "pdf");  
-
-	   		if (i+2426==2472-1) iBR_true += 3; 
-			else iBR_true ++; 
-		} 
-	}
-
-	f34 = 4; 
-
-	for (int k=0; k<1; ++k){
-
-		int iBR_true=0; 
-		for (int i=0; i<nBRs; i++){
-
-			TFile *file_ratio = new TFile(Form("data/ACE/fill/F%d_%s.root", f34, ACE_Element[k])); // load ratio of F(R,t)/<F(R,t) fit
-
-			// load F3/F4 rescaled fit  
-			TF1 *fit_res = (TF1*) file_ratio->Get(Form("rescaled_fit_BR%d", 2426+iBR_true)); 
-			
-			// load F3/F3 F(R,t)/<F(R,t)> ratio 
-			TF1 *fit_ratio = (TF1*) file_ratio->Get(Form("fit_ratio_BR%d", 2426+iBR_true));	
-
-			TF1 *f_fit = HistTools::CombineTF1(fit_ratio, fit_res, HistTools::Multiply, "f_fit", 0.1, 3e3);
-
-			// discrepancy vs. sensitivity check
-
-			TF1 *f_yf_divide = HistTools::CombineTF1(f_fit, fyfp, HistTools::Multiply, "f_fit", 0.1, 3e3); 
-			f_yf_divide = HistTools::CombineTF1Const(f_yf_divide, 1/f_yf_divide->Integral(0.1, 3e3), HistTools::MultiplyConst, "f_yf_divide", 0.1, 3e3);
-
-			TF1 *f_yf_divide2 = HistTools::CombineTF1(f_fit, fyfhe, HistTools::Multiply, "f_fit", 0.1, 3e3); 
-			f_yf_divide2 = HistTools::CombineTF1Const(f_yf_divide2, 1/f_yf_divide2->Integral(0.1, 3e3), HistTools::MultiplyConst, "f_yf_divide_he", 0.1, 3e3);
-			
-			c4->cd(1); 
-			gPad->SetLogy();
-			gPad->SetLogx(); 
-			gPad->SetMargin(0.12, 0.04, 0.1, 0.08);	
-
-			f_yf_divide->Draw();   
-			printf("k=%d, iBR=%d, f_yf(2)=%0.4f \n", k, i, f_yf_divide->Eval(2));  
-			f_yf_divide->SetTitle(Form("%s Proton Discrepancy vs. Sensitivity (F%d);%s; Y*F/Integral BR%d", ACE_Element[k], f34, Unit::GetEnergyLabel("GV"), iBR_true+2426));  
-
-			c4->cd(2); 
-			gPad->SetLogy();
-			gPad->SetLogx(); 
-			gPad->SetMargin(0.12, 0.04, 0.1, 0.08);	
-
-			f_yf_divide2->Draw(); 
-			f_yf_divide2->SetTitle(Form("%s Helium Discrepancy vs. Sensitivity (F%d);%s; Y*F/Integral BR%d", ACE_Element[k], f34, Unit::GetEnergyLabel("GV"), iBR_true+2426));
+			f_yf_divide2->SetRange(0.8, 3e3);
+			f_yf_divide2->SetTitle(Form("F_%s*Y_He Helium Discrepancy vs. Sensitivity (F%d);%s; Y*F/Integral BR%d", ACE_Element[k], f34, Unit::GetEnergyLabel("GV"), iBR_true+2426));
 
 			if (i==0) c4->Print(Form("data/nm/reproduce2/F%d_discrepency/YF_divide_%s_%s.pdf(", f34, ACE_Element[k], YF), "pdf"); 	
 			if (i>0 && i<nBRs-1) c4->Print(Form("data/nm/reproduce2/F%d_discrepency/YF_divide_%s_%s.pdf", f34, ACE_Element[k], YF), "pdf"); 	
@@ -869,6 +863,95 @@ void nm_plot_dis(const char *NM, const char *YF){
 
 	   		if (i+2426==2472-1) iBR_true += 3; 
 			else iBR_true ++;
+
+			file0->Close();
+			file2->Close(); 
+		} 
+	}
+
+	f34 = 4; 
+
+	for (int k=0; k<24; ++k){
+
+		int iBR_true=0; 
+		for (int i=0; i<nBRs; i++){
+
+			TFile *file0 = new TFile(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[choose_BO(ACE_Element[k])], nnodes)); // BO temp 
+
+			Spline *sp_comb = new Spline("sp_comb", nnodes, Spline::LogLog | Spline::PowerLaw);
+			TF1 *fsp_comb = sp_comb->GetTF1Pointer();  
+			TF1 *fit_comb = (TF1*) file0->Get("fit_both"); 
+			HistTools::CopyParameters(fit_comb, fsp_comb); // error 
+			double x1, x2;
+			fit_comb->GetRange(x1,x2);
+			fsp_comb->SetRange(x1,x2);
+
+			// load ACE BR 
+			TFile *file2 = new TFile(Form("data/ACE/fill/%s_fill.root", ACE_Element[k]));
+			TH1 *h_ace_BR = (TH1*) file2->Get(Form("h_rig_%s_BR%d", ACE_Element[k], 2426+iBR_true)); 
+
+			// rescaled combined fit 
+			TH1 *h_ratio; 
+			h_ratio = (TH1*) h_ace_BR->Clone("h_ratio"); // ACE Ave/Temp 	
+			h_ratio->Divide(fsp_comb); 
+
+			// HistTools::SetStyle(h_ratio, kPink, kFullCircle, 1.4, 1, 1);
+
+			double ratio_sum=0; // compute average of h_ratio manually  
+			for(int nbin=0;nbin<14;++nbin){
+				ratio_sum += h_ratio->GetBinContent(nbin);
+				//printf("ratio_sum = %0.6f \n", ratio_sum); 
+			}
+			double ratio_ave = ratio_sum/7;		
+
+			// rescaled combined fit 
+			TF1 *f_fit = HistTools::CombineTF1Const(fsp_comb, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", 0.1, 3e3); 
+			if (k!=22){
+				// load F3/F3 F(R,t)/<F(R,t)> ratio 
+				TFile *file_ratio = new TFile(Form("data/ACE/fill/F%d_%s.root", F34, ACE_Element[k])); // load ratio of F(R,t)/<F(R,t) fit
+				TF1 *fit_ratio = (TF1*) file_ratio->Get(Form("fit_ratio_BR%d", 2426+iBR_true));	
+				f_fit = HistTools::CombineTF1(f_fit, fit_ratio, HistTools::Multiply, "f_fit", 0.1, 3e3);
+				file_ratio->Close(); 
+			} 
+
+			// discrepancy vs. sensitivity check
+
+			TF1 *f_yf_divide = HistTools::CombineTF1(f_fit, fyfp, HistTools::Multiply, "f_fit", 0.1, 3e3); 
+			f_yf_divide = HistTools::CombineTF1Const(f_yf_divide, 1/f_yf_divide->Integral(0.1, 3e3), HistTools::MultiplyConst, "f_yf_divide", 0.1, 3e3);
+
+			TF1 *f_yf_divide2 = HistTools::CombineTF1(f_fit, fyfhe, HistTools::Multiply, "f_fit", 0.1, 3e3); 
+			f_yf_divide2 = HistTools::CombineTF1Const(f_yf_divide2, 1/f_yf_divide2->Integral(0.1, 3e3), HistTools::MultiplyConst, "f_yf_divide_he", 0.1, 3e3);
+			
+			c4->cd(1); 
+			gPad->SetLogy();
+			gPad->SetLogx(); 
+			gPad->SetMargin(0.12, 0.04, 0.1, 0.08);	
+
+			f_yf_divide->Draw();
+			f_yf_divide->SetRange(0.8, 3e3);   
+			//fit_ratio->Draw(); 
+			// printf("k=%d, iBR=%d, f_yf(2)=%0.4f \n", k, i, f_yf_divide->Eval(2));  
+			f_yf_divide->SetTitle(Form("F_%s*Y_p Proton Discrepancy vs. Sensitivity (F%d);%s; Y*F/Integral BR%d", ACE_Element[k], f34, Unit::GetEnergyLabel("GV"), iBR_true+2426));  
+
+			c4->cd(2); 
+			gPad->SetLogy();
+			gPad->SetLogx(); 
+			gPad->SetMargin(0.12, 0.04, 0.1, 0.08);	
+
+			f_yf_divide2->Draw(); 
+			f_yf_divide2->SetRange(0.8, 3e3);
+			//fit_res->Draw(); 
+			f_yf_divide2->SetTitle(Form("F_%s*Y_He Discrepancy vs. Sensitivity (F%d);%s; Y*F/Integral BR%d", ACE_Element[k], f34, Unit::GetEnergyLabel("GV"), iBR_true+2426));
+
+			if (i==0) c4->Print(Form("data/nm/reproduce2/F%d_discrepency/YF_divide_%s_%s.pdf(", f34, ACE_Element[k], YF), "pdf"); 	
+			if (i>0 && i<nBRs-1) c4->Print(Form("data/nm/reproduce2/F%d_discrepency/YF_divide_%s_%s.pdf", f34, ACE_Element[k], YF), "pdf"); 	
+			if (i==nBRs-1) c4->Print(Form("data/nm/reproduce2/F%d_discrepency/YF_divide_%s_%s.pdf)", f34, ACE_Element[k], YF), "pdf");  
+
+	   		if (i+2426==2472-1) iBR_true += 3; 
+			else iBR_true ++;
+
+			file0->Close();
+			file2->Close(); 
 		}
 	}
 }
@@ -1357,16 +1440,17 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 	TCanvas *c3 = new TCanvas("c3", "R_sum", 1800, 900); 
 
 	int nnodes = 7; 
+
 	TFile *file0 = new TFile(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[3], nnodes)); // O temp 
 
-	Spline *sp_comb = new Spline("sp_comb", nnodes, Spline::LogLog | Spline::PowerLaw);
-	TF1 *fsp_comb = sp_comb->GetTF1Pointer();  
-	TF1 *fit_comb = (TF1*) file0->Get("fit_both"); 
+	Spline *sp_O = new Spline("sp_O", nnodes, Spline::LogLog | Spline::PowerLaw);
+	TF1 *fsp_O = sp_O->GetTF1Pointer();  
+	TF1 *fit_O = (TF1*) file0->Get("fit_both"); 
 
-	HistTools::CopyParameters(fit_comb, fsp_comb); // error 
+	HistTools::CopyParameters(fit_O, fsp_O); // error 
 	double x1, x2;
-	fit_comb->GetRange(x1,x2);
-	fsp_comb->SetRange(x1,x2);
+	fit_O->GetRange(x1,x2);
+	fsp_O->SetRange(x1,x2);
 
 	TFile *fit_result = new TFile(Form("data/amsfit/fit_result_node%d.root", nnodes_ams));
 	TFile *nm_data = new TFile(Form("./data/nm/NM-%s.root", NM));
@@ -1420,8 +1504,8 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 			// if (i==nBRs-1) HistTools::PrintFunction(fit_ams);   
 		}  
 
-		TF1 *f_BR_p_low = HistTools::CombineTF1Const(fsp_comb, f_BR_p[i]->Eval(2.)/fsp_comb->Eval(2.), HistTools::MultiplyConst, "rescaled_fit", 0.1, 3e3); 
-		TF1 *f_BR_he_low = HistTools::CombineTF1Const(fsp_comb, f_BR_he[i]->Eval(2.)/fsp_comb->Eval(2.), HistTools::MultiplyConst, "rescaled_fit", 0.1, 3e3);
+		TF1 *f_BR_p_low = HistTools::CombineTF1Const(fsp_O, f_BR_p[i]->Eval(2.)/fsp_O->Eval(2.), HistTools::MultiplyConst, "rescaled_fit", 0.1, 3e3); 
+		TF1 *f_BR_he_low = HistTools::CombineTF1Const(fsp_O, f_BR_he[i]->Eval(2.)/fsp_O->Eval(2.), HistTools::MultiplyConst, "rescaled_fit", 0.1, 3e3);
 
 /* TEST THE EXTRAPOLATION 
 		f_BR_he[i]->SetRange(0.1, 3e3); 
@@ -1461,7 +1545,18 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 
 		for(int k=4; k<n_ele; ++k){
 
-		   if (k==22){
+		 //  if (k==22){
+
+			TFile *file0 = new TFile(Form("data/ACE/compare/fit_%s_%dnodes.root", ACE_Element[choose_BO(ACE_Element[k])], nnodes)); // BO temp 
+
+			Spline *sp_comb = new Spline("sp_comb", nnodes, Spline::LogLog | Spline::PowerLaw);
+			TF1 *fsp_comb = sp_comb->GetTF1Pointer();  
+			TF1 *fit_comb = (TF1*) file0->Get("fit_both"); 
+
+			HistTools::CopyParameters(fit_comb, fsp_comb); // error 
+			double x1, x2;
+			fit_comb->GetRange(x1,x2);
+			fsp_comb->SetRange(x1,x2);
 	
 			// load ACE BR 
 			TFile *file2 = new TFile(Form("data/ACE/fill/%s_fill.root", ACE_Element[k]));
@@ -1479,35 +1574,25 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 				ratio_sum += h_ratio->GetBinContent(nbin);
 				//printf("ratio_sum = %0.6f \n", ratio_sum);
 			}
-			double ratio_ave = ratio_sum/7;	
+			double ratio_ave = ratio_sum/7;		
 
 			// rescaled combined fit 
 			f_fit[k] = HistTools::CombineTF1Const(fsp_comb, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", 0.1, 3e3); 
+
+			if (k!=22){
+				// load F3/F3 F(R,t)/<F(R,t)> ratio 
+				TFile *file_ratio = new TFile(Form("data/ACE/fill/F%d_%s.root", F34, ACE_Element[k])); // load ratio of F(R,t)/<F(R,t) fit
+				TF1 *fit_ratio = (TF1*) file_ratio->Get(Form("fit_ratio_BR%d", 2426+iBR_true));	
+				f_fit[k] = HistTools::CombineTF1(f_fit[k], fit_ratio, HistTools::Multiply, "f_fit", 0.1, 3e3);
+				file_ratio->Close(); 
+			} 
+
 			fe->AddElementFluxAbove(f_fit[k], A[k]); 
 
+			file0->Close(); 
 			file2->Close(); 
 
-		   }
-		   else{
-
-			TFile *file_ratio = new TFile(Form("data/ACE/fill/F%d_%s.root", F34, ACE_Element[k])); // load ratio of F(R,t)/<F(R,t) fit
-
-			nnodes = 7; 
-
-			// load F3/F4 rescaled fit  
-			TF1 *fit_res = (TF1*) file_ratio->Get(Form("rescaled_fit_BR%d", 2426+iBR_true)); 
-			
-			// load F3/F3 F(R,t)/<F(R,t)> ratio 
-			TF1 *fit_ratio = (TF1*) file_ratio->Get(Form("fit_ratio_BR%d", 2426+iBR_true));		
-
-			f_fit[k] = HistTools::CombineTF1(fit_ratio, fit_res, HistTools::Multiply, "f_fit", 0.1, 3e3);
-
-			// printf("f_fit at 2GV = %0.4f %0.4f %0.4f \n", f_fit[k]->Eval(2.), fit_res->Eval(2.), fit_ratio->Eval(2.)); 
-			
-			fe->AddElementFluxAbove(f_fit[k], A[k]);  
-
-			file_ratio->Close(); 
-		   }
+		//   }
 
 		} 
  
@@ -1626,7 +1711,6 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 	k_sf->Write("k_sf"); 
 	N_t->Write("N_t"); 
 
-	file0->Close(); 
 	file_reproduce->Close(); 
 
 	if (!strcmp(option1, "k_norm")) return k_norm; 

@@ -307,23 +307,23 @@ void ace_auto(const char *operation){
 		for (int i=0; i<4;i++){
 			//ace_rescale_BR( ACE_Element[i], ACE_Isotope[i] ); 
 			//ace_rescale_BR_averaged( ACE_Element[i], ACE_Isotope[i] ); 
-			ace_fake_td_ams( ACE_Element[i], ACE_Isotope[i] );
-			ace_fake_td_ams_v2( ACE_Element[i], ACE_Isotope[i] );
-			ace_fake_td_ams_v3( ACE_Element[i], ACE_Isotope[i] ); 
+			//ace_fake_td_ams( ACE_Element[i], ACE_Isotope[i] );
+			//ace_fake_td_ams_v2( ACE_Element[i], ACE_Isotope[i] );
+			//ace_fake_td_ams_v3( ACE_Element[i], ACE_Isotope[i] ); 
 			//ace_fake_td_ams_v4( ACE_Element[i], ACE_Isotope[i] ); 
 
 			//compare_fake_flux( ACE_Element[i], ACE_Isotope[i] ); 
 		}
 
-		for (int i=4; i<24; i++){
+		for (int i=0; i<24; i++){
 
 			if (i==22) continue; 
 			else {	
 				//ace_rescale_BR( ACE_Element[i], ACE_Isotope[i] ); 
 				//ace_rescale_BR_averaged( ACE_Element[i], ACE_Isotope[i] ); 
-				//ace_fake_td_ams( ACE_Element[i], ACE_Isotope[i] );
-				//ace_fake_td_ams_v2( ACE_Element[i], ACE_Isotope[i] );
-				//ace_fake_td_ams_v3( ACE_Element[i], ACE_Isotope[i] ); 
+				ace_fake_td_ams( ACE_Element[i], ACE_Isotope[i] );
+				ace_fake_td_ams_v2( ACE_Element[i], ACE_Isotope[i] );
+				ace_fake_td_ams_v3( ACE_Element[i], ACE_Isotope[i] ); 
 				//ace_fake_td_ams_v4( ACE_Element[i], ACE_Isotope[i] ); 
 
 				//compare_fake_flux( ACE_Element[i], ACE_Isotope[i] ); 
@@ -668,7 +668,7 @@ TGraphErrors *ace_rescale_BR(const char *element, Particle::Type isotope){
 		h_rig_rescale->Divide(fsp_comb); 
 		HistTools::SetStyle(h_rig_rescale, kRed, kFullCircle, 1.4, 1, 1);
 
-		TF1 *rescaled_fit = HistTools::CombineTF1Const(fsp_comb, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", R1, R2); 
+		TF1 *rescaled_fit = HistTools::CombineTF1Const(fsp_comb, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", 0.1, 3e3); 
 		TF1 *fit_ratio = HistTools::CombineTF1Const(fsp_comb, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", R1, R2); 
 		fit_ratio = HistTools::CombineTF1(fit_ratio, fsp_comb, HistTools::Divide, "fit_ratio", R1, R2);  
 
@@ -1042,7 +1042,7 @@ void ace_rescale_BR_averaged(const char *element, Particle::Type isotope){
 		double scale = 1./ratio_ave;
 		//if (get_index(element)<4) h_ratio->Scale(scale);	
 
-		TF1 *rescaled_fit = HistTools::CombineTF1Const(fsp_comb, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", R1, R2); 
+		TF1 *rescaled_fit = HistTools::CombineTF1Const(fsp_comb, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", 0.1, 3e3); 
 
 		// rescaled_fit->Print(); 
 		
@@ -1450,7 +1450,7 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		//if (get_index(element) <4) h_ratio->Scale(scale);	
 
 		// rescaled combined fit 
-		TF1 *rescaled_fit = HistTools::CombineTF1Const(fsp_comb, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", R1, R2); 
+		TF1 *rescaled_fit = HistTools::CombineTF1Const(fsp_comb, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", 0.1, 3e3); 
 		// rescaled_fit = HistTools::CombineTF1(rescaled_fit, fsp_comb, HistTools::Divide, "fit_ratio", R1, R2);  
 
 		TH1 *h_ratio1 = (TH1D*) h_ace_BR->Clone("h_ratio1"); // spind model  
@@ -2857,7 +2857,7 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 		if (get_index(element)<4) h_ratio->Scale(scale);	
 
 		// rescaled combined fit 
-		TF1 *rescaled_fit = HistTools::CombineTF1Const(fsp_comb, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", R1, R2); 
+		TF1 *rescaled_fit = HistTools::CombineTF1Const(fsp_comb, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", 0.1, 3e3); 
 		//rescaled_fit = HistTools::CombineTF1(rescaled_fit, fsp_comb, HistTools::Divide, "fit_ratio", R1, R2);  
 
 		TH1 *h_ratio1 = (TH1D*) h_ace_BR->Clone("h_ratio1"); // spind model  
@@ -3760,7 +3760,7 @@ void ace_fake_td_ams_v3(const char *element, Particle::Type isotope){
 		if (get_index(element)<4) h_ratio->Scale(scale);	
 
 		// rescaled combined fit 
-		TF1 *rescaled_fit = HistTools::CombineTF1Const(fsp_comb, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", R1, R2); 
+		TF1 *rescaled_fit = HistTools::CombineTF1Const(fsp_comb, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", 0.1, 3e3); 
 		//if (get_index(element)<4) rescaled_fit = HistTools::CombineTF1(rescaled_fit, fsp_comb, HistTools::Divide, "fit_ratio", R1, R2);  
 
 		TH1 *h_ratio1 = (TH1D*) h_ace_BR->Clone("h_ratio1"); // spind model  
@@ -4639,7 +4639,7 @@ void ace_fake_td_ams_v4(const char *element, Particle::Type isotope){
 		if (get_index(element)<4) h_ratio->Scale(scale);	
 
 		// rescaled combined fit 
-		TF1 *rescaled_fit = HistTools::CombineTF1Const(fsp_comb, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", R1, R2); 
+		TF1 *rescaled_fit = HistTools::CombineTF1Const(fsp_comb, ratio_ave, HistTools::MultiplyConst, "rescaled_fit", 0.1, 3e3); 
 		//if (get_index(element)<4) rescaled_fit = HistTools::CombineTF1(rescaled_fit, fsp_comb, HistTools::Divide, "fit_ratio", R1, R2);  
 
 		TH1 *h_ratio1 = (TH1D*) h_ace_BR->Clone("h_ratio1"); // spind model 
