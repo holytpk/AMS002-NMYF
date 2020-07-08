@@ -27,10 +27,10 @@ const int nBRs = Experiments::Info[Experiments::AMS02].Dataset[1].nMeasurements;
 const int nNMs_useful = 15;
 const char *NM_useful[nNMs_useful+1] = { "OULU", "PSNM", "MXCO", "HRMS", "JUNG", "JUNG1", "NEWK", "KIEL2", "APTY", "FSMT", "NAIN", "PWNK", "THUL", "SOPB", "SOPO" };
 
-const int nNMs_Koldob = 6;
-const char *NM_Koldob[nNMs_Koldob] = { "OULU", "HRMS", "MOSC", "APTY", "NEWK", "INVK" }; 
-const double R_cutoff[nNMs_Koldob] = { 0.8, 4.58, 2.43, 0.65, 2.4, 0.3 }; 
-const int NM_tubes[nNMs_Koldob] = { 9, 12, 24, 18, 9, 18 }; 
+const int nNMs_Koldob = 7;
+const char *NM_Koldob[nNMs_Koldob] = { "OULU", "HRMS", "MOSC", "APTY", "NEWK", "INVK", "ATHN" }; // add ATHN for analysis 
+const double R_cutoff[nNMs_Koldob] = { 0.8, 4.58, 2.43, 0.65, 2.4, 0.3, 8.53 }; 
+const int NM_tubes[nNMs_Koldob+1] = { 9, 12, 24, 18, 9, 18, 6 }; 
 
 const double Rcut[nNMs_useful+1] = { 0.81, 16.80, 8.28, 4.58, 4.49, 4.49, 2.40, 2.36, 0.65, 0.30, 0.30, 0.30, 0.30, 0.10, 0.10 }; // Rigidity Cutoff in GV
 const double alt[nNMs_useful+1] = { 15.0, 2565.0, 2274.0, 26.0, 3570.0, 3475.0, 50.0, 54.0, 181.0, 180.0, 46.0, 53.0, 26.0, 2820.0, 2820.0 }; // NM altitude
@@ -241,6 +241,8 @@ void nm_auto(){
 
 	gStyle->SetPalette(109); 
 
+	gROOT->ProcessLine(".> data/nm/reproduce/k_BR_mean.txt"); 
+
 	for (int i=0; i<nNMs_Koldob; i++){ 
 
 		// Mi13
@@ -271,6 +273,9 @@ void nm_auto(){
 
 		legend2->AddEntry(k_sf2[i], Form("%s", NM_Koldob[i]), "l"); 
 
+		nm_reproduce1(NM_Koldob[i], "k_norm", "CM12"); 
+		nm_reproduce1(NM_Koldob[i], "k_norm", "CD00");  
+
 		c->cd(2);
 
 		HistTools::SetStyle(k_sf2[i], HistTools::GetColorPalette(i, nNMs_Koldob), kFullCircle, 0.7, 1, 1);
@@ -291,11 +296,16 @@ void nm_auto(){
 
 	} 
 
+	//nm_reproduce1("ATHN","N_t","Mi13");
+	//nm_reproduce1("ATHN","N_t","Ma16"); 
+	//nm_reproduce1("ATHN", "N_t", "CM12"); 
+	//nm_reproduce1("ATHN", "N_t", "CD00");
+
+	gROOT->ProcessLine(".> ");  
+
 	// compute average NM count rates  
 	// 1, my Mi13
 	// 2, my Ma16
-	// 3, his Mi13
-	// 4, his Ma16
 
 	TGraphErrors *k_ave1 = new TGraphErrors();
 	TGraphErrors *k_ave2 = new TGraphErrors(); 
@@ -596,11 +606,11 @@ void nm_all_N_t(){
 		TCanvas *c = new TCanvas("c","", 2400, 1600); 
 
 		c->cd(1);
-		N_nm[i]->SetTitle(Form("%s Count Rate Data & Simuations;Time;Flux [1/(m^2 sr s GV)]", NM_Koldob[i]));
+		N_nm[i]->SetTitle(Form("%s Count Rate Data & Simuations;Time; Count Rate", NM_Koldob[i]));
 		N_nm[i]->GetXaxis()->SetTimeDisplay(1);
  		N_nm[i]->GetXaxis()->SetTimeFormat("%m-%y");
  		N_nm[i]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00");
-		N_nm[i]->GetYaxis()->SetRangeUser(N_simu2[i]->Eval(UBRToTime(2426))*0.7, N_nm[i]->Eval(UBRToTime(2426))*1.1); 
+		N_nm[i]->GetYaxis()->SetRangeUser(0., N_nm[i]->Eval(UBRToTime(2426))*1.8); 
 		N_nm[i]->Draw("ALP"); 
 		N_nm_ave[i]->SetMarkerColor(kPink);
 		N_nm_ave[i]->SetMarkerStyle(kFullCircle);
@@ -732,7 +742,7 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 	double n_tubes = (double) get_NM_tubes(NM)/6; 
 	double R_cutoff = get_Rcutoff(NM); 
 
-	printf("n_tubes (%s, %s) = %2.2f \n", NM, option2, n_tubes); 
+	// printf("n_tubes (%s, %s) = %2.2f \n", NM, option2, n_tubes); 
 
 	TGraph *N_t = new TGraph(); 
 
@@ -752,6 +762,12 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 	}else if (!strcmp(option2, "Ma16")){
 		fyfp = NeutronMonitors::YieldFunctions::CreateFunction("fyfp", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mangeard16H1, Particle::PROTON, Energy::RIGIDITY);
 		fyfhe = NeutronMonitors::YieldFunctions::CreateFunction("fyfhe", 0.1, 3e3, NeutronMonitors::YieldFunctions::Mangeard16He4, Particle::HELIUM4, Energy::RIGIDITY); 
+	}else if (!strcmp(option2, "CM12")){
+		fyfp = NeutronMonitors::YieldFunctions::CreateFunction("fyfp", 0.1, 3e3, NeutronMonitors::YieldFunctions::CaballeroLopezMoraal12H1, Particle::PROTON, Energy::RIGIDITY);
+		fyfhe = NeutronMonitors::YieldFunctions::CreateFunction("fyfhe", 0.1, 3e3, NeutronMonitors::YieldFunctions::CaballeroLopezMoraal12He4, Particle::HELIUM4, Energy::RIGIDITY); 
+	}else if (!strcmp(option2, "CD00")){
+		fyfp = NeutronMonitors::YieldFunctions::CreateFunction("fyfp", 0.1, 3e3, NeutronMonitors::YieldFunctions::ClemDorman00H1, Particle::PROTON, Energy::RIGIDITY);
+		fyfhe = NeutronMonitors::YieldFunctions::CreateFunction("fyfhe", 0.1, 3e3, NeutronMonitors::YieldFunctions::ClemDorman00He4, Particle::HELIUM4, Energy::RIGIDITY); 
 	}
 
 	//HistTools::PrintFunction(fyfp);
@@ -768,6 +784,7 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 
 	TGraph *k_sf = new TGraph(); // k = N_t/N_nm, scaling factor of NM stations 
 
+	int iBR_true=0; 
 	for (int i=0; i<nBRs; i++){
 
 		Spline *sp_p = new Spline(Form("f_BR_p_%d", i), nnodes_ams, Spline::LogLog | Spline::PowerLaw); 
@@ -835,9 +852,10 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 
 		// printf("Time = %d, N_t = %10.4f,  f/f_check = %10.4f (good if =1) \n", UBRToTime(i+2426), f->Integral(0.1, l_max), f->Integral(0.1, l_max)/f_check);  
 
-		N_t->SetPoint(i, UBRToTime(i+2426), n_tubes*f->Integral(R_cutoff, l_max)); // this internally makes a loop in the range Rmin to Rmax, and calls FunctorExample::operator() at every step, computing the integral as the sum of all the steps  
+		N_t->SetPoint(i, UBRToTime(iBR_true+2426), n_tubes*f->Integral(R_cutoff, l_max)); // this internally makes a loop in the range Rmin to Rmax, and calls FunctorExample::operator() at every step, computing the integral as the sum of all the steps  
 
-		// break; 
+	   	if (i+2426==2472-1) iBR_true += 3; 
+		else iBR_true ++; 
 
 	} 
 
@@ -870,7 +888,7 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 		N_t->GetPoint(i, x1, y1);
 		N_nm->GetPoint(i, x2, y2); 
 
-		k_sf->SetPoint(i, UBRToTime(i+2426), y1/y2); 
+		k_sf->SetPoint(i, UBRToTime(iBR_true+2426), y1/y2); 
 
 		// printf("%s, iBR = %d, N_nm(t)=%f, N(t)=%f, k_sf=%10.4f \n", NM, i, y2, y1, y1/y2); 
 	}
@@ -888,7 +906,7 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 	for (int i=0; i<nBRs; i++){
 		double x_k, y_k; 
 		k_sf->GetPoint(i, x_k, y_k); 
-		k_norm->SetPoint(i, UBRToTime(i+2426), y_k/average_k);  
+		k_norm->SetPoint(i, UBRToTime(iBR_true+2426), y_k/average_k);  
 	}
 
 	TCanvas *c2 = new TCanvas("c2", "Estimated NM Scaling Factor (Normalized)", 2700, 900); 
@@ -908,7 +926,15 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 	double k_BR_mean = get_k_BR_mean( k_sf, "mean" );
 	double k_BR_std = get_k_BR_mean( k_sf, "std" );  
 
-	printf("%s k_BR_mean = %f, k_BR_std = %f \n", NM, k_BR_mean, k_BR_std);  
+	printf("(%s, %s) k_BR_mean = %f, k_BR_std = %f \n", NM, option2, k_BR_mean, k_BR_std);  
+
+	TFile *file_reproduce = new TFile(Form("data/nm/reproduce/KOL_%s_%s.root", NM, option2), "recreate"); 
+
+	k_norm->Write("k_norm");
+	k_sf->Write("k_sf"); 
+	N_t->Write("N_t"); 
+
+	file_reproduce->Close(); 
 
 	if (!strcmp(option1, "k_norm")) return k_norm; 
 	if (!strcmp(option1, "k_sf")) return k_sf; 
@@ -916,7 +942,7 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 
 }	
 
-// Reconstruct the NM count with a simple cosmic ray contribution model from Koldobisky's assumption, but separate for p, He, elements above He contributions
+// Reconstruct the NM count with a simple cosmic ray contribution model from Koldobisky's assumption w/ YF Mi13, but separate for p, He, elements above He contributions
 TGraph *nm_reproduce2(const char *NM, const char* option1, const char* option2){
 	
 	Debug::Enable(Debug::ALL); 
@@ -1247,7 +1273,7 @@ TGraphAsymmErrors *get_ace_graph(const char *element, UInt_t iBin, UInt_t nBRs){
    Long64_t utime;
    Float_t livetime;
 	
-   ace->SetBranchAddress("F", F);
+   ace->SetBranchAddress("F", F); 
    ace->SetBranchAddress("C", C);
    //ace->SetBranchAddress("start_utime", &utime);	
    //ace->SetBranchAddress("livetime", &livetime);
@@ -1285,7 +1311,7 @@ TGraphAsymmErrors *get_ace_average_graph(const char *element, UInt_t *BRs, UInt_
    double *SpallCorrUnc = get_spall_corr_unc(element);
    double *EMed = get_EMed(element);
 
-   TFile *_file2 = new TFile(Form("data/ACE/%s_97226_18359.root", element));
+   TFile *_file2 = new TFile(Form("data/ACE/%s_97226_18359.root",  element)); 
    TTree *ace=(TTree*)_file2->Get("ace");
 
    float F[7], C[7]; // must be initialized 
@@ -1574,7 +1600,7 @@ double *get_EMed(const char *element)
 }
 
 double get_Rcutoff(const char *NM){	
-	for (int i=0; i<nNMs_Koldob; i++){
+	for (int i=0; i<nNMs_Koldob+1; i++){
 		if (!strcmp(NM, Form("%s", NM_Koldob[i]))) return R_cutoff[i];
 	}
 }
@@ -1640,7 +1666,7 @@ double get_k_BR_mean(TGraph *k_sf, const char *option){
 
 int get_NM_tubes(const char *NM){
 
-	for (int i=0; i<nNMs_Koldob; i++){
+	for (int i=0; i<nNMs_Koldob+1; i++){
 		if (!strcmp(NM, Form("%s", NM_Koldob[i]))) return NM_tubes[i];
 	}
 
