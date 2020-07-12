@@ -24,11 +24,11 @@ FunctorExample::FunctorExample(const Char_t *Name, Double_t XMin, Double_t XMax,
    _npars = _nparsp + _nparsHe;
 
    _func = new TF1(Name, this, XMin, XMax, _npars); 
-   _func->SetNpx(500);
+   _func->SetNpx(1000);
 
    // display R_sum
    _f_R_sum = new TF1(Form("%s_R_sum", Name), this, &FunctorExample::RSum, XMin, XMax, 0);
-   _f_R_sum->SetNpx(500);
+   _f_R_sum->SetNpx(1000);
 
    HistTools::CopyParameters(_fyp, _func); // { _fyp_par0, _fyp_par1, ..., _fyp_npars-1, 0, ... }
    HistTools::CopyParameters(_fyHe, _func, _nparsp);// { _fyp_par0, _fyp_par1, ..., _fyp_npars-1, _fyHe_par0, ... }
@@ -83,13 +83,13 @@ Double_t FunctorExample::operator()(Double_t *x, Double_t *par)
 
    for (int i = 0; i < (int)_A_above.size(); ++i)
    {
-	f += _flux_above[i]->Eval(xx)*_fyHe->Eval(xx); 
+	f += (_A_above[i]/4)*_flux_above[i]->Eval(xx)*_fyHe->Eval(xx); 
    }
 
    return f;
 }
 
-/*
+/* 
 // operator OG
 Double_t FunctorExample::operator()(Double_t *x, Double_t *par)
 {
@@ -104,28 +104,28 @@ Double_t FunctorExample::operator()(Double_t *x, Double_t *par)
    for (int i = 0; i < (int)_A.size(); ++i)
    {
         if (f!=0 && _flux_elem[i]->Eval(xx)!=0) f += _flux_elem[i]->Eval(xx)*_fyHe->Eval(xx)*(1.+R_sum);
-   if (f==0 && _flux_elem[i]->Eval(xx)!=0) f += _flux_elem[i]->Eval(xx)*_fyHe->Eval(xx);
-   if (f==0 && _flux_elem[i]->Eval(xx)==0) f += _flux_He->Eval(xx)*_fyHe->Eval(xx)*R_sum;
+   	//if (f==0 && _flux_elem[i]->Eval(xx)!=0) f += _flux_elem[i]->Eval(xx)*_fyHe->Eval(xx);
+   	//if (f==0 && _flux_elem[i]->Eval(xx)==0) f += _flux_He->Eval(xx)*_fyHe->Eval(xx)*R_sum;
    }
 
    return f;
 }
-*/ 
+*/
 
 Double_t FunctorExample::Eval(Double_t x)
 {
    return (*this)(&x, _func->GetParameters());
 }
 
+/*
 // display R_sum
 Double_t FunctorExample::RSum(Double_t *x, Double_t *par)
 {
    Double_t xx = x[0];
-
    Double_t R_sum = 0.;
 
    // starts from He+1
-   for (int i = 2; i < (int)_A_ave.size(); ++i)
+   for (int i = 2; i < _A_ave.size(); ++i)
    {
       R_sum += (_A_ave[i]/4.)*(_flux_elem_ave[i]->Eval(xx)/_flux_elem_ave[1]->Eval(xx));
    }
@@ -133,23 +133,37 @@ Double_t FunctorExample::RSum(Double_t *x, Double_t *par)
 
    return R_sum;
 } 
+*/
 
 // estimated F(R,t)/<F(R,t)> ratio, replacing _ave w/ the actual ratio values 
 Double_t FunctorExample::RSum2(Double_t *x, Double_t *par)
 {
    Double_t xx = x[0];
+   Double_t R_sum = 0.;
 
+   // starts from He+1
+   for (int i = 2; i < 8; ++i)
+   {
+      R_sum += (_A_ave[i]/4.)*(_flux_elem_ave[i]->Eval(xx)/_flux_elem_ave[1]->Eval(xx)); 
+   }
+
+   return R_sum;
+} 
+
+// display R_sum, all time-averaged templates 
+Double_t FunctorExample::RSum(Double_t *x, Double_t *par)
+{
+   Double_t xx = x[0];
    Double_t R_sum = 0.;
 
    // starts from He+1
    for (int i = 2; i < (int)_A_ave.size(); ++i)
    {
-      R_sum += (_A_ave[i]/4.)*(_flux_elem_ave[i]->Eval(xx)/_flux_elem_ave[1]->Eval(xx)); 
+      R_sum += (_A_ave[i]/4.)*(_flux_elem_ave[i]->Eval(xx)/_flux_elem_ave[1]->Eval(xx));
    }
-   // R_sum = R_sum + 1.746*(_A_ave[7]/4.)*_flux_elem_ave[7]->Eval(xx)/_flux_elem_ave[1]->Eval(xx); 
 
    return R_sum;
-} 
+}
 
 void FunctorExample::Print()
 {
