@@ -749,6 +749,7 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 	Experiments::DataPath = "data"; 
 
 	TF1 *f_fit[n_total]; 
+	TF1 *f_RP; 
 
 	// TH1 *J_sum = heavier_he(); 
 	// J_sum->Print("range"); 
@@ -829,8 +830,9 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 
 		if (i==nBRs-1){
 			c3->cd(1);
+			gPad->SetGrid(); 
 			gPad->SetLogx();
-			TF1 *f_RP = fe->GetRSumTF1Pointer(); 
+			f_RP = fe->GetRSumTF1Pointer(); 
 
 			f_RP->SetTitle("summed ratio as function of rigidity; rigidity (GV); ratio heavier/helium");
 			f_RP->GetXaxis()->SetRangeUser(1.0, 1.15e3);   
@@ -859,7 +861,7 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 
 	} 
 
-	// c3->Print("data/nm/reproduce/ratio_heavier_helium.png"); 
+	c3->Print("data/nm/reproduce/ratio_heavier_helium.png"); 
 
 	// PRINT_GRAPH(N_t); 
 
@@ -881,6 +883,7 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 
 	// c1->Print(Form("data/nm/reproduce/estimated_nm_count_%s.png", NM)); 
 
+	iBR_true = 0; 
 	for (int i=0; i<nBRs; i++){
 
 		double x1, y1, x2, y2; 
@@ -891,6 +894,9 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 		k_sf->SetPoint(i, UBRToTime(iBR_true+2426), y1/y2); 
 
 		// printf("%s, iBR = %d, N_nm(t)=%f, N(t)=%f, k_sf=%10.4f \n", NM, i, y2, y1, y1/y2); 
+
+	   	if (i+2426==2472-1) iBR_true += 3; 
+		else iBR_true ++; 
 	}
 
 	double sum_k = 0., average_k = 0.;  
@@ -903,10 +909,14 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 
 	TGraph *k_norm = new TGraph(); // normalized k 
 
+	iBR_true=0; 
 	for (int i=0; i<nBRs; i++){
 		double x_k, y_k; 
 		k_sf->GetPoint(i, x_k, y_k); 
 		k_norm->SetPoint(i, UBRToTime(iBR_true+2426), y_k/average_k);  
+
+	   	if (i+2426==2472-1) iBR_true += 3; 
+		else iBR_true ++; 
 	}
 
 	TCanvas *c2 = new TCanvas("c2", "Estimated NM Scaling Factor (Normalized)", 2700, 900); 
@@ -919,7 +929,7 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 	k_norm->SetTitle("; ; Estimated NM Scaling Factor (Normalized)"); 
 	k_norm->Draw("APL"); 
 
-	// c2->Print(Form("data/nm/reproduce/estimated_nm_k_%s.png", NM)); 
+	c2->Print(Form("data/nm/reproduce/estimated_nm_k_%s.png", NM)); 
 
 	// compute BR mean + std
 
@@ -933,6 +943,7 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 	k_norm->Write("k_norm");
 	k_sf->Write("k_sf"); 
 	N_t->Write("N_t"); 
+	f_RP->Write("f_RP"); 
 
 	file_reproduce->Close(); 
 

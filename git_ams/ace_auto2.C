@@ -315,21 +315,17 @@ void ace_auto(const char *operation){
 			//compare_fake_flux( ACE_Element[i], ACE_Isotope[i] ); 
 		}
 
-		for (int i=0; i<24; i++){
+		for (int i=4; i<24; i++){
+	
+			//ace_rescale_BR( ACE_Element[i], ACE_Isotope[i] ); 
+			//ace_rescale_BR_averaged( ACE_Element[i], ACE_Isotope[i] ); 
+			ace_fake_td_ams( ACE_Element[i], ACE_Isotope[i] );
+			ace_fake_td_ams_v2( ACE_Element[i], ACE_Isotope[i] );
+			ace_fake_td_ams_v3( ACE_Element[i], ACE_Isotope[i] ); 
+			//ace_fake_td_ams_v4( ACE_Element[i], ACE_Isotope[i] ); 
 
-			if (i==22) continue; 
-			else {	
-				//ace_rescale_BR( ACE_Element[i], ACE_Isotope[i] ); 
-				//ace_rescale_BR_averaged( ACE_Element[i], ACE_Isotope[i] ); 
-				ace_fake_td_ams( ACE_Element[i], ACE_Isotope[i] );
-				ace_fake_td_ams_v2( ACE_Element[i], ACE_Isotope[i] );
-				ace_fake_td_ams_v3( ACE_Element[i], ACE_Isotope[i] ); 
-				//ace_fake_td_ams_v4( ACE_Element[i], ACE_Isotope[i] ); 
-
-				//compare_fake_flux( ACE_Element[i], ACE_Isotope[i] ); 
-			} 
+			//compare_fake_flux( ACE_Element[i], ACE_Isotope[i] );  
 		}
-		//compare_fake_flux( ACE_Element[7], ACE_Isotope[7] ); 
 
 		// TLegend *legend = new TLegend(0.1,0.6,0.28,0.9); 
 
@@ -938,12 +934,12 @@ void ace_rescale_BR_averaged(const char *element, Particle::Type isotope){
 	c2->Divide(1, 1);
 
 	// create ACE spectral indcies vs. time 
-	TGraphAsymmErrors *gspind_ace_t[5]; 
+	//TGraphAsymmErrors *gspind_ace_t[5]; 
 	double x_spec=0, x_sp[5], y_spec=0; // get spectral indicies 
 
 	for (int i=0; i<5; ++i){
-		gspind_ace_t[i] = new TGraphAsymmErrors(ace->GetEntries()); 
-		HistTools::SetStyle(gspind_ace_t[i], kPink, kFullCircle, 0.9, 1, 1); 
+		//gspind_ace_t[i] = new TGraphAsymmErrors(ace->GetEntries()); 
+		//HistTools::SetStyle(gspind_ace_t[i], kPink, kFullCircle, 0.9, 1, 1); 
 	} 
 
 	// plot BR-averaged data vs. rescaled template for each BR 
@@ -971,8 +967,8 @@ void ace_rescale_BR_averaged(const char *element, Particle::Type isotope){
 		TH1 *h_rig = HistTools::TransformEnergyAndDifferentialFluxNew(h_ene, isotope, "MeV/n cm", "GV m", "_rig"); // per BR
 		HistTools::SetStyle(h_rig, kPink, kFullCircle, 1.4, 1, 1); 
 
-		TGraphAsymmErrors *gspind_ace = HistTools::GetSpectralIndex(h_rig, 5, 2); // get spectral indices 
-		TGraphAsymmErrors *gspind_ams = HistTools::GetSpectralIndex(h_ams, 4, 1); 
+		//TGraphAsymmErrors *gspind_ace = HistTools::GetSpectralIndex(h_rig, 5, 2); // get spectral indices 
+		//TGraphAsymmErrors *gspind_ams = HistTools::GetSpectralIndex(h_ams, 4, 1); 
 
 		// average of h_rig
 		double rig_sum=0; // compute average of h_rig manually  
@@ -1103,31 +1099,31 @@ void ace_rescale_BR_averaged(const char *element, Particle::Type isotope){
 		gPad->SetGrid();
 	
 		TLegend *l_both = new TLegend(0.62,0.8,0.9,0.9); 
-		l_both->AddEntry(gspind_ace, "ACE Spectral Indices", "PL");
-		l_both->AddEntry(gspind_ams, "AMS Spectral Indices", "PL"); 		
+		//l_both->AddEntry(gspind_ace, "ACE Spectral Indices", "PL");
+		//l_both->AddEntry(gspind_ams, "AMS Spectral Indices", "PL"); 		
 	
 		//if (get_temp_int(element)<4) gspind_ace->GetYaxis()->SetRangeUser(-4, 7); 
-		TAxis *axis1 = gspind_ace->GetXaxis(); 
-		axis1->SetLimits(0., 10.); 
+		//TAxis *axis1 = gspind_ace->GetXaxis(); 
+		//axis1->SetLimits(0., 10.); 
 
 		//h_a3->Draw("E1X0"); 
-		HistTools::SetStyle(gspind_ace, kPink, kFullCircle, 1.4, 1, 1); 
-		gspind_ace->SetTitle(Form("; ; ACE %s Spectral Indices BR-%d", element, UTimeToBR(utime)));
-		gspind_ace->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
-		gspind_ace->Draw("APL"); 
+		//HistTools::SetStyle(gspind_ace, kPink, kFullCircle, 1.4, 1, 1); 
+		//gspind_ace->SetTitle(Form("; ; ACE %s Spectral Indices BR-%d", element, UTimeToBR(utime)));
+		//gspind_ace->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
+		//gspind_ace->Draw("APL"); 
 		
 		// h_a3->Draw("E1X0"); 
 
 		//h_a4->GetYaxis()->SetRangeUser(-5, 0); 
-		TAxis *axis2 = gspind_ams->GetXaxis();
+		//TAxis *axis2 = gspind_ams->GetXaxis();
 
-		axis2->SetLimits(0., 10.); 
+		//axis2->SetLimits(0., 10.); 
 
 		//h_a4->Draw("E1X0"); 
-		HistTools::SetStyle(gspind_ams, kBlue, kFullCircle, 1.4, 1, 1); 
-		gspind_ams->SetTitle(Form("; ; AMS %s Spectral Indices", element)); 
-		gspind_ams->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
-		gspind_ams->Draw("PL SAME"); 
+		//HistTools::SetStyle(gspind_ams, kBlue, kFullCircle, 1.4, 1, 1); 
+		//gspind_ams->SetTitle(Form("; ; AMS %s Spectral Indices", element)); 
+		//gspind_ams->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
+		//gspind_ams->Draw("PL SAME"); 
 		l_both->Draw("SAME"); 
 
 		if (k==0) c2->Print(Form("./data/ACE/fill/spind_%s_flux_model.pdf(", element), "pdf"); 
@@ -1140,11 +1136,11 @@ void ace_rescale_BR_averaged(const char *element, Particle::Type isotope){
 		}
 
 		for (int i=0; i<5; ++i){ 
-			gspind_ace->GetPoint(i, x_spec, y_spec);
+			//gspind_ace->GetPoint(i, x_spec, y_spec);
 			x_sp[i] = x_spec; 
 			// printf("x_spec = %10.4f, y_spec=%10.4f \n", x_spec, y_spec);  
-			gspind_ace_t[i]->SetPoint(k, utime, y_spec); 
-			gspind_ace_t[i]->SetPointError(k, 0, 0, gspind_ace->GetErrorYlow(i), gspind_ace->GetErrorYhigh(i)); 
+			//gspind_ace_t[i]->SetPoint(k, utime, y_spec); 
+			//gspind_ace_t[i]->SetPointError(k, 0, 0, gspind_ace->GetErrorYlow(i), gspind_ace->GetErrorYhigh(i)); 
 		}
 	} // end of BR loop 
 
@@ -1155,14 +1151,14 @@ void ace_rescale_BR_averaged(const char *element, Particle::Type isotope){
 		c3->cd(1); 
 		gPad->SetGrid(); 
 
-		gspind_ace_t[i]->SetTitle(Form(" ; ; ACE %s Spectral Indices at R = %7.3f GV", element, x_sp[i])); 
-		gspind_ace_t[i]->GetXaxis()->SetTimeDisplay(1);
-		gspind_ace_t[i]->GetXaxis()->SetTimeFormat("%Y-%m");
-		gspind_ace_t[i]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
-		gspind_ace_t[i]->GetXaxis()->SetTitleSize(0.7); 	
+		//gspind_ace_t[i]->SetTitle(Form(" ; ; ACE %s Spectral Indices at R = %7.3f GV", element, x_sp[i])); 
+		//gspind_ace_t[i]->GetXaxis()->SetTimeDisplay(1);
+		//gspind_ace_t[i]->GetXaxis()->SetTimeFormat("%Y-%m");
+		//gspind_ace_t[i]->GetXaxis()->SetTimeOffset(0,"1970-01-01 00:00:00"); 
+		//gspind_ace_t[i]->GetXaxis()->SetTitleSize(0.7); 	
 
 	 	//if (get_temp_int(element)<4) gspind_ace_t[i]->GetYaxis()->SetRangeUser(-4, 7); 
-		gspind_ace_t[i]->Draw("APL"); 
+		//gspind_ace_t[i]->Draw("APL"); 
 
 		//gspind_ace_t[i]->Print(); 
 		//cout << " " << endl; 
@@ -1567,6 +1563,21 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		HistTools::SetStyle(h_ratio0, kBlue, kFullCircle, 1.4, 1, 1);
 		h_ratio0->Draw("E1X0 SAME"); 
 
+/*
+		TCanvas *cnew = new TCanvas("cnew","CNEW",1800,900); 
+		cnew->cd(1); 
+
+		h_ace_BR->Draw(); 
+		h_ace_BR->GetXaxis()->SetRangeUser(0.1, 3e3); 
+		h_ams_BR_fake->Draw("SAME"); 
+
+		h_ace_BR->Print("range"); 
+		h_ams_BR_fake->Print("range"); 
+
+		printf(" iBR_true = %d \n", iBR_true+2426);
+
+		if (iBR==45) return 0; // Error at gspind_ace 
+
 		// plot spectral indices
 		TGraphAsymmErrors *gspind_ace = HistTools::GetSpectralIndex(h_ace_BR, 5, 2); // get spectral indices 
 		TGraphAsymmErrors *gspind_ams = HistTools::GetSpectralIndex(h_ams_BR_fake, 4, 1); 
@@ -1612,6 +1623,8 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		HistTools::SetStyle(gspind_ace2, kPink, kFullCircle, 1.4, 1, 1); 
 		HistTools::SetStyle(gspind_ams2, kBlue, kFullCircle, 1.4, 1, 1); 
 		HistTools::SetStyle(fspind_he, kBlack, kFullCircle, 0.8, 1, 1);
+
+*/ 
 
 		// fit to F(R,t)/<F(R)>
 		TF1 *fit_ratio = new TF1("f_ratio", "1+[0]*exp(-[1]*x)", 0.7, 60);
@@ -1704,7 +1717,7 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		TH1 *h_fiterr[2]; 
 		TH1D *h_fitres[2];
 		//TH1D *h_fitres2[2]; 
-		TLegend *l_chi2 = new TLegend(0.62,0.8,0.9,1.0);
+		TLegend *l_chi2 = new TLegend(0.62,0.8,0.9,1.0);  
 
 		for (UShort_t i = 0; i < 2; ++i)
 		{
@@ -1823,26 +1836,26 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		gPad->SetLogx(); 
 
 		TLegend *l_both3 = new TLegend(0.62,0.7,0.8,1.0); 
-		l_both3->AddEntry(gspind_ace2, Form("ACE %s(R,t)/<%s(R)> Spectral Indices", element, element), "PL");
-		l_both3->AddEntry(gspind_ams2, Form("AMS %s(R,t)/<%s(R)> Spectral Indices", element, element), "PL"); 
+		//l_both3->AddEntry(gspind_ace2, Form("ACE %s(R,t)/<%s(R)> Spectral Indices", element, element), "PL");
+		//l_both3->AddEntry(gspind_ams2, Form("AMS %s(R,t)/<%s(R)> Spectral Indices", element, element), "PL"); 
 		// l_both2->AddEntry(fspind_he, "AMS He(R,t)_Fit/temp<He(R)>_Fit Spectral Indices", "L");  	
 		l_both3->AddEntry(fspind_ratio, "Spectral Index of 1+[0]*exp(-[1]*R) Fit to He(R,t)/<He(R)>", "L");	
 		l_both3->AddEntry(fspind_he, "AMS He(R,t)_Fit/<He(R)>_Fit Spectral Indices", "L");  
 		//l_both3->AddEntry(fspind_ratio2, "Spectral Index of 1+[0]*exp(-[1]*ln(R)) Fit to He(R,t)/<He(R)>", "L"); 
 
 		//if (get_temp_int(element)<4) gspind_ace2->GetYaxis()->SetRangeUser(-2, 1.3); 
-		TAxis *axis5 = gspind_ace2->GetXaxis(); 
-		axis5->SetLimits(0.7, 60.); 
+		//TAxis *axis5 = gspind_ace2->GetXaxis(); 
+		//axis5->SetLimits(0.7, 60.); 
 
-		gspind_ace2->SetTitle(Form("; ; Spectral Indices Model of %s F(R,t)/<F(R)> at BR-%d", element, 2426+iBR_true));
-		gspind_ace2->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
-		gspind_ace2->Draw("APL");  
+		//gspind_ace2->SetTitle(Form("; ; Spectral Indices Model of %s F(R,t)/<F(R)> at BR-%d", element, 2426+iBR_true));
+		//gspind_ace2->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
+		//gspind_ace2->Draw("APL");  
 		fspind_ratio->Draw("SAME"); 
 		//fspind_ratio2->Draw("SAME"); 
 		//fspind_ratio2->SetLineColor(kGreen); 
 		fspind_he->Draw("SAME");
-		gspind_ams2->Draw("PL SAME"); 
-		gspind_ace2->Draw("PL SAME");
+		//gspind_ams2->Draw("PL SAME"); 
+		//gspind_ace2->Draw("PL SAME");
 		l_both3->Draw("SAME");   
 
 		rescaled_fit->Write(Form("rescaled_fit_BR%d", 2426+iBR_true)); 
@@ -1853,6 +1866,7 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 		h_fitres[0]->Write(Form("h_fitres_ace_BR%d", 2426+iBR_true));
 		h_fitres[1]->Write(Form("h_fitres_ams_BR%d", 2426+iBR_true)); 
 
+/*
 		if (iBR==0) c2->Print(Form("./data/ACE/fill/fake_td_ams/spind_model_%s_temp.pdf(", element), "pdf"); 
 		if (iBR>0 && iBR<nBRs-1) c2->Print(Form("./data/ACE/fill/fake_td_ams/spind_model_%s_temp.pdf", element), "pdf"); 
 		if (iBR==nBRs-1){
@@ -1863,12 +1877,15 @@ void ace_fake_td_ams(const char *element, Particle::Type isotope){
 			// h_ratio2->Print("range");
 			c2->Print(Form("./data/ACE/fill/fake_td_ams/spind_model_%s_temp.pdf)", element), "pdf"); 
 		}
+*/ 
 
 		printf(" BR = %d \n", iBR_true);  
 
 	   	if (iBR+2426==2472-1) iBR_true += 3; 
 		else iBR_true ++; 
 	}  
+
+	return 0; 
 
 	g_chi2_ace->Write("g_chi2_ace"); 
 	g_chi2_ams->Write("g_chi2_ams"); 
@@ -2975,31 +2992,31 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 		h_ratio0->Draw("E1X0 SAME"); 
 
 		// plot spectral indices
-		TGraphAsymmErrors *gspind_ace = HistTools::GetSpectralIndex(h_ace_BR, 5, 2); // get spectral indices 
-		TGraphAsymmErrors *gspind_ams = HistTools::GetSpectralIndex(h_ams_BR_fake, 4, 1); 
+		//TGraphAsymmErrors *gspind_ace = HistTools::GetSpectralIndex(h_ace_BR, 5, 2); // get spectral indices 
+		//TGraphAsymmErrors *gspind_ams = HistTools::GetSpectralIndex(h_ams_BR_fake, 4, 1); 
 
 		c1->cd(2); 
 		gPad->SetGrid(); 
 		gPad->SetLogx();  
 
 		TLegend *l_both = new TLegend(0.62,0.8,0.9,1.); 
-		l_both->AddEntry(gspind_ace, "ACE Spectral Indices", "PL"); 
-		l_both->AddEntry(gspind_ams, "AMS Spectral Indices", "PL"); 		
+		//l_both->AddEntry(gspind_ace, "ACE Spectral Indices", "PL"); 
+		//l_both->AddEntry(gspind_ams, "AMS Spectral Indices", "PL"); 		
 	
 		////if (get_temp_int(element)<4) gspind_ace->GetYaxis()->SetRangeUser(-3, 3); 
-		gspind_ace->GetXaxis()->SetLimits(0.7, 60);
+		//gspind_ace->GetXaxis()->SetLimits(0.7, 60);
 
-		HistTools::SetStyle(gspind_ace, kPink, kFullCircle, 1.4, 1, 1); 
-		gspind_ace->SetTitle(Form("; ; ACE %s Spectral Indices BR-%d", element, 2426+iBR_true));
-		gspind_ace->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
-		gspind_ace->Draw("APL"); 
+		//HistTools::SetStyle(gspind_ace, kPink, kFullCircle, 1.4, 1, 1); 
+		//gspind_ace->SetTitle(Form("; ; ACE %s Spectral Indices BR-%d", element, 2426+iBR_true));
+		//gspind_ace->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
+		//gspind_ace->Draw("APL"); 
 
 		//h_a4->Draw("E1X0"); 
-		HistTools::SetStyle(gspind_ams, kBlue, kFullCircle, 1.4, 1, 1); 
-		gspind_ams->SetTitle(Form("; ; AMS %s Spectral Indices", element)); 
-		gspind_ams->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
-		gspind_ams->GetXaxis()->SetTitleSize(1.5); 
-		gspind_ams->Draw("PL SAME"); 
+		//HistTools::SetStyle(gspind_ams, kBlue, kFullCircle, 1.4, 1, 1); 
+		//gspind_ams->SetTitle(Form("; ; AMS %s Spectral Indices", element)); 
+		//gspind_ams->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
+		//gspind_ams->GetXaxis()->SetTitleSize(1.5); 
+		//gspind_ams->Draw("PL SAME"); 
 		// fspind->Draw("SAME"); 
 		l_both->Draw("SAME"); 
 
@@ -3010,11 +3027,11 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 		} 
 
 		// find spectral indices of h_ratio + h_ratio0 
-		TGraphAsymmErrors *gspind_ace2 = HistTools::GetSpectralIndex(h_ratio1, 5, 2); // get spectral indices 
-		TGraphAsymmErrors *gspind_ams2 = HistTools::GetSpectralIndex(h_ratio2, 4, 1); 
+		//TGraphAsymmErrors *gspind_ace2 = HistTools::GetSpectralIndex(h_ratio1, 5, 2); // get spectral indices 
+		//TGraphAsymmErrors *gspind_ams2 = HistTools::GetSpectralIndex(h_ratio2, 4, 1); 
 
-		HistTools::SetStyle(gspind_ace2, kPink, kFullCircle, 1.4, 1, 1); 
-		HistTools::SetStyle(gspind_ams2, kBlue, kFullCircle, 1.4, 1, 1); 
+		//HistTools::SetStyle(gspind_ace2, kPink, kFullCircle, 1.4, 1, 1); 
+		//HistTools::SetStyle(gspind_ams2, kBlue, kFullCircle, 1.4, 1, 1); 
 		HistTools::SetStyle(fspind_he, kRed, kFullCircle, 0.8, 1, 1);
 
 		// fit to F(R,t)/<F(R)>
@@ -3232,26 +3249,26 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 		gPad->SetLogx(); 
 
 		TLegend *l_both3 = new TLegend(0.62,0.7,0.8,1.0); 
-		l_both3->AddEntry(gspind_ace2, Form("ACE %s(R,t)/<%s(R)> Spectral Indices", element, element), "PL");
-		l_both3->AddEntry(gspind_ams2, Form("AMS %s(R,t)/<%s(R)> Spectral Indices", element, element), "PL"); 
+		//l_both3->AddEntry(gspind_ace2, Form("ACE %s(R,t)/<%s(R)> Spectral Indices", element, element), "PL");
+		//l_both3->AddEntry(gspind_ams2, Form("AMS %s(R,t)/<%s(R)> Spectral Indices", element, element), "PL"); 
 		// l_both3->AddEntry(fspind_he, "AMS He(R,t)_Fit/temp<He(R)>_Fit Spectral Indices", "L");  	
 		// l_both3->AddEntry(fspind_ratio, "Spectral Index of 1+[0]*exp(-[1]*R) Fit to He(R,t)/<He(R)>", "L");	
 		l_both3->AddEntry(fspind_he, "AMS He(R,t)_Fit/<He(R)>_Fit Spectral Indices", "L");  
 		// l_both3->AddEntry(fspind_ratio2, "Spectral Index of 1+[0]*exp(-[1]*ln(R)) Fit to He(R,t)/<He(R)>", "L"); 
 
 		//if (get_temp_int(element)<4) gspind_ace2->GetYaxis()->SetRangeUser(-2, 1.3); 
-		TAxis *axis5 = gspind_ace2->GetXaxis(); 
-		axis5->SetLimits(0.7, 60.); 
+		//TAxis *axis5 = gspind_ace2->GetXaxis(); 
+		//axis5->SetLimits(0.7, 60.); 
 
-		gspind_ace2->SetTitle(Form("; ; Spectral Indices Model of %s F(R,t)/<F(R)> at BR-%d", element, 2426+iBR_true));
-		gspind_ace2->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
-		gspind_ace2->Draw("APL");  
+		//gspind_ace2->SetTitle(Form("; ; Spectral Indices Model of %s F(R,t)/<F(R)> at BR-%d", element, 2426+iBR_true));
+		//gspind_ace2->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
+		//gspind_ace2->Draw("APL");  
 		//fspind_ratio->Draw("SAME"); 
 		//fspind_ratio2->Draw("SAME"); 
 		//fspind_ratio2->SetLineColor(kGreen); 
 		fspind_he->Draw("SAME");
-		gspind_ams2->Draw("PL SAME"); 
-		gspind_ace2->Draw("PL SAME");
+		//gspind_ams2->Draw("PL SAME"); 
+		//gspind_ace2->Draw("PL SAME");
 		l_both3->Draw("SAME"); 
 
 		// break; 
@@ -3264,7 +3281,7 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 		h_ratio0->Write(Form("h_ratio0_BR%d", 2426+iBR_true)); 
 		h_fitres[0]->Write(Form("h_fitres_ace_BR%d", 2426+iBR_true));
 		h_fitres[1]->Write(Form("h_fitres_ams_BR%d", 2426+iBR_true)); 
-
+/*
 		if (iBR==0) c2->Print(Form("./data/ACE/fill/fake_td_ams_v2/spind_model_%s_temp.pdf(", element), "pdf"); 
 		if (iBR>0 && iBR<nBRs-1) c2->Print(Form("./data/ACE/fill/fake_td_ams_v2/spind_model_%s_temp.pdf", element), "pdf"); 
 		if (iBR==nBRs-1){
@@ -3275,7 +3292,7 @@ void ace_fake_td_ams_v2(const char *element, Particle::Type isotope){
 			// h_ratio2->Print("range");
 			c2->Print(Form("./data/ACE/fill/fake_td_ams_v2/spind_model_%s_temp.pdf)", element), "pdf"); 
 		}
-
+*/ 
 	   	if (iBR+2426==2472-1) iBR_true += 3; 
 		else iBR_true ++; 
 	}
@@ -3860,31 +3877,31 @@ void ace_fake_td_ams_v3(const char *element, Particle::Type isotope){
 		h_ratio0->Draw("E1X0 SAME"); 
 
 		// plot spectral indices
-		TGraphAsymmErrors *gspind_ace = HistTools::GetSpectralIndex(h_ace_BR, 5, 2); // get spectral indices 
-		TGraphAsymmErrors *gspind_ams = HistTools::GetSpectralIndex(h_ams_BR_fake, 4, 1); 
+		//TGraphAsymmErrors *gspind_ace = HistTools::GetSpectralIndex(h_ace_BR, 5, 2); // get spectral indices 
+		//TGraphAsymmErrors *gspind_ams = HistTools::GetSpectralIndex(h_ams_BR_fake, 4, 1); 
 
 		c1->cd(2); 
 		gPad->SetGrid(); 
 		gPad->SetLogx();  
 
 		TLegend *l_both = new TLegend(0.62,0.8,0.9,1.); 
-		l_both->AddEntry(gspind_ace, "ACE Spectral Indices", "PL");
-		l_both->AddEntry(gspind_ams, "AMS Spectral Indices", "PL"); 		
+		//l_both->AddEntry(gspind_ace, "ACE Spectral Indices", "PL");
+		//l_both->AddEntry(gspind_ams, "AMS Spectral Indices", "PL"); 		
 	
 		//if (get_temp_int(element)<4) gspind_ace->GetYaxis()->SetRangeUser(-3, 3); 
-		gspind_ace->GetXaxis()->SetLimits(0.7, 60);
+		//gspind_ace->GetXaxis()->SetLimits(0.7, 60);
 
-		HistTools::SetStyle(gspind_ace, kPink, kFullCircle, 1.4, 1, 1); 
-		gspind_ace->SetTitle(Form("; ; ACE %s Spectral Indices BR-%d", element, 2426+iBR_true));
-		gspind_ace->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
-		gspind_ace->Draw("APL"); 
+		//HistTools::SetStyle(gspind_ace, kPink, kFullCircle, 1.4, 1, 1); 
+		//gspind_ace->SetTitle(Form("; ; ACE %s Spectral Indices BR-%d", element, 2426+iBR_true));
+		//gspind_ace->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
+		//gspind_ace->Draw("APL"); 
 
 		//h_a4->Draw("E1X0"); 
-		HistTools::SetStyle(gspind_ams, kBlue, kFullCircle, 1.4, 1, 1); 
-		gspind_ams->SetTitle(Form("; ; AMS %s Spectral Indices", element)); 
-		gspind_ams->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
-		gspind_ams->GetXaxis()->SetTitleSize(1.5); 
-		gspind_ams->Draw("PL SAME"); 
+		//HistTools::SetStyle(gspind_ams, kBlue, kFullCircle, 1.4, 1, 1); 
+		//gspind_ams->SetTitle(Form("; ; AMS %s Spectral Indices", element)); 
+		//gspind_ams->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
+		//gspind_ams->GetXaxis()->SetTitleSize(1.5); 
+		//gspind_ams->Draw("PL SAME"); 
 		// fspind->Draw("SAME"); 
 		l_both->Draw("SAME"); 
 
@@ -3898,11 +3915,11 @@ void ace_fake_td_ams_v3(const char *element, Particle::Type isotope){
 		} 
 
 		// find spectral indices of h_ratio + h_ratio0 
-		TGraphAsymmErrors *gspind_ace2 = HistTools::GetSpectralIndex(h_ratio1, 5, 2); // get spectral indices 
-		TGraphAsymmErrors *gspind_ams2 = HistTools::GetSpectralIndex(h_ratio2, 4, 1); 
+		//TGraphAsymmErrors *gspind_ace2 = HistTools::GetSpectralIndex(h_ratio1, 5, 2); // get spectral indices 
+		//TGraphAsymmErrors *gspind_ams2 = HistTools::GetSpectralIndex(h_ratio2, 4, 1); 
 
-		HistTools::SetStyle(gspind_ace2, kPink, kFullCircle, 1.4, 1, 1); 
-		HistTools::SetStyle(gspind_ams2, kBlue, kFullCircle, 1.4, 1, 1); 
+		//HistTools::SetStyle(gspind_ace2, kPink, kFullCircle, 1.4, 1, 1); 
+		//HistTools::SetStyle(gspind_ams2, kBlue, kFullCircle, 1.4, 1, 1); 
 		HistTools::SetStyle(fspind_he, kBlack, kFullCircle, 0.8, 1, 1);
 
 		// fit to F(R,t)/<F(R)>
@@ -4119,26 +4136,26 @@ void ace_fake_td_ams_v3(const char *element, Particle::Type isotope){
 		gPad->SetLogx(); 
 
 		TLegend *l_both3 = new TLegend(0.62,0.7,0.8,1.0); 
-		l_both3->AddEntry(gspind_ace2, Form("ACE %s(R,t)/<%s(R)> Spectral Indices", element, element), "PL");
-		l_both3->AddEntry(gspind_ams2, Form("AMS %s(R,t)/<%s(R)> Spectral Indices", element, element), "PL"); 
+		//l_both3->AddEntry(gspind_ace2, Form("ACE %s(R,t)/<%s(R)> Spectral Indices", element, element), "PL");
+		//l_both3->AddEntry(gspind_ams2, Form("AMS %s(R,t)/<%s(R)> Spectral Indices", element, element), "PL"); 
 		// l_both2->AddEntry(fspind_he, "AMS He(R,t)_Fit/temp<He(R)>_Fit Spectral Indices", "L");  	
 		l_both3->AddEntry(fspind_ratio, "Spectral Index of 1+[0]*exp(-[1]*R) Fit to He(R,t)/<He(R)>", "L");	
 		l_both3->AddEntry(fspind_he, "AMS He(R,t)_Fit/<He(R)>_Fit Spectral Indices", "L");  
 		l_both3->AddEntry(fspind_ratio2, "Spectral Index of 1+[0]*exp(-[1]*ln(R)) Fit to He(R,t)/<He(R)>", "L"); 
 
 		//if (get_temp_int(element)<4) gspind_ace2->GetYaxis()->SetRangeUser(-2, 1.3); 
-		TAxis *axis5 = gspind_ace2->GetXaxis(); 
-		axis5->SetLimits(0.7, 60.); 
+		//TAxis *axis5 = gspind_ace2->GetXaxis(); 
+		//axis5->SetLimits(0.7, 60.); 
 
-		gspind_ace2->SetTitle(Form("; ; Spectral Indices Model of %s F(R,t)/<F(R)> at BR-%d", element, 2426+iBR_true));
-		gspind_ace2->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
-		gspind_ace2->Draw("APL");  
+		//gspind_ace2->SetTitle(Form("; ; Spectral Indices Model of %s F(R,t)/<F(R)> at BR-%d", element, 2426+iBR_true));
+		//gspind_ace2->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
+		//gspind_ace2->Draw("APL");  
 		fspind_ratio->Draw("SAME"); 
 		fspind_ratio2->Draw("SAME"); 
 		fspind_ratio2->SetLineColor(kGreen); 
 		fspind_he->Draw("SAME");
-		gspind_ams2->Draw("PL SAME"); 
-		gspind_ace2->Draw("PL SAME");
+		//gspind_ams2->Draw("PL SAME"); 
+		//gspind_ace2->Draw("PL SAME");
 		l_both3->Draw("SAME"); 
 
 		// break; 
@@ -4153,6 +4170,7 @@ void ace_fake_td_ams_v3(const char *element, Particle::Type isotope){
 		h_fitres[0]->Write(Form("h_fitres_ace_BR%d", 2426+iBR_true));
 		h_fitres[1]->Write(Form("h_fitres_ams_BR%d", 2426+iBR_true));
 
+/*
 		if (iBR==0) c2->Print(Form("./data/ACE/fill/fake_td_ams_v3/spind_model_%s_temp.pdf(", element), "pdf"); 
 		if (iBR>0 && iBR<nBRs-1) c2->Print(Form("./data/ACE/fill/fake_td_ams_v3/spind_model_%s_temp.pdf", element), "pdf"); 
 		if (iBR==nBRs-1){ 
@@ -4163,6 +4181,7 @@ void ace_fake_td_ams_v3(const char *element, Particle::Type isotope){
 			// h_ratio2->Print("range");
 			c2->Print(Form("./data/ACE/fill/fake_td_ams_v3/spind_model_%s_temp.pdf)", element), "pdf"); 
 		}
+*/
 
 	   	if (iBR+2426==2472-1) iBR_true += 3; 
 		else iBR_true ++; 
@@ -4739,31 +4758,31 @@ void ace_fake_td_ams_v4(const char *element, Particle::Type isotope){
 		h_ratio0->Draw("E1X0 SAME"); 
 
 		// plot spectral indices
-		TGraphAsymmErrors *gspind_ace = HistTools::GetSpectralIndex(h_ace_BR, 5, 2); // get spectral indices 
-		TGraphAsymmErrors *gspind_ams = HistTools::GetSpectralIndex(h_ams_BR_fake, 4, 1); 
+		//TGraphAsymmErrors *gspind_ace = HistTools::GetSpectralIndex(h_ace_BR, 5, 2); // get spectral indices 
+		//TGraphAsymmErrors *gspind_ams = HistTools::GetSpectralIndex(h_ams_BR_fake, 4, 1); 
 
 		c1->cd(2); 
 		gPad->SetGrid(); 
 		gPad->SetLogx();  
 
 		TLegend *l_both = new TLegend(0.62,0.8,0.9,1.); 
-		l_both->AddEntry(gspind_ace, "ACE Spectral Indices", "PL");
-		l_both->AddEntry(gspind_ams, "AMS Spectral Indices", "PL"); 		
+		//l_both->AddEntry(gspind_ace, "ACE Spectral Indices", "PL");
+		//l_both->AddEntry(gspind_ams, "AMS Spectral Indices", "PL"); 		
 	
 		//if (get_temp_int(element)<4) gspind_ace->GetYaxis()->SetRangeUser(-3, 3); 
-		gspind_ace->GetXaxis()->SetLimits(0.7, 60);
+		//gspind_ace->GetXaxis()->SetLimits(0.7, 60);
 
-		HistTools::SetStyle(gspind_ace, kPink, kFullCircle, 1.4, 1, 1); 
-		gspind_ace->SetTitle(Form("; ; ACE %s Spectral Indices BR-%d", element, 2426+iBR_true));
-		gspind_ace->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
-		gspind_ace->Draw("APL"); 
+		//HistTools::SetStyle(gspind_ace, kPink, kFullCircle, 1.4, 1, 1); 
+		//gspind_ace->SetTitle(Form("; ; ACE %s Spectral Indices BR-%d", element, 2426+iBR_true));
+		//gspind_ace->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
+		//gspind_ace->Draw("APL"); 
 
 		//h_a4->Draw("E1X0"); 
-		HistTools::SetStyle(gspind_ams, kBlue, kFullCircle, 1.4, 1, 1); 
-		gspind_ams->SetTitle(Form("; ; AMS %s Spectral Indices", element)); 
-		gspind_ams->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
-		gspind_ams->GetXaxis()->SetTitleSize(1.5); 
-		gspind_ams->Draw("PL SAME"); 
+		//HistTools::SetStyle(gspind_ams, kBlue, kFullCircle, 1.4, 1, 1); 
+		//gspind_ams->SetTitle(Form("; ; AMS %s Spectral Indices", element)); 
+		//gspind_ams->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
+		//gspind_ams->GetXaxis()->SetTitleSize(1.5); 
+		//gspind_ams->Draw("PL SAME"); 
 		// fspind->Draw("SAME"); 
 		l_both->Draw("SAME"); 
 
@@ -4777,11 +4796,11 @@ void ace_fake_td_ams_v4(const char *element, Particle::Type isotope){
 		} 
 
 		// find spectral indices of h_ratio + h_ratio0 
-		TGraphAsymmErrors *gspind_ace2 = HistTools::GetSpectralIndex(h_ratio1, 5, 2); // get spectral indices 
-		TGraphAsymmErrors *gspind_ams2 = HistTools::GetSpectralIndex(h_ratio2, 4, 1); 
+		//TGraphAsymmErrors *gspind_ace2 = HistTools::GetSpectralIndex(h_ratio1, 5, 2); // get spectral indices 
+		//TGraphAsymmErrors *gspind_ams2 = HistTools::GetSpectralIndex(h_ratio2, 4, 1); 
 
-		HistTools::SetStyle(gspind_ace2, kPink, kFullCircle, 1.4, 1, 1); 
-		HistTools::SetStyle(gspind_ams2, kBlue, kFullCircle, 1.4, 1, 1); 
+		//HistTools::SetStyle(gspind_ace2, kPink, kFullCircle, 1.4, 1, 1); 
+		//HistTools::SetStyle(gspind_ams2, kBlue, kFullCircle, 1.4, 1, 1); 
 		HistTools::SetStyle(fspind_he, kBlack, kFullCircle, 0.8, 1, 1);
 
 		// fit to F(R,t)/<F(R)>
@@ -4988,26 +5007,26 @@ void ace_fake_td_ams_v4(const char *element, Particle::Type isotope){
 		gPad->SetLogx(); 
 
 		TLegend *l_both3 = new TLegend(0.62,0.7,0.8,1.0); 
-		l_both3->AddEntry(gspind_ace2, Form("ACE %s(R,t)/<%s(R)> Spectral Indices", element, element), "PL");
-		l_both3->AddEntry(gspind_ams2, Form("AMS %s(R,t)/<%s(R)> Spectral Indices", element, element), "PL"); 
+		//l_both3->AddEntry(gspind_ace2, Form("ACE %s(R,t)/<%s(R)> Spectral Indices", element, element), "PL");
+		//l_both3->AddEntry(gspind_ams2, Form("AMS %s(R,t)/<%s(R)> Spectral Indices", element, element), "PL"); 
 		// l_both2->AddEntry(fspind_he, "AMS He(R,t)_Fit/temp<He(R)>_Fit Spectral Indices", "L");  	
 		l_both3->AddEntry(fspind_ratio, "Spectral Index of 1+[0]*exp(-[1]*R) Fit to He(R,t)/<He(R)>", "L");	
 		l_both3->AddEntry(fspind_he, "AMS He(R,t)_Fit/<He(R)>_Fit Spectral Indices", "L");  
 		l_both3->AddEntry(fspind_ratio2, "Spectral Index of 1+[0]*exp(-[1]*ln(R)) Fit to He(R,t)/<He(R)>", "L"); 
 
 		//if (get_temp_int(element)<4) gspind_ace2->GetYaxis()->SetRangeUser(-2, 1.3); 
-		TAxis *axis5 = gspind_ace2->GetXaxis(); 
-		axis5->SetLimits(0.7, 60.); 
+		//TAxis *axis5 = gspind_ace2->GetXaxis(); 
+		//axis5->SetLimits(0.7, 60.); 
 
-		gspind_ace2->SetTitle(Form("; ; Spectral Indices Model of %s F(R,t)/<F(R)> at BR-%d", element, 2426+iBR_true));
-		gspind_ace2->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
-		gspind_ace2->Draw("APL");  
+		//gspind_ace2->SetTitle(Form("; ; Spectral Indices Model of %s F(R,t)/<F(R)> at BR-%d", element, 2426+iBR_true));
+		//gspind_ace2->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV"));
+		//gspind_ace2->Draw("APL");  
 		fspind_ratio->Draw("SAME"); 
 		fspind_ratio2->Draw("SAME"); 
 		fspind_ratio2->SetLineColor(kGreen); 
 		fspind_he->Draw("SAME");
-		gspind_ams2->Draw("PL SAME"); 
-		gspind_ace2->Draw("PL SAME");
+		//gspind_ams2->Draw("PL SAME"); 
+		//gspind_ace2->Draw("PL SAME");
 		l_both3->Draw("SAME"); 
 
 		// break; 
@@ -5022,6 +5041,7 @@ void ace_fake_td_ams_v4(const char *element, Particle::Type isotope){
 		h_fitres[0]->Write(Form("h_fitres_ace_BR%d", 2426+iBR_true));
 		h_fitres[1]->Write(Form("h_fitres_ams_BR%d", 2426+iBR_true));
 
+/*
 		if (iBR==0) c2->Print(Form("./data/ACE/fill/fake_td_ams_v4/spind_model_%s_temp.pdf(", element), "pdf"); 
 		if (iBR>0 && iBR<nBRs-1) c2->Print(Form("./data/ACE/fill/fake_td_ams_v4/spind_model_%s_temp.pdf", element), "pdf"); 
 		if (iBR==nBRs-1){ 
@@ -5032,6 +5052,7 @@ void ace_fake_td_ams_v4(const char *element, Particle::Type isotope){
 			// h_ratio2->Print("range");
 			c2->Print(Form("./data/ACE/fill/fake_td_ams_v4/spind_model_%s_temp.pdf)", element), "pdf"); 
 		}
+*/
 
 	   	if (iBR+2426==2472-1) iBR_true += 3; 
 		else iBR_true ++; 
