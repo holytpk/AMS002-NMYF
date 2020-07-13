@@ -24,7 +24,7 @@ const int n_ele = 24; // number of ACE elements
 const int n_total = 28; // number of total elements 
 const int nBRs = Experiments::Info[Experiments::AMS02].Dataset[1].nMeasurements;  
 
-const int F34 = 3; 
+const int F34 = 4; 
 
 const int nNMs_useful = 15;
 const char *NM_useful[nNMs_useful+1] = { "OULU", "PSNM", "MXCO", "HRMS", "JUNG", "JUNG1", "NEWK", "KIEL2", "APTY", "FSMT", "NAIN", "PWNK", "THUL", "SOPB", "SOPO" };
@@ -607,7 +607,7 @@ void compare_Rsum(){
 	const char *option2 = "Mi13";  
 
 	TFile *file1 = new TFile(Form("data/nm/reproduce/KOL_%s_%s.root", NM, option2)); 
-	TFile *file2 = new TFile(Form("data/nm/reproduce2/F%d_Analysis/F%d_%s_%s.root", F34, F34, NM, option2)); 
+	TFile *file2 = new TFile(Form("data/nm/reproduce2/F%d_Analysis/F%d_%s_%s.root", 3, 3, NM, option2)); 
 
 	TF1 *f_RP1 = (TF1*) file1->Get("f_RP"); 
 	TF1 *f_RP2 = (TF1*) file2->Get("f_RP"); 
@@ -643,19 +643,16 @@ void nm_plot_F34(const char *NM){
 
 	Debug::Enable(Debug::ALL); 
 
-	int f3 = 3; 
-	int f4 = 4; 
-
 	TCanvas *c0 = new TCanvas("c0", "", 1800, 900); 
 	c0->Divide(2, 2); 
 
-	TFile *file_f3 = new TFile(Form("data/nm/reproduce2/F%d_k_sf.root", f3)); 
-	TFile *file_f4 = new TFile(Form("data/nm/reproduce2/F%d_k_sf.root", f4)); 
+	TFile *file_f3 = new TFile(Form("data/nm/reproduce2/F%d_k_sf.root", 3)); 
+	TFile *file_f4 = new TFile(Form("data/nm/reproduce2/F%d_k_sf.root", 4)); 
 	
 	TFile *file_reproduce1[2]; // i for F3 or F4
-	for (int i=0; i<2; ++i) file_reproduce1[i] = new TFile(Form("data/nm/reproduce2/F%d_Analysis/F%d_%s_%s.root", f3, f3, NM, "Mi13")); 
+	for (int i=0; i<2; ++i) file_reproduce1[i] = new TFile(Form("data/nm/reproduce2/F%d_Analysis/F%d_%s_%s.root", i+3, i+3, NM, "Mi13")); 
 	TFile *file_reproduce2[2];
-	for (int i=0; i<2; ++i) file_reproduce2[i] = new TFile(Form("data/nm/reproduce2/F%d_Analysis/F%d_%s_%s.root", f4, f4, NM, "Ma16")); 
+	for (int i=0; i<2; ++i) file_reproduce2[i] = new TFile(Form("data/nm/reproduce2/F%d_Analysis/F%d_%s_%s.root", i+3, i+3, NM, "Ma16")); 
 
 	TFile *file_kol1 = new TFile(Form("data/nm/reproduce/KOL_%s_%s.root", NM, "Mi13")); 
 	TFile *file_kol2 = new TFile(Form("data/nm/reproduce/KOL_%s_%s.root", NM, "Ma16")); 
@@ -722,7 +719,7 @@ void nm_plot_F34(const char *NM){
 
 	N_t1[0]->SetTitle(Form("Mi13; ;%s Estimated Count Rate", NM));  
 	N_t1[0]->Draw("APL"); 
-	N_t1[0]->GetYaxis()->SetRangeUser(0.9*N_t1[0]->GetMean(2), 1.15*N_t1[0]->GetMean(2)); 
+	N_t1[0]->GetYaxis()->SetRangeUser(0.92*N_t1[0]->GetMean(2), 1.08*N_t1[0]->GetMean(2)); 
 	N_t1[1]->Draw("PL SAME"); 
 	N_kol1->Draw("PL SAME");
 	l1->Draw("SAME");   
@@ -741,7 +738,7 @@ void nm_plot_F34(const char *NM){
  
 	N_t2[0]->SetTitle(Form("Ma16; ;%s Estimated Count Rate", NM)); 
 	N_t2[0]->Draw("APL"); 
-	N_t2[0]->GetYaxis()->SetRangeUser(0.9*N_t2[0]->GetMean(2), 1.15*N_t2[0]->GetMean(2)); 
+	N_t2[0]->GetYaxis()->SetRangeUser(0.92*N_t2[0]->GetMean(2), 1.08*N_t2[0]->GetMean(2)); 
 	N_t2[1]->Draw("PL SAME"); 
 	N_kol2->Draw("PL SAME"); 
 	l2->Draw("SAME");
@@ -760,8 +757,10 @@ void nm_plot_F34(const char *NM){
 
 	N_ratio1[0]->SetTitle("Mi13; ; Estimated Count Rate/Observed Count Rate"); 
 	N_ratio1[0]->Draw("APL"); 
-	N_ratio1[0]->GetYaxis()->SetRangeUser(0.9*N_ratio1[0]->GetMean(2), 1.15*N_ratio1[0]->GetMean(2)); 
+	//N_ratio1[0]->Print("range");
+	N_ratio1[0]->GetYaxis()->SetRangeUser(0.92*N_ratio1[0]->GetMean(2), 1.08*N_ratio1[0]->GetMean(2)); 
 	N_ratio1[1]->Draw("PL SAME");
+	//N_ratio1[1]->Print("range"); 
 	N_ratio1[2]->Draw("PL SAME"); 
 	l3->Draw("SAME"); 
 
@@ -779,7 +778,7 @@ void nm_plot_F34(const char *NM){
 
 	N_ratio2[0]->SetTitle("Ma16; ; Estimated Count Rate/Observed Count Rate");
 	N_ratio2[0]->Draw("APL");
-	N_ratio2[0]->GetYaxis()->SetRangeUser(0.9*N_ratio2[0]->GetMean(2), 1.15*N_ratio2[0]->GetMean(2)); 
+	N_ratio2[0]->GetYaxis()->SetRangeUser(0.92*N_ratio2[0]->GetMean(2), 1.08*N_ratio2[0]->GetMean(2)); 
 	N_ratio2[1]->Draw("PL SAME"); 
 	N_ratio2[2]->Draw("PL SAME"); 
 	l4->Draw("SAME"); 
@@ -911,7 +910,7 @@ void nm_plot_dis(const char *NM, const char *YF){
 			gPad->SetLogx(); 
 
 			g_f34_ratio->GetXaxis()->SetRangeUser(0.1, 3e3); 
-			g_f34_ratio->GetYaxis()->SetNdivisions(20); 
+			//g_f34_ratio->GetYaxis()->SetNdivisions(20); 
 			g_f34_ratio->SetTitle(Form("%s Flux_F3/Flux_F4 at Characteristic Rigidities; ; ratio of F3/F4", ACE_Element[k])); 
 			g_f34_ratio->GetXaxis()->SetTitle(Unit::GetEnergyLabel("GV")); 
 
@@ -1601,7 +1600,7 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 
 				// load F3 He(R,t)/<F(R,t)> 
 				TFile *file_ratio1 = new TFile(Form("data/ACE/fill/F%d_%s.root", F34, ACE_Element[k])); // load ratio of F(R,t)/<F(R,t) fit
-				Spline *sp_he1 = new Spline("sp_he1", nnodes_ams, Spline::LogLog | Spline::PowerLaw);
+				Spline *sp_he1 = new Spline("sp_he1", nnodes_ams2, Spline::LogLog | Spline::PowerLaw);
 				TF1 *fsp_he1 = sp_he1->GetTF1Pointer();  
 				TF1 *fit_he1 = (TF1*) file_ratio1->Get(Form("fit_he_BR%d", 2426+iBR_true)); 
 
@@ -1629,6 +1628,7 @@ TGraph *nm_reproduce1(const char *NM, const char *option1, const char *option2){
 				TFile *file_ratio = new TFile(Form("data/ACE/fill/F%d_%s.root", F34, ACE_Element[k])); // load ratio of F(R,t)/<F(R,t) fit
 				TF1 *fit_ratio = (TF1*) file_ratio->Get(Form("fit_ratio_BR%d", 2426+iBR_true));	
 				f_fit[k] = HistTools::CombineTF1(f_fit[k], fit_ratio, HistTools::Multiply, "f_fit", 0.1, 3e3);
+				file_ratio->Close(); 
 
 			} 
 
